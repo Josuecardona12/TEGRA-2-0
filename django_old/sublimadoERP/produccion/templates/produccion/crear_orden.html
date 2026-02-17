@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block contenido %}
+
+<h2>➕ Crear Nueva Orden</h2>
+
+<form method="POST">
+{% csrf_token %}
+
+<label>Producto</label>
+<br>
+<input type="text" name="producto" required>
+<br><br>
+
+<label>Cantidad</label>
+<br>
+<input type="number" name="cantidad" required>
+<br><br>
+
+<label>Estado</label>
+<br>
+<select name="estado">
+<option>Pendiente</option>
+<option>Proceso</option>
+<option>Terminado</option>
+</select>
+<br><br>
+
+<button class="btn azul">Guardar Orden</button>
+
+</form>
+
+<br>
+<a href="/ordenes/">⬅ Volver a lista</a>
+
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>📊 Reportes de Producción</h2>
+
+<table border="1">
+    <tr>
+        <th>Código</th>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Estado</th>
+        <th>Fecha</th>
+    </tr>
+
+    {% for orden in ordenes %}
+    <tr>
+        <td>{{ orden.codigo }}</td>
+        <td>{{ orden.producto }}</td>
+        <td>{{ orden.cantidad }}</td>
+        <td>{{ orden.estado }}</td>
+        <td>{{ orden.fecha }}</td>
+    </tr>
+    {% endfor %}
+
+</table>
+
+{% endblock %}

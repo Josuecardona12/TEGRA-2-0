@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Producción Sublimado</title>
+</head>
+<body>
+
+<h1>Órdenes de Producción</h1>
+
+<table border="1">
+<tr>
+    <th>Orden</th>
+    <th>Cliente</th>
+    <th>Estado</th>
+    <th>Fecha</th>
+</tr>
+
+{% for orden in ordenes %}
+<tr>
+    <td>{{ orden.nombre }}</td>
+    <td>{{ orden.cliente }}</td>
+    <td>{{ orden.estado }}</td>
+    <td>{{ orden.fecha }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</body>
+</html>

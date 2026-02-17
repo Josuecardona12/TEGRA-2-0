@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block contenido %}
+
+<h2>✏ Editar Orden</h2>
+
+<form method="POST">
+{% csrf_token %}
+
+<label>Producto</label>
+<br>
+<input type="text" name="producto" value="{{ orden.producto }}" required>
+<br><br>
+
+<label>Cantidad</label>
+<br>
+<input type="number" name="cantidad" value="{{ orden.cantidad }}" required>
+<br><br>
+
+<label>Estado</label>
+<br>
+<select name="estado">
+
+<option value="Pendiente"
+{% if orden.estado == "Pendiente" %} selected {% endif %}>
+Pendiente
+</option>
+
+<option value="Proceso"
+{% if orden.estado == "Proceso" %} selected {% endif %}>
+Proceso
+</option>
+
+<option value="Terminado"
+{% if orden.estado == "Terminado" %} selected {% endif %}>
+Terminado
+</option>
+
+</select>
+
+<br><br>
+
+<button class="btn verde">Actualizar Orden</button>
+
+</form>
+
+<br>
+<a href="/ordenes/">⬅ Volver a lista</a>
+
+{% endblock %}

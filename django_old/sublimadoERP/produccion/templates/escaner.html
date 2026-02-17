@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Scanner Producción</title>
+
+<style>
+body{
+    background:#0b0f19;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+}
+
+.card{
+    background:#151b2d;
+    padding:20px;
+    margin:20px auto;
+    width:400px;
+    border-radius:10px;
+}
+input{
+    padding:12px;
+    width:300px;
+    font-size:18px;
+}
+</style>
+
+</head>
+<body>
+
+<h1>📡 Scanner Producción</h1>
+
+<div class="card">
+    <input type="text" id="codigo" autofocus placeholder="Escanear Orden...">
+</div>
+
+<div class="card">
+    <h2 id="orden">---</h2>
+    <h3 id="estado">---</h3>
+    <h3 id="linea">---</h3>
+</div>
+
+<script>
+
+let input = document.getElementById("codigo")
+
+input.addEventListener("change", function(){
+
+    fetch(`/api/escanear/?codigo=${this.value}`)
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.ok){
+
+            document.getElementById("orden").innerText =
+            "Orden: " + data.codigo
+
+            document.getElementById("estado").innerText =
+            "Estado: " + data.estado
+
+            document.getElementById("linea").innerText =
+            "Linea: " + data.linea
+
+        }else{
+
+            document.getElementById("orden").innerText =
+            "❌ Orden no encontrada"
+        }
+
+        input.value=""
+    })
+})
+
+</script>
+
+</body>
+</html>
