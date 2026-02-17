@@ -1,0 +1,74 @@
+.micelanios-container {
+  padding: 30px;
+}
+
+.kpi-box {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.kpi {
+  padding: 20px;
+  border-radius: 12px;
+  color: white;
+  font-weight: bold;
+}
+
+.total {
+  background: #2c3e50;
+}
+
+.maquinas {
+  background: #2980b9;
+}
+
+.critico {
+  background: #c0392b;
+}
+
+.scanner-box input {
+  width: 100%;
+  padding: 15px;
+  font-size: 18px;
+  border-radius: 10px;
+  border: 2px solid #34495e;
+  margin-bottom: 25px;
+}
+
+.tabla-micelanios {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-micelanios th {
+  background: #34495e;
+  color: white;
+  padding: 12px;
+}
+
+.tabla-micelanios td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+}
+
+.EN\ PROCESO {
+  background: #d5f5e3;
+}
+
+.DETENIDO {
+  background: #f9e79f;
+}
+
+.CRITICO {
+  background: #f5b7b1;
+  font-weight: bold;
+}
+
+.historial-box {
+  background: #ecf0f1;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}

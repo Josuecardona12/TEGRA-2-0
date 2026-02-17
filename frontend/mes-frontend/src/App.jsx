@@ -7,6 +7,9 @@ import {
   Link
 } from "react-router-dom";
 
+
+import Micelanios from "./pages/Micelanios";
+
 import AtrasosDashboard from "./pages/AtrasosDashboard";
 import PlanSemanal from "./pages/PlanSemanal";
 import Login from "./pages/Login";
@@ -37,6 +40,7 @@ function AppLayout() {
             <Link to="/atrasos">
   Atrasos {hayAtrasosGraves && <span style={{color:"red"}}>●</span>}
 </Link>
+            <Link to="/micelanios">Miceláneos</Link>
 
             <Link to="/dashboard">Dashboard</Link>
             <Link to="/ordenes">Órdenes</Link>
@@ -57,6 +61,8 @@ function AppLayout() {
       {/* CONTENIDO */}
       <div className="content">
         <Routes>
+          <Route path="/micelanios" element={<Micelanios />} />
+
           <Route path="/atrasos" element={<AtrasosDashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/ordenes" element={<Ordenes />} />
