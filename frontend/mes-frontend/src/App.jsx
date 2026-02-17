@@ -1,6 +1,14 @@
 import React, { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Link
+} from "react-router-dom";
 
+import AtrasosDashboard from "./pages/AtrasosDashboard";
+import PlanSemanal from "./pages/PlanSemanal";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Ordenes from "./pages/Ordenes";
@@ -14,6 +22,8 @@ import "./App.css";
 
 function AppLayout() {
   const [modoOscuro, setModoOscuro] = useState(false);
+  const hayAtrasosGraves = true; // luego lo conectamos real
+
 
   return (
     <div className={`layout ${modoOscuro ? "dark" : "light"}`}>
@@ -24,10 +34,15 @@ function AppLayout() {
           <div className="logo">TEGRA ERP</div>
 
           <nav>
-            <a href="/ordenes">Órdenes</a>
-            <a href="/dashboard">Dashboard</a>
-            <a href="/scan">Escaneo</a>
-            <a href="/configuracion">Configuración</a>
+            <Link to="/atrasos">
+  Atrasos {hayAtrasosGraves && <span style={{color:"red"}}>●</span>}
+</Link>
+
+            <Link to="/dashboard">Dashboard</Link>
+            <Link to="/ordenes">Órdenes</Link>
+            <Link to="/scan">Escaneo</Link>
+            <Link to="/plan-semanal">Plan Semanal</Link>
+            <Link to="/configuracion">Configuración</Link>
           </nav>
         </div>
 
@@ -42,9 +57,11 @@ function AppLayout() {
       {/* CONTENIDO */}
       <div className="content">
         <Routes>
+          <Route path="/atrasos" element={<AtrasosDashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/ordenes" element={<Ordenes />} />
           <Route path="/scan" element={<ScanMovimiento />} />
+          <Route path="/plan-semanal" element={<PlanSemanal />} />
           <Route path="/configuracion" element={<Configuracion />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
@@ -59,10 +76,8 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* LOGIN */}
           <Route path="/login" element={<Login />} />
 
-          {/* RUTAS PROTEGIDAS */}
           <Route
             path="/*"
             element={
@@ -76,7 +91,5 @@ function App() {
     </AuthProvider>
   );
 }
-
-
 
 export default App;

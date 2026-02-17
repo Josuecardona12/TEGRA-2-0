@@ -22,6 +22,13 @@ export default function Sidebar() {
         >
           Órdenes
         </Link>
+        <Link
+  to="/plan-semanal"
+  className={location.pathname === "/plan-semanal" ? "active" : ""}
+>
+  Plan Semanal
+</Link>
+
 
         <Link
           to="/logistica"

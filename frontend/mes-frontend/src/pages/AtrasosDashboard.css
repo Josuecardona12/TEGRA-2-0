@@ -1,0 +1,73 @@
+.atrasos-container {
+  padding: 30px;
+}
+
+.kpi-box {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.kpi {
+  padding: 20px;
+  border-radius: 12px;
+  color: white;
+  font-weight: bold;
+}
+
+.grave {
+  background: #c0392b;
+}
+
+.total {
+  background: #2c3e50;
+}
+
+.filtro {
+  margin-bottom: 20px;
+}
+
+.tabla-atrasos {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-atrasos th {
+  background: #922b21;
+  color: white;
+  padding: 12px;
+}
+
+.tabla-atrasos td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+}
+
+.Leve {
+  background: #fdebd0;
+}
+
+.Medio {
+  background: #f9e79f;
+}
+
+.Grave {
+  background: #f5b7b1;
+  font-weight: bold;
+}
+
+button {
+  padding: 6px 10px;
+  border: none;
+  background: #e74c3c;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.prioridad-lista {
+  background: #f8d7da;
+  padding: 15px;
+  border-radius: 10px;
+}

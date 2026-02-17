@@ -1,121 +1,119 @@
-import React, { useState } from "react";
-import "./Dashboard.css"; // usa tu estilo global si quieres
+import { useState } from "react";
 import "./ScanMovimiento.css";
 
-const areasDisponibles = [
-  "Producción",
-  "Logística",
-  "Calidad",
-  "Compras",
-  "Bodega",
-  "Administración"
-];
-
-function ScanMovimiento() {
+export default function ScanMovimiento() {
   const [codigo, setCodigo] = useState("");
-  const [areaOrigen, setAreaOrigen] = useState("");
-  const [areaDestino, setAreaDestino] = useState("");
+  const [origen, setOrigen] = useState("");
+  const [destino, setDestino] = useState("");
   const [cantidad, setCantidad] = useState(1);
   const [mensaje, setMensaje] = useState("");
+  const [movimientos, setMovimientos] = useState([]);
 
-  const moverProducto = async () => {
-    if (!codigo || !areaOrigen || !areaDestino) {
-      setMensaje("⚠️ Complete todos los campos");
+  const areas = [
+    "Producción",
+    "Sublimado",
+    "Calidad",
+    "Logística",
+    "Bodega"
+  ];
+
+  const moverProducto = () => {
+    if (!codigo || !origen || !destino) {
+      setMensaje("⚠ Complete todos los campos");
       return;
     }
 
-    try {
-const res = await fetch(
-  "https://stunning-winner-pvxjwq4pwg5c97w7-8000.app.github.dev/movimientos/scan",
-  {
+    const nuevoMovimiento = {
+      codigo,
+      origen,
+      destino,
+      cantidad,
+      fecha: new Date().toLocaleString()
+    };
 
+    setMovimientos([nuevoMovimiento, ...movimientos]);
+    setMensaje("✅ Movimiento registrado correctamente");
 
-
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          codigo,
-          area_origen: areaOrigen,
-          area_destino: areaDestino,
-          cantidad: parseInt(cantidad)
-        })
-      });
-
-      if (res.ok) {
-        setMensaje("✅ Movimiento registrado correctamente");
-        setCodigo("");
-        setCantidad(1);
-      } else {
-        setMensaje("❌ Error al mover producto");
-      }
-    } catch (error) {
-      setMensaje("❌ Error de conexión con el servidor");
-    }
+    setCodigo("");
+    setOrigen("");
+    setDestino("");
+    setCantidad(1);
   };
 
   return (
-    <div className="card">
-      <h2>📦 Escaneo de Movimiento</h2>
+    <div className="scan-container">
 
-      <div className="form-group">
-        <label>Código de Barra</label>
-        <input
-          type="text"
-          value={codigo}
-          onChange={(e) => setCodigo(e.target.value)}
-          placeholder="Escanee o escriba el código"
-        />
+      <div className="scan-card">
+        <h2>📦 Escaneo de Movimiento</h2>
+
+        <div className="form-group">
+          <label>Código de Barra</label>
+          <input
+            type="text"
+            placeholder="Escanee o escriba el código"
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Área Origen</label>
+          <select value={origen} onChange={(e) => setOrigen(e.target.value)}>
+            <option value="">Seleccione área</option>
+            {areas.map((area) => (
+              <option key={area}>{area}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Área Destino</label>
+          <select value={destino} onChange={(e) => setDestino(e.target.value)}>
+            <option value="">Seleccione área</option>
+            {areas.map((area) => (
+              <option key={area}>{area}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Cantidad</label>
+          <input
+            type="number"
+            min="1"
+            value={cantidad}
+            onChange={(e) => setCantidad(e.target.value)}
+          />
+        </div>
+
+        <button className="btn-mover" onClick={moverProducto}>
+          🔄 Mover Producto
+        </button>
+
+        {mensaje && <p className="mensaje">{mensaje}</p>}
       </div>
 
-      <div className="form-group">
-        <label>Área Origen</label>
-        <select
-          value={areaOrigen}
-          onChange={(e) => setAreaOrigen(e.target.value)}
-        >
-          <option value="">Seleccione área</option>
-          {areasDisponibles.map((area) => (
-            <option key={area} value={area}>
-              {area}
-            </option>
-          ))}
-        </select>
+      <div className="historial-card">
+        <h3>📋 Historial de Movimientos</h3>
+
+        {movimientos.length === 0 && (
+          <p className="sin-movimientos">No hay movimientos aún</p>
+        )}
+
+        {movimientos.map((mov, index) => (
+          <div key={index} className="mov-item">
+            <div>
+              <strong>{mov.codigo}</strong>
+              <p>{mov.origen} ➜ {mov.destino}</p>
+            </div>
+            <div>
+              <p>Cant: {mov.cantidad}</p>
+              <small>{mov.fecha}</small>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="form-group">
-        <label>Área Destino</label>
-        <select
-          value={areaDestino}
-          onChange={(e) => setAreaDestino(e.target.value)}
-        >
-          <option value="">Seleccione área</option>
-          {areasDisponibles.map((area) => (
-            <option key={area} value={area}>
-              {area}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="form-group">
-        <label>Cantidad</label>
-        <input
-          type="number"
-          min="1"
-          value={cantidad}
-          onChange={(e) => setCantidad(e.target.value)}
-        />
-      </div>
-
-      <button className="btn-primary" onClick={moverProducto}>
-        🔄 Mover Producto
-      </button>
-
-      {mensaje && <p style={{ marginTop: "15px" }}>{mensaje}</p>}
     </div>
   );
 }
-
-export default ScanMovimiento;
