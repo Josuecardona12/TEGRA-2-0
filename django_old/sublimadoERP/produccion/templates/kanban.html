@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kanban Producción</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f4f4;
+        }
+
+        .kanban {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .columna {
+            background: white;
+            width: 33%;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        .tarjeta {
+            background: #e9ecef;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 8px;
+        }
+
+        .titulo {
+            font-weight: bold;
+            text-align: center;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<h2 style="text-align:center;">Kanban Producción</h2>
+
+<div class="kanban">
+
+    <!-- Pendiente -->
+    <div class="columna">
+        <div class="titulo">Pendiente</div>
+
+        {% for orden in pendientes %}
+        <div class="tarjeta">
+            {{ orden.producto }} <br>
+            Cantidad: {{ orden.cantidad }}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Proceso -->
+    <div class="columna">
+        <div class="titulo">Proceso</div>
+
+        {% for orden in proceso %}
+        <div class="tarjeta">
+            {{ orden.producto }} <br>
+            Cantidad: {{ orden.cantidad }}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Terminado -->
+    <div class="columna">
+        <div class="titulo">Terminado</div>
+
+        {% for orden in terminado %}
+        <div class="tarjeta">
+            {{ orden.producto }} <br>
+            Cantidad: {{ orden.cantidad }}
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+</body>
+</html>

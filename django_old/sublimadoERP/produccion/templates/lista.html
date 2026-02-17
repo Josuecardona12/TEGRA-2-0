@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Lista de Diseños</h2>
+
+<table>
+    <tr>
+        <th>Lote</th>
+        <th>Diseño</th>
+        <th>Aprobado</th>
+    </tr>
+
+    {% for d in disenos %}
+    <tr>
+        <td>{{ d.planeacion.lote }}</td>
+        <td>{{ d.nombre_diseno }}</td>
+        <td>{{ d.aprobado }}</td>
+    </tr>
+    {% endfor %}
+
+</table>
+
+{% endblock %}
