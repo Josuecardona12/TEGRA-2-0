@@ -1,26 +1,31 @@
-import { createContext, useState, useContext } from "react";
+import { createContext, useContext, useState } from "react";
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(
+    JSON.parse(localStorage.getItem("user"))
+  );
 
-  const login = (username, password) => {
-    // Simulación de roles
-    if (username === "admin") {
-      setUser({ name: "Administrador", role: "admin" });
-    } else {
-      setUser({ name: "Operador", role: "operador" });
-    }
+  const login = (username) => {
+    const userData = { username };
+    localStorage.setItem("user", JSON.stringify(userData));
+    setUser(userData);
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    localStorage.removeItem("user");
+    setUser(null);
+  };
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => useContext(AuthContext);
+// 👇 ESTA ES LA PARTE QUE FALTABA
+export function useAuth() {
+  return useContext(AuthContext);
+}

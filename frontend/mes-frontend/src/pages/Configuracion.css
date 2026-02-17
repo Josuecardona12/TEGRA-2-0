@@ -1,0 +1,54 @@
+.config-container {
+  padding: 40px;
+}
+
+.config-container h1 {
+  margin-bottom: 30px;
+}
+
+.config-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  transition: 0.2s ease;
+}
+
+.config-card:hover {
+  transform: translateY(-2px);
+}
+
+.config-card h2 {
+  margin-bottom: 15px;
+}
+
+.btn-logout {
+  margin-top: 15px;
+  padding: 10px 15px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-logout:hover {
+  background: #dc2626;
+}
+
+.btn-edit {
+  margin-top: 15px;
+  padding: 10px 15px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-edit:hover {
+  background: #1d4ed8;
+}

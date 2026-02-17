@@ -1,11 +1,43 @@
 .layout {
   display: flex;
-  width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.sidebar {
+  width: 230px;
+  background: #f4f6fb;
+  padding: 25px 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  margin-bottom: 30px;
+  color: #2f3e5c;
+}
+
+.menu-item {
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  text-decoration: none;
+  color: #555;
+  transition: 0.2s ease;
+}
+
+.menu-item:hover {
+  background: #e4e9f7;
+}
+
+.menu-item.active {
+  background: #4f6df5;
+  color: white;
 }
 
 .content {
   flex: 1;
-  padding: 20px;
-  width: 100%;
+  background: #f9fafc;
+  padding: 40px;
+  overflow-y: auto;
 }

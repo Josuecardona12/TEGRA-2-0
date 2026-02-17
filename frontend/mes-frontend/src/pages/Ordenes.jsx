@@ -1,218 +1,132 @@
 import { useEffect, useState } from "react";
 import "./Ordenes.css";
 
-
-export default function DashboardOrdenes() {
+export default function Ordenes() {
   const [ordenes, setOrdenes] = useState([]);
-  const [mostrarModal, setMostrarModal] = useState(false);
-  const [ordenEditando, setOrdenEditando] = useState(null);
-
-  const [formOrden, setFormOrden] = useState({
-    cliente: "",
-    producto: "",
-    cantidad: "",
-    estado: "Pendiente"
-  });
-
-  // ==============================
-  // OBTENER ORDENES
-  // ==============================
-  const obtenerOrdenes = async () => {
-    try {
-      const res = await fetch("http://localhost:8000/ordenes");
-      const data = await res.json();
-      setOrdenes(data);
-    } catch (error) {
-      console.error("Error obteniendo órdenes:", error);
-    }
-  };
+  const [filtro, setFiltro] = useState("Todas");
 
   useEffect(() => {
-    obtenerOrdenes();
+    const ahora = new Date();
+    const turno = obtenerTurno(ahora.getHours());
 
-    const interval = setInterval(() => {
-      obtenerOrdenes();
-    }, 5000); // refresco automático cada 5 segundos
-
-    return () => clearInterval(interval);
+    setOrdenes([
+      { id: "ORD-001", turno, area: "Producción", estado: "En Proceso", inicio: ahora },
+      { id: "ORD-002", turno, area: "Calidad", estado: "Pendiente", inicio: ahora },
+      { id: "ORD-003", turno, area: "Logística", estado: "Completado", inicio: ahora },
+      { id: "ORD-004", turno, area: "Sublimado", estado: "En Proceso", inicio: ahora },
+      { id: "ORD-005", turno, area: "Reposición", estado: "Pendiente", inicio: ahora },
+      { id: "ORD-006", turno, area: "Producción", estado: "En Proceso", inicio: ahora },
+    ]);
   }, []);
 
-  // ==============================
-  // CREAR / EDITAR ORDEN
-  // ==============================
-  const guardarOrden = async (e) => {
-    e.preventDefault();
+  function obtenerTurno(hora) {
+    if (hora >= 6 && hora < 14) return "Mañana";
+    if (hora >= 14 && hora < 22) return "Tarde";
+    return "Noche";
+  }
 
-    const metodo = ordenEditando ? "PUT" : "POST";
-    const url = ordenEditando
-      ? `http://localhost:8000/ordenes/${ordenEditando.id}`
-      : "http://localhost:8000/ordenes";
+  const ordenesFiltradas =
+    filtro === "Todas"
+      ? ordenes
+      : ordenes.filter((o) => o.estado === filtro);
 
-    try {
-      await fetch(url, {
-        method: metodo,
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(formOrden)
-      });
-
-      setMostrarModal(false);
-      setOrdenEditando(null);
-      setFormOrden({
-        cliente: "",
-        producto: "",
-        cantidad: "",
-        estado: "Pendiente"
-      });
-
-      obtenerOrdenes();
-    } catch (error) {
-      console.error("Error guardando orden:", error);
-    }
-  };
-
-  // ==============================
-  // EDITAR
-  // ==============================
-  const editarOrden = (orden) => {
-    setOrdenEditando(orden);
-    setFormOrden(orden);
-    setMostrarModal(true);
-  };
-
-  // ==============================
-  // ELIMINAR
-  // ==============================
-  const eliminarOrden = async (id) => {
-    if (!window.confirm("¿Eliminar esta orden?")) return;
-
-    try {
-      await fetch(`http://localhost:8000/ordenes/${id}`, {
-        method: "DELETE"
-      });
-
-      obtenerOrdenes();
-    } catch (error) {
-      console.error("Error eliminando orden:", error);
-    }
-  };
+  const total = ordenes.length;
+  const enProceso = ordenes.filter(o => o.estado === "En Proceso").length;
+  const pendientes = ordenes.filter(o => o.estado === "Pendiente").length;
+  const completadas = ordenes.filter(o => o.estado === "Completado").length;
 
   return (
-    <div className="dashboard">
-      <h1>Órdenes de Producción</h1>
+    <div className="dashboard-container">
 
-      <button className="btn-nueva" onClick={() => setMostrarModal(true)}>
-        + Nueva Orden
-      </button>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Cliente</th>
-            <th>Producto</th>
-            <th>Cantidad</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ordenes.map((orden) => (
-            <tr key={orden.id}>
-              <td>{orden.cliente}</td>
-              <td>{orden.producto}</td>
-              <td>{orden.cantidad}</td>
-              <td>{orden.estado}</td>
-              <td>
-                <button
-                  className="btn-editar"
-                  onClick={() => editarOrden(orden)}
-                >
-                  Editar
-                </button>
-
-                <button
-                  className="btn-eliminar"
-                  onClick={() => eliminarOrden(orden.id)}
-                >
-                  Eliminar
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* ==========================
-          MODAL
-      ========================== */}
-      {mostrarModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>{ordenEditando ? "Editar Orden" : "Nueva Orden"}</h2>
-
-            <form onSubmit={guardarOrden}>
-              <input
-                type="text"
-                placeholder="Cliente"
-                value={formOrden.cliente}
-                onChange={(e) =>
-                  setFormOrden({ ...formOrden, cliente: e.target.value })
-                }
-                required
-              />
-
-              <input
-                type="text"
-                placeholder="Producto"
-                value={formOrden.producto}
-                onChange={(e) =>
-                  setFormOrden({ ...formOrden, producto: e.target.value })
-                }
-                required
-              />
-
-              <input
-                type="number"
-                placeholder="Cantidad"
-                value={formOrden.cantidad}
-                onChange={(e) =>
-                  setFormOrden({ ...formOrden, cantidad: e.target.value })
-                }
-                required
-              />
-
-              <select
-                value={formOrden.estado}
-                onChange={(e) =>
-                  setFormOrden({ ...formOrden, estado: e.target.value })
-                }
-              >
-                <option>Pendiente</option>
-                <option>En Producción</option>
-                <option>Finalizado</option>
-              </select>
-
-              <div className="modal-buttons">
-                <button type="submit" className="btn-guardar">
-                  {ordenEditando ? "Actualizar" : "Guardar"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-cancelar"
-                  onClick={() => {
-                    setMostrarModal(false);
-                    setOrdenEditando(null);
-                  }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
+      {/* 🔹 Header */}
+      <div className="dashboard-header">
+        <div>
+          <h1>Órdenes</h1>
+          <p>Panel general de producción</p>
         </div>
-      )}
+      </div>
+
+      {/* 🔹 KPIs */}
+      <div className="kpi-grid">
+        <KPI titulo="Total" valor={total} />
+        <KPI titulo="En Proceso" valor={enProceso} />
+        <KPI titulo="Pendientes" valor={pendientes} />
+        <KPI titulo="Completadas" valor={completadas} />
+      </div>
+
+      {/* 🔹 Filtros tipo tabs */}
+      <div className="tabs">
+        {["Todas", "En Proceso", "Pendiente", "Completado"].map(tab => (
+          <button
+            key={tab}
+            className={filtro === tab ? "active-tab" : ""}
+            onClick={() => setFiltro(tab)}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* 🔹 Grid de órdenes */}
+      <div className="ordenes-grid">
+        {ordenesFiltradas.map((orden) => (
+          <OrdenCard key={orden.id} orden={orden} />
+        ))}
+      </div>
+
     </div>
   );
 }
+
+function KPI({ titulo, valor }) {
+  return (
+    <div className="kpi-card">
+      <h3>{valor}</h3>
+      <p>{titulo}</p>
+    </div>
+  );
+}
+
+function OrdenCard({ orden }) {
+  const [tiempo, setTiempo] = useState("");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const ahora = new Date();
+      const diff = ahora - new Date(orden.inicio);
+
+      const horas = Math.floor(diff / 3600000);
+      const minutos = Math.floor((diff % 3600000) / 60000);
+      const segundos = Math.floor((diff % 60000) / 1000);
+
+      setTiempo(
+        `${horas.toString().padStart(2, "0")}:${minutos
+          .toString()
+          .padStart(2, "0")}:${segundos.toString().padStart(2, "0")}`
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [orden.inicio]);
+
+  return (
+    <div className="orden-card">
+      <div className="orden-top">
+        <h4>{orden.id}</h4>
+        <span className={`estado ${orden.estado.replace(" ", "")}`}>
+          {orden.estado}
+        </span>
+      </div>
+
+      <p><strong>Área:</strong> {orden.area}</p>
+      <p><strong>Turno:</strong> {orden.turno}</p>
+      <p><strong>Tiempo:</strong> {tiempo}</p>
+
+      <div className="acciones">
+        <button>Editar</button>
+        <button className="finalizar">Finalizar</button>
+      </div>
+    </div>
+  );
+}
+
