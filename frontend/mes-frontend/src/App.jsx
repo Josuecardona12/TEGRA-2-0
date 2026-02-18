@@ -4,12 +4,11 @@ import {
   Routes,
   Route,
   Navigate,
-  Link
+  Link,
+  Outlet
 } from "react-router-dom";
 
-
 import Micelanios from "./pages/Micelanios";
-
 import AtrasosDashboard from "./pages/AtrasosDashboard";
 import PlanSemanal from "./pages/PlanSemanal";
 import Login from "./pages/Login";
@@ -17,16 +16,13 @@ import Dashboard from "./pages/Dashboard";
 import Ordenes from "./pages/Ordenes";
 import Configuracion from "./pages/Configuracion";
 import ScanMovimiento from "./pages/ScanMovimiento";
-
-import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "./context/AuthContext";
+import Reportes from "./pages/Reportes";
 
 import "./App.css";
 
 function AppLayout() {
   const [modoOscuro, setModoOscuro] = useState(false);
-  const hayAtrasosGraves = true; // luego lo conectamos real
-
+  const hayAtrasosGraves = true;
 
   return (
     <div className={`layout ${modoOscuro ? "dark" : "light"}`}>
@@ -37,16 +33,16 @@ function AppLayout() {
           <div className="logo">TEGRA ERP</div>
 
           <nav>
-            <Link to="/atrasos">
-  Atrasos {hayAtrasosGraves && <span style={{color:"red"}}>●</span>}
-</Link>
-            <Link to="/micelanios">Miceláneos</Link>
-
-            <Link to="/dashboard">Dashboard</Link>
-            <Link to="/ordenes">Órdenes</Link>
-            <Link to="/scan">Escaneo</Link>
-            <Link to="/plan-semanal">Plan Semanal</Link>
-            <Link to="/configuracion">Configuración</Link>
+            <Link to="dashboard">Dashboard</Link>
+            <Link to="atrasos">
+              Atrasos {hayAtrasosGraves && <span style={{color:"red"}}>●</span>}
+            </Link>
+            <Link to="micelanios">Miceláneos</Link>
+            <Link to="ordenes">Órdenes</Link>
+            <Link to="scan">Escaneo</Link>
+            <Link to="plan-semanal">Plan Semanal</Link>
+            <Link to="configuracion">Configuración</Link>
+            <Link to="reportes">Reportes</Link>
           </nav>
         </div>
 
@@ -60,17 +56,7 @@ function AppLayout() {
 
       {/* CONTENIDO */}
       <div className="content">
-        <Routes>
-          <Route path="/micelanios" element={<Micelanios />} />
-
-          <Route path="/atrasos" element={<AtrasosDashboard />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/ordenes" element={<Ordenes />} />
-          <Route path="/scan" element={<ScanMovimiento />} />
-          <Route path="/plan-semanal" element={<PlanSemanal />} />
-          <Route path="/configuracion" element={<Configuracion />} />
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
+        <Outlet />
       </div>
 
     </div>
@@ -79,22 +65,28 @@ function AppLayout() {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+    <BrowserRouter>
+      <Routes>
 
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        {/* LOGIN */}
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+
+        {/* SISTEMA */}
+        <Route path="/" element={<AppLayout />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="atrasos" element={<AtrasosDashboard />} />
+          <Route path="micelanios" element={<Micelanios />} />
+          <Route path="ordenes" element={<Ordenes />} />
+          <Route path="scan" element={<ScanMovimiento />} />
+          <Route path="plan-semanal" element={<PlanSemanal />} />
+          <Route path="configuracion" element={<Configuracion />} />
+          <Route path="reportes" element={<Reportes />} />
+          <Route path="*" element={<Navigate to="dashboard" />} />
+        </Route>
+
+      </Routes>
+    </BrowserRouter>
   );
 }
 

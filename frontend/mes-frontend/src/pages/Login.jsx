@@ -1,48 +1,66 @@
-import { useState, useContext } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
 import "./Login.css";
 
 export default function Login() {
-  const [username, setUsername] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
-
-  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleLogin = (e) => {
     e.preventDefault();
 
-    if (username && password) {
-      login(username);
+    // LOGIN DEMO → entra siempre
+    if (usuario && password) {
       navigate("/dashboard");
     }
   };
 
   return (
     <div className="login-container">
-      <div className="login-card">
-        <h2>TEGRA ERP</h2>
-        <p>Iniciar Sesión</p>
 
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            placeholder="Usuario"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-
-          <input
-            type="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <button type="submit">Entrar</button>
-        </form>
+      <div className="login-left">
+        <h1>TEGRA ERP</h1>
+        <p>Sistema de Gestión Industrial</p>
+        <span>Demo Mode</span>
       </div>
+
+      <div className="login-card">
+        <h2>Iniciar Sesión</h2>
+
+        <form onSubmit={handleLogin}>
+
+          <div className="input-group">
+            <label>Usuario</label>
+            <input
+              type="text"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Contraseña</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button type="submit">
+            Entrar
+          </button>
+
+        </form>
+
+        <p style={{ marginTop: "10px", fontSize: "12px", opacity: 0.6 }}>
+          Demo sin autenticación
+        </p>
+      </div>
+
     </div>
   );
 }

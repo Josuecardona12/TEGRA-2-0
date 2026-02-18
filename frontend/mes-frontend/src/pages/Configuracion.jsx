@@ -1,13 +1,20 @@
-import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import "./Configuracion.css";
 
 export default function Configuracion() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Usuario temporal (luego lo conectamos a backend si quieres)
+  const [user] = useState({
+    username: "Administrador"
+  });
+
   const handleLogout = () => {
-    logout();
+    // Limpia cualquier cosa guardada si quieres
+    localStorage.clear();
+
+    // Redirige al login
     navigate("/login");
   };
 
@@ -18,7 +25,8 @@ export default function Configuracion() {
       {/* CUENTA */}
       <div className="config-card">
         <h2>👤 Cuenta</h2>
-        <p><strong>Usuario:</strong> {user?.username}</p>
+        <p><strong>Usuario:</strong> {user.username}</p>
+
         <button className="btn-logout" onClick={handleLogout}>
           🚪 Cerrar Sesión
         </button>

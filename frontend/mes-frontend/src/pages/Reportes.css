@@ -1,0 +1,86 @@
+.reportes-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  background: #f4f7fb;
+  min-height: 80vh;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.reportes-card {
+  background: white;
+  padding: 30px 40px;
+  border-radius: 12px;
+  width: 420px;
+  box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+.reportes-card h2 {
+  margin-bottom: 5px;
+  color: #1f3c88;
+}
+
+.subtitulo {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 25px;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: #374151;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 9px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  background: white;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.btn-generar {
+  width: 100%;
+  padding: 11px;
+  background: #1f3c88;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.btn-generar:hover {
+  background: #162e66;
+}
+
+.btn-generar:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.mensaje {
+  margin-top: 15px;
+  font-size: 14px;
+  text-align: center;
+  color: #dc2626;
+}

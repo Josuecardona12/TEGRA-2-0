@@ -1,55 +1,120 @@
 .login-container {
-  height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #1f2937, #111827);
+  height: 100vh;
+  font-family: "Segoe UI", sans-serif;
 }
 
+/* PANEL IZQUIERDO */
+.login-left {
+  flex: 1;
+  background: linear-gradient(135deg, #1f3c88, #162e66);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px;
+}
+
+.login-left h1 {
+  font-size: 42px;
+  margin-bottom: 10px;
+}
+
+.login-left p {
+  font-size: 18px;
+  margin-bottom: 10px;
+  opacity: 0.9;
+}
+
+.login-left span {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+/* TARJETA */
 .login-card {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-  width: 320px;
-  text-align: center;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  flex: 1;
+  background: #f4f7fb;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px;
+  animation: fadeIn 0.6s ease-in-out;
 }
 
 .login-card h2 {
-  margin-bottom: 5px;
-  color: #1f2937;
+  margin-bottom: 30px;
+  color: #1f3c88;
 }
 
-.login-card p {
+.input-group {
   margin-bottom: 20px;
-  color: #6b7280;
 }
 
-.login-card input {
+.input-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #374151;
+}
+
+.input-group input {
   width: 100%;
   padding: 10px;
-  margin-bottom: 15px;
-  border: 1px solid #d1d5db;
   border-radius: 6px;
+  border: 1px solid #d1d5db;
   font-size: 14px;
+  transition: 0.2s;
 }
 
-.login-card input:focus {
+.input-group input:focus {
   outline: none;
-  border-color: #2563eb;
+  border-color: #1f3c88;
+  box-shadow: 0 0 0 2px rgba(31, 60, 136, 0.15);
 }
 
-.login-card button {
+button {
   width: 100%;
-  padding: 10px;
-  background: #2563eb;
+  padding: 12px;
+  background: #1f3c88;
   color: white;
   border: none;
   border-radius: 6px;
+  font-weight: 600;
   cursor: pointer;
-  font-weight: bold;
+  transition: 0.2s;
 }
 
-.login-card button:hover {
-  background: #1d4ed8;
+button:hover {
+  background: #162e66;
+}
+
+button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.footer-text {
+  margin-top: 30px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Animación */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
