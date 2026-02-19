@@ -1,38 +1,57 @@
 .sidebar {
-  width: 250px;
+  width: 240px;
   height: 100vh;
-  background: linear-gradient(180deg, #0f172a, #1e293b);
-  color: white;
-  padding: 40px 25px;
-  position: fixed;
+  background-color: #f4f6fa;
+  padding: 25px 20px;
   display: flex;
   flex-direction: column;
+  border-right: 1px solid #e0e0e0;
 }
 
 .logo {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  margin-bottom: 50px;
+  font-size: 22px;
+  font-weight: bold;
+  color: #3f51b5;
+  margin-bottom: 40px;
 }
 
-.sidebar nav a {
+.menu-section {
+  margin-bottom: 30px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #999;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
   display: block;
-  color: #94a3b8;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
   text-decoration: none;
-  margin-bottom: 20px;
-  padding: 10px 15px;
+  color: #3f51b5;
   border-radius: 8px;
-  transition: all 0.3s ease;
-  font-weight: 500;
+  font-size: 15px;
+  transition: 0.2s;
 }
 
-.sidebar nav a:hover {
-  background: rgba(255, 255, 255, 0.05);
+.menu-item:hover {
+  background-color: #e8ecff;
+}
+
+.menu-item.active {
+  background-color: #3f51b5;
   color: white;
 }
 
-.sidebar nav a.active {
-  background: #2563eb;
-  color: white;
+.badge {
+  width: 8px;
+  height: 8px;
+  background-color: red;
+  border-radius: 50%;
 }

@@ -17,6 +17,7 @@ import Ordenes from "./pages/Ordenes";
 import Configuracion from "./pages/Configuracion";
 import ScanMovimiento from "./pages/ScanMovimiento";
 import Reportes from "./pages/Reportes";
+import Produccion from "./pages/Produccion";
 
 import "./App.css";
 
@@ -33,16 +34,38 @@ function AppLayout() {
           <div className="logo">TEGRA ERP</div>
 
           <nav>
+
+            {/* GENERAL */}
+            <p className="section-title">GENERAL</p>
+
             <Link to="dashboard">Dashboard</Link>
+
             <Link to="atrasos">
-              Atrasos {hayAtrasosGraves && <span style={{color:"red"}}>●</span>}
+              Atrasos {hayAtrasosGraves && <span style={{ color: "red" }}>●</span>}
             </Link>
-            <Link to="micelanios">Miceláneos</Link>
-            <Link to="ordenes">Órdenes</Link>
-            <Link to="scan">Escaneo</Link>
+
+
+            {/* OPERACIONES */}
+            <p className="section-title">OPERACIONES</p>
+
             <Link to="plan-semanal">Plan Semanal</Link>
-            <Link to="configuracion">Configuración</Link>
+
+            <Link to="ordenes">Órdenes</Link>
+
+            <Link to="produccion">Producción</Link>
+
+            <Link to="scan">Escaneo</Link>
+
+            <Link to="micelanios">Miceláneos</Link>
+
+
+            {/* SISTEMA */}
+            <p className="section-title">SISTEMA</p>
+
             <Link to="reportes">Reportes</Link>
+
+            <Link to="configuracion">Configuración</Link>
+
           </nav>
         </div>
 
@@ -82,6 +105,7 @@ function App() {
           <Route path="plan-semanal" element={<PlanSemanal />} />
           <Route path="configuracion" element={<Configuracion />} />
           <Route path="reportes" element={<Reportes />} />
+          <Route path="produccion" element={<Produccion />} />
           <Route path="*" element={<Navigate to="dashboard" />} />
         </Route>
 

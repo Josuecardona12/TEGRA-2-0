@@ -1,53 +1,79 @@
 .dashboard-container {
   padding: 40px;
-  font-family: "Segoe UI", sans-serif;
+  width: 100%;
+  min-height: 100vh;
 }
 
+/* TÍTULO */
 .dashboard-container h1 {
+  font-size: 28px;
   margin-bottom: 30px;
-  color: #1f2937;
 }
 
-/* KPIs */
+/* KPI */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 25px;
   margin-bottom: 40px;
 }
 
 .kpi-card {
-  background: white;
   padding: 25px;
-  border-radius: 15px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.05);
-  text-align: center;
-  transition: 0.3s;
-}
-
-.kpi-card:hover {
-  transform: translateY(-5px);
+  border-radius: 16px;
+  transition: 0.3s ease;
 }
 
 .kpi-card h2 {
-  color: #2563eb;
-  font-size: 2rem;
+  font-size: 28px;
+  margin-bottom: 10px;
 }
 
-.kpi-card p {
-  color: #6b7280;
-}
-
-/* Charts */
+/* GRÁFICAS */
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 25px;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 30px;
 }
 
 .chart-card {
-  background: white;
-  padding: 20px;
-  border-radius: 15px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+  padding: 25px;
+  border-radius: 16px;
+  min-height: 320px;
+  transition: 0.3s ease;
 }
+/* LIGHT */
+.layout.light .kpi-card,
+.layout.light .chart-card {
+  background: white;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  color: #111827;
+}
+
+/* DARK */
+.layout.dark .kpi-card,
+.layout.dark .chart-card {
+  background: #1e293b;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  color: #f1f5f9;
+}
+
+/* ========================= */
+/* DARK MODE DASHBOARD */
+/* ========================= */
+
+.layout.dark .kpi-card,
+.layout.dark .chart-card {
+  background: linear-gradient(145deg, #1e293b, #172033);
+  border: 1px solid #334155;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  color: #f1f5f9;
+  transition: 0.3s ease;
+}
+
+.layout.dark .kpi-card:hover,
+.layout.dark .chart-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+}
+

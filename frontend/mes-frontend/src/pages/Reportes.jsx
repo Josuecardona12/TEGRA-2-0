@@ -4,20 +4,31 @@ import "./Reportes.css";
 const API_URL = import.meta.env.VITE_API_URL;
 
 const AREAS = [
-  { value: "logistica", label: "Logística " },
-  { value: "plotter", label: "Plotter " },
-  { value: "diseno", label: "Diseño " },
-  { value: "RH", label: "RH" },
-  { value: "fftt", label: "FFTT " },
-  { value: "sublimado", label: "Sublimado " },
-  { value: "calidad", label: "Calidad " },
+  { value: "logistica", label: "Logística" },
+  { value: "plotter", label: "Plotter" },
+  { value: "diseno", label: "Diseño" },
+  { value: "rh", label: "RH" },
+  { value: "fftt", label: "FFTT" },
+  { value: "sublimado", label: "Sublimado" },
+  { value: "calidad", label: "Calidad" },
 ];
+
+// 🔥 MAPEO DE AREA STRING → ID NUMÉRICO (ajusta si tus IDs son distintos)
+const AREA_MAP = {
+  logistica: 1,
+  plotter: 2,
+  diseno: 3,
+  rh: 4,
+  fftt: 5,
+  sublimado: 6,
+  calidad: 7,
+};
 
 export default function Reportes() {
   const [area, setArea] = useState("logistica");
   const [inicio, setInicio] = useState("");
   const [fin, setFin] = useState("");
-  const [soloCriticos, setSoloCriticos] = useState(false);
+  const [soloCriticos, setSoloCriticos] = useState(false); // aún no usado en backend
   const [loading, setLoading] = useState(false);
   const [mensaje, setMensaje] = useState("");
 
@@ -34,23 +45,25 @@ export default function Reportes() {
       return;
     }
 
+    const areaId = AREA_MAP[area];
+
+    if (!areaId) {
+      setMensaje("Área inválida.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/reportes/${area}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inicio,
-          fin,
-          solo_criticos: soloCriticos,
-        }),
-      });
+      const response = await fetch(
+        `${API_URL}/reportes/pdf?area_id=${areaId}&fecha_inicio=${inicio}&fecha_fin=${fin}`,
+        {
+          method: "GET",
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("Error del servidor");
+        throw new Error("Error generando PDF");
       }
 
       const blob = await response.blob();
@@ -59,7 +72,11 @@ export default function Reportes() {
       const a = document.createElement("a");
       a.href = url;
       a.download = `reporte_${area}_${inicio}_a_${fin}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
 
       setMensaje("Reporte generado correctamente ✅");
 
@@ -76,11 +93,8 @@ export default function Reportes() {
       <div className="reportes-card">
 
         <h2>📊 Módulo de Reportes</h2>
-        <p className="subtitulo">
-          Generación de reportes por área
-        </p>
+        <p className="subtitulo">Generación automática de reportes en PDF</p>
 
-        {/* AREA */}
         <div className="form-group">
           <label>Área</label>
           <select value={area} onChange={(e) => setArea(e.target.value)}>
@@ -92,7 +106,6 @@ export default function Reportes() {
           </select>
         </div>
 
-        {/* FECHA INICIO */}
         <div className="form-group">
           <label>Fecha Inicio</label>
           <input
@@ -102,7 +115,6 @@ export default function Reportes() {
           />
         </div>
 
-        {/* FECHA FIN */}
         <div className="form-group">
           <label>Fecha Fin</label>
           <input
@@ -112,7 +124,6 @@ export default function Reportes() {
           />
         </div>
 
-        {/* CHECKBOX */}
         <div className="checkbox-group">
           <input
             type="checkbox"

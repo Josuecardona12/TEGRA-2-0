@@ -1,168 +1,228 @@
-/* ===== RESET ===== */
+/* ========================= */
+/* RESET */
+/* ========================= */
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: "Inter", sans-serif;
+  font-family: "Segoe UI", sans-serif;
 }
 
-/* ===== FULL SCREEN BASE ===== */
-html, body, #root {
-  width: 100%;
-  height: 100%;
-  margin: 0;
+/* ========================= */
+/* VARIABLES */
+/* ========================= */
+
+.layout.light {
+  --bg-main: #f1f5f9;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --accent: #2563eb;
+  --hover: #e2e8f0;
+  --shadow: rgba(0, 0, 0, 0.05);
 }
 
-/* ===== LAYOUT ===== */
+.layout.dark {
+  --bg-main: #0b1120;
+  --bg-sidebar: #111827;
+  --bg-card: #1f2937;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --accent: #3b82f6;
+  --hover: #1e293b;
+  --shadow: rgba(0, 0, 0, 0.4);
+}
+
+/* ========================= */
+/* LAYOUT */
+/* ========================= */
+
 .layout {
   display: flex;
-  width: 100%;
-  min-height: 100vh;
-  transition: all 0.3s ease;
+  height: 100vh;
+  background: var(--bg-main);
+  transition: 0.3s ease;
 }
 
-/* ===== LIGHT MODE (SUAVE Y LIMPIO) ===== */
-.light {
-  background: #f8fafc; /* gris muy claro elegante */
-  color: #334155;
-}
+/* ========================= */
+/* SIDEBAR */
+/* ========================= */
 
-/* ===== DARK MODE (GRIS AZULADO SUAVE) ===== */
-.dark {
-  background: #1f2937; /* azul gris profesional */
-  color: #e5e7eb;
-}
-
-/* ===== SIDEBAR ===== */
 .sidebar {
   width: 260px;
-  padding: 30px 20px;
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: all 0.3s ease;
+  padding: 25px 18px;
+  box-shadow: 4px 0 20px var(--shadow);
+  transition: 0.3s ease;
 }
 
-/* Sidebar Light */
-.light .sidebar {
-  background: #ffffff;
-  border-right: 1px solid #e2e8f0;
-}
-
-/* Sidebar Dark */
-.dark .sidebar {
-  background: #2b3648;
-}
-
-/* ===== LOGO ===== */
 .logo {
   font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 40px;
-  color: #4f6ef7;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 35px;
 }
 
-/* ===== NAV ===== */
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 20px 0 10px 8px;
+  letter-spacing: 1px;
+}
+
 .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-.sidebar nav button {
+.sidebar nav a {
+  text-decoration: none;
+  padding: 12px 14px;
+  border-radius: 10px;
+  color: var(--text-main);
+  font-size: 14px;
+  margin-bottom: 6px;
+  transition: all 0.2s ease;
+}
+
+.sidebar nav a:hover {
+  background: var(--hover);
+  transform: translateX(4px);
+}
+
+.sidebar nav a.active {
+  background: var(--accent);
+  color: white;
+  font-weight: 500;
+}
+
+/* BOTÓN MODO */
+
+.btn-modo {
+  background: var(--hover);
   border: none;
   padding: 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 500;
-  background: transparent;
-  transition: all 0.2s ease;
-  text-align: left;
-  color: inherit;
-}
-
-/* Hover Light */
-.light .sidebar nav button:hover {
-  background: #eef2ff;
-  color: #4f6ef7;
-}
-
-/* Hover Dark */
-.dark .sidebar nav button:hover {
-  background: rgba(255,255,255,0.08);
-}
-
-/* ===== BOTÓN MODO ===== */
-.btn-modo {
-  border: none;
-  padding: 10px;
   border-radius: 10px;
   cursor: pointer;
-  font-weight: 500;
-  background: #4f6ef7;
-  color: white;
+  font-size: 13px;
+  color: var(--text-main);
   transition: all 0.2s ease;
 }
 
 .btn-modo:hover {
-  background: #3f5de0;
+  background: var(--accent);
+  color: white;
 }
 
-/* ===== CONTENT ===== */
+/* ========================= */
+/* CONTENIDO */
+/* ========================= */
+
 .content {
   flex: 1;
   padding: 40px;
-  width: 100%;
+  overflow-y: auto;
+  color: var(--text-main);
+  transition: 0.3s ease;
 }
 
-/* ===== TOPBAR ===== */
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
+/* ========================= */
+/* CARDS (IMPORTANTE) */
+/* ========================= */
+
+.card {
+  background: var(--bg-card);
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px var(--shadow);
+  transition: 0.3s ease;
 }
 
-.topbar h1 {
-  font-size: 28px;
-  font-weight: 600;
+/* TITULOS GRANDES */
+h1, h2, h3 {
+  color: var(--text-main);
 }
 
-/* ===== BOTÓN PRINCIPAL ===== */
-.btn-principal {
-  background: #4f6ef7;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 12px;
+/* TEXTO */
+p {
+  color: var(--text-muted);
+}
+/* ========================= */
+/* DARK MODE GLOBAL MEJORADO */
+/* ========================= */
+
+.layout.dark {
+  background: radial-gradient(circle at top left, #0f172a, #020617);
+  color: #e2e8f0;
+}
+
+/* CONTENIDO */
+.layout.dark .content {
+  background: transparent;
+}
+
+/* TEXTOS */
+.layout.dark h1,
+.layout.dark h2,
+.layout.dark h3,
+.layout.dark p,
+.layout.dark span,
+.layout.dark label {
+  color: #e2e8f0;
+}
+
+/* SIDEBAR */
+.layout.dark .sidebar {
+  background: linear-gradient(180deg, #0f172a, #1e293b);
+  border-right: 1px solid #1e293b;
+}
+
+.layout.dark .sidebar nav a {
+  color: #cbd5e1;
+}
+
+.layout.dark .sidebar nav a:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+/* INPUTS */
+.layout.dark input,
+.layout.dark select,
+.layout.dark textarea {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+}
+
+/* TABLAS */
+.layout.dark table {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-collapse: collapse;
+}
+
+.layout.dark th {
+  background: #334155;
+}
+
+.layout.dark td {
+  border: 1px solid #334155;
+}
+
+/* BOTONES */
+.layout.dark button {
+  background: #2563eb;
   color: white;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s ease;
+  border: none;
 }
 
-.btn-principal:hover {
-  background: #3f5de0;
-  transform: translateY(-2px);
-}
-
-/* ===== CARDS ===== */
-.card,
-.panel {
-  background: white;
-  padding: 25px;
-  border-radius: 18px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.04);
-  margin-bottom: 20px;
-  transition: all 0.3s ease;
-}
-
-/* Cards Dark */
-.dark .card,
-.dark .panel {
-  background: #344256;
-}
-
-/* ===== TRANSICIONES SUAVES ===== */
-button {
-  transition: all 0.2s ease;
+.layout.dark button:hover {
+  background: #1d4ed8;
 }

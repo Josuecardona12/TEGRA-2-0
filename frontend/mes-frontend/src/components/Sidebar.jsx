@@ -1,42 +1,64 @@
-import { Link, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import "./Sidebar.css";
 
-export default function Sidebar() {
-  const location = useLocation();
-
+const Sidebar = () => {
   return (
     <div className="sidebar">
-      <div className="logo">TEGRA</div>
+      <div className="logo">TEGRA ERP</div>
 
-      <nav>
-        <Link
-          to="/"
-          className={location.pathname === "/" ? "active" : ""}
-        >
+      {/* GENERAL */}
+      <div className="menu-section">
+        <span className="section-title">GENERAL</span>
+
+        <NavLink to="/" className="menu-item">
           Dashboard
-        </Link>
+        </NavLink>
 
-        <Link
-          to="/ordenes"
-          className={location.pathname === "/ordenes" ? "active" : ""}
-        >
+        <NavLink to="/atrasos" className="menu-item">
+          <span>Atrasos</span>
+          <span className="badge"></span>
+        </NavLink>
+      </div>
+
+      {/* OPERACIONES */}
+      <div className="menu-section">
+        <span className="section-title">OPERACIONES</span>
+
+        <NavLink to="/plan-semanal" className="menu-item">
+          Plan Semanal
+        </NavLink>
+
+        <NavLink to="/ordenes" className="menu-item">
           Órdenes
-        </Link>
-        <Link
-  to="/plan-semanal"
-  className={location.pathname === "/plan-semanal" ? "active" : ""}
->
-  Plan Semanal
-</Link>
+        </NavLink>
 
+        <NavLink to="/produccion" className="menu-item">
+          Producción
+        </NavLink>
 
-        <Link
-          to="/logistica"
-          className={location.pathname === "/logistica" ? "active" : ""}
-        >
-          Logística
-        </Link>
-      </nav>
+        <NavLink to="/escaneo" className="menu-item">
+          Escaneo
+        </NavLink>
+
+        <NavLink to="/micelanios" className="menu-item">
+          Miceláneos
+        </NavLink>
+      </div>
+
+      {/* SISTEMA */}
+      <div className="menu-section">
+        <span className="section-title">SISTEMA</span>
+
+        <NavLink to="/reportes" className="menu-item">
+          Reportes
+        </NavLink>
+
+        <NavLink to="/configuracion" className="menu-item">
+          Configuración
+        </NavLink>
+      </div>
     </div>
   );
-}
+};
+
+export default Sidebar;
