@@ -1,0 +1,131 @@
+/* ===================================
+   HEADER LIVE
+=================================== */
+
+.live-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* ===================================
+   CARDS ANIMADAS
+=================================== */
+
+.card {
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #2e86c1, #10b981);
+  animation: loadingBar 3s infinite linear;
+}
+
+@keyframes loadingBar {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.card h2 {
+  animation: fadeInUp 0.8s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===================================
+   TABLA EFECTO LIVE
+=================================== */
+
+.table-container {
+  position: relative;
+}
+
+.table-container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 4px;
+  width: 100%;
+  background: linear-gradient(90deg, #2e86c1, #10b981, #2e86c1);
+  background-size: 200% 100%;
+  animation: gradientMove 4s linear infinite;
+  border-radius: 20px 20px 0 0;
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* ===================================
+   BADGE PULSANTE SI TODO OK
+=================================== */
+
+.badge-ok {
+  animation: softGlow 2s infinite alternate;
+}
+
+@keyframes softGlow {
+  from {
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.4);
+  }
+  to {
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.7);
+  }
+}
+
+/* ===================================
+   HOVER MÁS DINÁMICO
+=================================== */
+
+tbody tr:hover {
+  transform: scale(1.01);
+  transition: 0.2s ease;
+}

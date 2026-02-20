@@ -1,151 +1,162 @@
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "./PlanSemanal.css";
 
-export default function PlanSemanal() {
-  const [datos, setDatos] = useState([]);
+const PlanSemanal = () => {
+  const [backlog, setBacklog] = useState(1533);
+  const [plan, setPlan] = useState(7955);
+  const [pull, setPull] = useState(2681);
 
+  const [animate, setAnimate] = useState(false);
+
+  const [lotes, setLotes] = useState([
+    {
+      lote: "NK-137",
+      area: "Sublimado",
+      piezas: 1342,
+      fecha: "2/15/2026 6:00 AM",
+      dias: 4,
+      horas: 4,
+      estado: "Atraso Grave",
+    },
+    {
+      lote: "NK-79",
+      area: "Costura",
+      piezas: 572,
+      fecha: "2/15/2026 6:00 AM",
+      dias: 7,
+      horas: 3,
+      estado: "Medio",
+    },
+    {
+      lote: "NK-6",
+      area: "Sublimado",
+      piezas: 1249,
+      fecha: "2/15/2026 6:00 AM",
+      dias: 8,
+      horas: 3,
+      estado: "Atraso Grave",
+    },
+  ]);
+
+  // 🔥 TIEMPO REAL
   useEffect(() => {
-    // SOLO NIKE
-    const dataNike = [
-      { wk: 7, backlog: 382, plan: 0, pull: 0 },
-      { wk: 8, backlog: 0, plan: 5720, pull: 1216 },
-    ];
+    const interval = setInterval(() => {
+      setAnimate(true);
 
-    setDatos(dataNike);
+      setBacklog((prev) => prev + Math.floor(Math.random() * 20));
+      setPlan((prev) => prev + Math.floor(Math.random() * 40));
+      setPull((prev) => prev + Math.floor(Math.random() * 25));
+
+      const nuevoLote = {
+        lote: `NK-${Math.floor(Math.random() * 500)}`,
+        area: ["Sublimado", "Costura", "Empaque"][
+          Math.floor(Math.random() * 3)
+        ],
+        piezas: Math.floor(Math.random() * 1500),
+        fecha: "2/15/2026 6:00 AM",
+        dias: Math.floor(Math.random() * 12),
+        horas: Math.floor(Math.random() * 6),
+        estado: Math.random() > 0.5 ? "Atraso Grave" : "Medio",
+      };
+
+      setLotes((prev) => [...prev.slice(-6), nuevoLote]);
+
+      setTimeout(() => setAnimate(false), 600);
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const totalBacklog = datos.reduce((acc, d) => acc + d.backlog, 0);
-  const totalPlan = datos.reduce((acc, d) => acc + d.plan, 0);
-  const totalPull = datos.reduce((acc, d) => acc + d.pull, 0);
-
-  const grandTotal = totalBacklog + totalPlan + totalPull;
-
-  const backlogPercent =
-    grandTotal > 0 ? ((totalBacklog / grandTotal) * 100).toFixed(2) : 0;
-
-  const planPercent =
-    grandTotal > 0 ? ((totalPlan / grandTotal) * 100).toFixed(2) : 0;
+  const total = backlog + plan + pull;
 
   return (
     <div className="plan-container">
-      <h1>📊 Plan Semanal - NIKE</h1>
+      {/* HEADER */}
+      <div className="plan-header">
+        <h1>Plan Semanal - NIKE</h1>
 
-      <div className="resumen-box">
-        <div className="kpi backlog">
+        <div className="live-indicator">
+          <div className="live-dot"></div>
+          LIVE
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid">
+        <div className="kpi">
           <h3>Backlog</h3>
-          <p>{totalBacklog}</p>
+          <p className={animate ? "number-animate" : ""}>{backlog}</p>
         </div>
 
-        <div className="kpi plan">
+        <div className="kpi">
           <h3>Plan</h3>
-          <p>{totalPlan}</p>
+          <p className={animate ? "number-animate" : ""}>{plan}</p>
         </div>
 
-        <div className="kpi pull">
+        <div className="kpi">
           <h3>Pull</h3>
-          <p>{totalPull}</p>
+          <p className={animate ? "number-animate" : ""}>{pull}</p>
         </div>
 
-        <div className="kpi total">
+        <div className="kpi">
           <h3>Total</h3>
-          <p>{grandTotal}</p>
+          <p className={animate ? "number-animate" : ""}>{total}</p>
         </div>
       </div>
 
-      <table className="tabla-plan">
-        <thead>
-          <tr>
-            <th>WK</th>
-            <th>Backlog</th>
-            <th>Plan</th>
-            <th>Pull</th>
-            <th>Total WK</th>
-          </tr>
-        </thead>
-        <tbody>
-          {datos.map((d, index) => (
-            <tr key={index}>
-              <td>{d.wk}</td>
-              <td className="backlog-cell">{d.backlog}</td>
-              <td className="plan-cell">{d.plan}</td>
-              <td className="pull-cell">{d.pull}</td>
-              <td>{d.backlog + d.plan + d.pull}</td>
+      {/* TABLA */}
+      <div className="tabla-container">
+        <h2>🚨 Lotes Atrasados - NIKE</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Lote</th>
+              <th>Área</th>
+              <th>Piezas</th>
+              <th>Fecha Entrega</th>
+              <th>Días</th>
+              <th>Horas</th>
+              <th>Estado</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
 
-      <div className="porcentajes">
-        <div className="percent backlog-percent">
-          BACKLOG -1WK: {backlogPercent}%
-        </div>
-        <div className="percent plan-percent">
-          PLAN: {planPercent}%
-        </div>
+          <tbody>
+            {lotes.map((l, index) => (
+              <tr key={index} className="new-row">
+                <td>{l.lote}</td>
+                <td>{l.area}</td>
+                <td>{l.piezas}</td>
+                <td>{l.fecha}</td>
+
+                <td>
+                  {l.dias}
+                  <div
+                    className="severity-bar"
+                    style={{ width: `${l.dias * 8}%` }}
+                  ></div>
+                </td>
+
+                <td>{l.horas}</td>
+
+                <td>
+                  <span
+                    className={
+                      l.estado === "Atraso Grave"
+                        ? "badge grave"
+                        : "badge medio"
+                    }
+                  >
+                    {l.estado}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      {/* ================== LOTES ATRASADOS DETALLADO ================== */}
-
-<h2 style={{ marginTop: "40px" }}>🚨 Lotes Atrasados - NIKE</h2>
-
-<table className="tabla-atrasados">
-  <thead>
-    <tr>
-      <th>Lote</th>
-      <th>Área</th>
-      <th>Piezas</th>
-      <th>Fecha Entrega</th>
-      <th>Días Atraso</th>
-      <th>Horas Atraso</th>
-      <th>Estado</th>
-    </tr>
-  </thead>
-  <tbody>
-    {[
-      {
-        id: "NK-001",
-        area: "Sublimado",
-        piezas: 382,
-        entrega: new Date("2026-02-10T08:00:00"),
-      },
-      {
-        id: "NK-002",
-        area: "Costura",
-        piezas: 1200,
-        entrega: new Date("2026-02-12T07:00:00"),
-      },
-    ].map((lote) => {
-      const ahora = new Date();
-      const diffMs = ahora - lote.entrega;
-
-      if (diffMs <= 0) return null;
-
-      const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const horas = Math.floor(
-        (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-      );
-
-      let estado = "Atraso Leve";
-      if (dias >= 7) estado = "Atraso Grave";
-      else if (dias >= 3) estado = "Atraso Medio";
-
-      return (
-        <tr key={lote.id} className={estado.replace(" ", "-")}>
-          <td>{lote.id}</td>
-          <td>{lote.area}</td>
-          <td>{lote.piezas}</td>
-          <td>{lote.entrega.toLocaleString()}</td>
-          <td>{dias}</td>
-          <td>{horas}</td>
-          <td>{estado}</td>
-        </tr>
-      );
-    })}
-  </tbody>
-</table>
-
     </div>
-    
   );
-}
+};
 
-
+export default PlanSemanal;

@@ -20,7 +20,7 @@ export default function Configuracion() {
 
   return (
     <div className="config-container">
-      <h1>⚙ Configuración del Sistema</h1>
+      <h1> Configuración del Sistema</h1>
 
       {/* CUENTA */}
       <div className="config-card">
@@ -41,7 +41,7 @@ export default function Configuracion() {
         <p><strong>Email:</strong> contacto@tegra.com</p>
 
         <button className="btn-edit">
-          ✏ Editar Información
+           Editar Información
         </button>
       </div>
     </div>

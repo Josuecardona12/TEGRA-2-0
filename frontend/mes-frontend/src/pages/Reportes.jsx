@@ -13,7 +13,7 @@ const AREAS = [
   { value: "calidad", label: "Calidad" },
 ];
 
-// 🔥 MAPEO DE AREA STRING → ID NUMÉRICO (ajusta si tus IDs son distintos)
+// MAPEO DE AREA STRING → ID NUMÉRICO (ajusta si tus IDs son distintos)
 const AREA_MAP = {
   logistica: 1,
   plotter: 2,
@@ -92,7 +92,7 @@ export default function Reportes() {
     <div className="reportes-container">
       <div className="reportes-card">
 
-        <h2>📊 Módulo de Reportes</h2>
+        <h2> Módulo de Reportes</h2>
         <p className="subtitulo">Generación automática de reportes en PDF</p>
 
         <div className="form-group">

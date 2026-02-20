@@ -18,6 +18,7 @@ import Configuracion from "./pages/Configuracion";
 import ScanMovimiento from "./pages/ScanMovimiento";
 import Reportes from "./pages/Reportes";
 import Produccion from "./pages/Produccion";
+import ReporteRH from "./pages/ReporteRH";
 
 import "./App.css";
 
@@ -44,7 +45,6 @@ function AppLayout() {
               Atrasos {hayAtrasosGraves && <span style={{ color: "red" }}>●</span>}
             </Link>
 
-
             {/* OPERACIONES */}
             <p className="section-title">OPERACIONES</p>
 
@@ -54,10 +54,11 @@ function AppLayout() {
 
             <Link to="produccion">Producción</Link>
 
+            <Link to="reporte-rh">Reporte RH</Link>
+
             <Link to="scan">Escaneo</Link>
 
             <Link to="micelanios">Miceláneos</Link>
-
 
             {/* SISTEMA */}
             <p className="section-title">SISTEMA</p>
@@ -106,6 +107,7 @@ function App() {
           <Route path="configuracion" element={<Configuracion />} />
           <Route path="reportes" element={<Reportes />} />
           <Route path="produccion" element={<Produccion />} />
+          <Route path="reporte-rh" element={<ReporteRH />} />
           <Route path="*" element={<Navigate to="dashboard" />} />
         </Route>
 
