@@ -6,6 +6,7 @@ export default function Micelanios() {
   const [origen, setOrigen] = useState("");
   const [destino, setDestino] = useState("");
   const [cantidad, setCantidad] = useState(1);
+  const [tipo, setTipo] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [registros, setRegistros] = useState([]);
 
@@ -17,11 +18,20 @@ export default function Micelanios() {
     "Fftt",
     "Colorimetria",
     "Logistica",
-    "Corte"
+    "Corte",
+    "Sublimado",
+  ];
+
+  const tiposMicelanio = [
+    "Twin",
+    "Logos",
+    "Paneles",
+    "Mangas",
+    "Insert",
   ];
 
   const registrar = () => {
-    if (!codigo || !origen || !destino) {
+    if (!codigo || !origen || !destino || !tipo) {
       setMensaje("⚠ Complete todos los campos");
       return;
     }
@@ -33,10 +43,11 @@ export default function Micelanios() {
 
     const nuevo = {
       codigo,
+      tipo,
       origen,
       destino,
       cantidad,
-      fecha: new Date().toLocaleString()
+      fecha: new Date().toLocaleString(),
     };
 
     setRegistros([nuevo, ...registros]);
@@ -46,6 +57,7 @@ export default function Micelanios() {
     setOrigen("");
     setDestino("");
     setCantidad(1);
+    setTipo("");
   };
 
   return (
@@ -63,6 +75,17 @@ export default function Micelanios() {
             value={codigo}
             onChange={(e) => setCodigo(e.target.value)}
           />
+        </div>
+
+        {/* NUEVO SELECT DE TIPO */}
+        <div className="form-group">
+          <label>Tipo de Micelanio</label>
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="">Seleccione tipo</option>
+            {tiposMicelanio.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
         </div>
 
         <div className="form-row">
@@ -116,6 +139,7 @@ export default function Micelanios() {
           <div key={index} className="hist-card">
             <div className="hist-left">
               <strong>{item.codigo}</strong>
+              <p><b>{item.tipo}</b></p>
               <p>{item.origen} ➜ {item.destino}</p>
             </div>
             <div className="hist-right">

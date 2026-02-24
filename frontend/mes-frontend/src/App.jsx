@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
   Route,
   Navigate,
   Link,
-  Outlet
+  Outlet,
+  useLocation
 } from "react-router-dom";
 
 import Micelanios from "./pages/Micelanios";
@@ -19,70 +20,402 @@ import ScanMovimiento from "./pages/ScanMovimiento";
 import Reportes from "./pages/Reportes";
 import Produccion from "./pages/Produccion";
 import ReporteRH from "./pages/ReporteRH";
+import MaquinasTiempoReal from "./pages/MaquinasTiempoReal";
+import TrazabilidadLotes from "./trazabilidad-dashboard/TrazabilidadLotes";
 
 import "./App.css";
 
 function AppLayout() {
   const [modoOscuro, setModoOscuro] = useState(false);
+  const [sidebarAbierto, setSidebarAbierto] = useState(true);
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [menuFiltrado, setMenuFiltrado] = useState([]);
+  const [mostrarBusqueda, setMostrarBusqueda] = useState(false);
   const hayAtrasosGraves = true;
+  const location = useLocation();
+
+  // Datos del menú para búsqueda
+  const menuItems = [
+    { path: 'dashboard', nombre: 'Dashboard', icono: '📊', categoria: 'GENERAL' },
+    { path: 'atrasos', nombre: 'Atrasos', icono: '⚠️', categoria: 'GENERAL' },
+    { path: 'plan-semanal', nombre: 'Plan Semanal', icono: '📅', categoria: 'OPERACIONES' },
+    { path: 'ordenes', nombre: 'Órdenes', icono: '📋', categoria: 'OPERACIONES' },
+    { path: 'produccion', nombre: 'Producción', icono: '⚙️', categoria: 'OPERACIONES' },
+    { path: 'maquinas', nombre: 'Máquinas Tiempo Real', icono: '🚀', categoria: 'OPERACIONES' },
+    { path: 'trazabilidad', nombre: 'Trazabilidad de Lotes', icono: '📊', categoria: 'OPERACIONES' },
+    { path: 'reporte-rh', nombre: 'Reporte RH', icono: '👥', categoria: 'OPERACIONES' },
+    { path: 'scan', nombre: 'Escaneo', icono: '📱', categoria: 'OPERACIONES' },
+    { path: 'micelanios', nombre: 'Miceláneos', icono: '📦', categoria: 'OPERACIONES' },
+    { path: 'reportes', nombre: 'Reportes', icono: '📈', categoria: 'SISTEMA' },
+    { path: 'configuracion', nombre: 'Configuración', icono: '⚙️', categoria: 'SISTEMA' },
+  ];
+
+  // Simular notificaciones en tiempo real
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (Math.random() > 0.7) {
+        const nuevasNotificaciones = [
+          { id: Date.now(), mensaje: "Nuevo lote escaneado", tipo: "info", tiempo: "ahora" },
+          { id: Date.now() + 1, mensaje: "Producción completada", tipo: "success", tiempo: "ahora" },
+          { id: Date.now() + 2, mensaje: "Alerta en máquina 03", tipo: "warning", tiempo: "ahora" }
+        ];
+        setNotificaciones(prev => [nuevasNotificaciones[Math.floor(Math.random() * 3)], ...prev].slice(0, 4));
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Efecto para búsqueda en menú
+  useEffect(() => {
+    if (busqueda.length > 1) {
+      const filtrados = menuItems.filter(item => 
+        item.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        item.categoria.toLowerCase().includes(busqueda.toLowerCase())
+      );
+      setMenuFiltrado(filtrados);
+      setMostrarBusqueda(true);
+    } else {
+      setMostrarBusqueda(false);
+    }
+  }, [busqueda]);
+
+  const eliminarNotificacion = (id) => {
+    setNotificaciones(prev => prev.filter(n => n.id !== id));
+  };
+
+  const isActive = (path) => {
+    return location.pathname.includes(path);
+  };
+
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path.includes('dashboard')) return 'Dashboard';
+    if (path.includes('atrasos')) return 'Control de Atrasos';
+    if (path.includes('plan-semanal')) return 'Plan Semanal';
+    if (path.includes('ordenes')) return 'Gestión de Órdenes';
+    if (path.includes('produccion')) return 'Producción';
+    if (path.includes('maquinas')) return 'Máquinas en Tiempo Real';
+    if (path.includes('trazabilidad')) return 'Trazabilidad de Lotes';
+    if (path.includes('reporte-rh')) return 'Reporte de Recursos Humanos';
+    if (path.includes('scan')) return 'Escaneo de Movimiento';
+    if (path.includes('micelanios')) return 'Miceláneos';
+    if (path.includes('reportes')) return 'Reportes';
+    if (path.includes('configuracion')) return 'Configuración del Sistema';
+    return 'TEGRA ERP';
+  };
 
   return (
-    <div className={`layout ${modoOscuro ? "dark" : "light"}`}>
+    <div className={`app-container ${modoOscuro ? 'dark' : 'light'}`}>
+      {/* Notificaciones flotantes */}
+      <div className="notificaciones-container">
+        {notificaciones.map(notif => (
+          <div key={notif.id} className={`notificacion-flotante ${notif.tipo}`}>
+            <div className="notif-contenido">
+              <span className="notif-icon">
+                {notif.tipo === 'success' && '✅'}
+                {notif.tipo === 'warning' && '⚠️'}
+                {notif.tipo === 'info' && 'ℹ️'}
+              </span>
+              <div className="notif-texto">
+                <span className="notif-mensaje">{notif.mensaje}</span>
+                <span className="notif-tiempo">{notif.tiempo}</span>
+              </div>
+            </div>
+            <button className="notif-cerrar" onClick={() => eliminarNotificacion(notif.id)}>×</button>
+          </div>
+        ))}
+      </div>
 
-      {/* SIDEBAR */}
-      <div className="sidebar">
-        <div>
-          <div className="logo">TEGRA ERP</div>
+      {/* Botón para colapsar sidebar */}
+      <button 
+        className={`sidebar-toggle ${sidebarAbierto ? 'abierto' : ''}`}
+        onClick={() => setSidebarAbierto(!sidebarAbierto)}
+      >
+        {sidebarAbierto ? '◀' : '▶'}
+      </button>
 
-          <nav>
-
-            {/* GENERAL */}
-            <p className="section-title">GENERAL</p>
-
-            <Link to="dashboard">Dashboard</Link>
-
-            <Link to="atrasos">
-              Atrasos {hayAtrasosGraves && <span style={{ color: "red" }}>●</span>}
-            </Link>
-
-            {/* OPERACIONES */}
-            <p className="section-title">OPERACIONES</p>
-
-            <Link to="plan-semanal">Plan Semanal</Link>
-
-            <Link to="ordenes">Órdenes</Link>
-
-            <Link to="produccion">Producción</Link>
-
-            <Link to="reporte-rh">Reporte RH</Link>
-
-            <Link to="scan">Escaneo</Link>
-
-            <Link to="micelanios">Miceláneos</Link>
-
-            {/* SISTEMA */}
-            <p className="section-title">SISTEMA</p>
-
-            <Link to="reportes">Reportes</Link>
-
-            <Link to="configuracion">Configuración</Link>
-
-          </nav>
+      {/* SIDEBAR MEJORADO */}
+      <div className={`sidebar ${sidebarAbierto ? 'abierto' : 'cerrado'}`}>
+        <div className="sidebar-header">
+          <div className="logo">
+            <span className="logo-icon">⚡</span>
+            <span className="logo-text">TEGRA<span className="logo-highlight">ERP</span></span>
+          </div>
+          <div className="online-indicator">
+            <span className="online-dot"></span>
+            <span className="online-text">Sistema en vivo</span>
+          </div>
         </div>
 
-        <button
-          className="btn-modo"
-          onClick={() => setModoOscuro(!modoOscuro)}
-        >
-          {modoOscuro ? "☀ Claro" : "🌙 Oscuro"}
-        </button>
+        <div className="sidebar-search">
+          <span className="search-icon">🔍</span>
+          <input 
+            type="text" 
+            placeholder="Buscar en menú..." 
+            className="search-input"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            onBlur={() => setTimeout(() => setMostrarBusqueda(false), 200)}
+            onFocus={() => busqueda.length > 1 && setMostrarBusqueda(true)}
+          />
+          
+          {/* Resultados de búsqueda */}
+          {mostrarBusqueda && menuFiltrado.length > 0 && (
+            <div className="search-results">
+              {menuFiltrado.map(item => (
+                <Link 
+                  key={item.path}
+                  to={item.path}
+                  className="search-result-item"
+                  onClick={() => setMostrarBusqueda(false)}
+                >
+                  <span className="result-icon">{item.icono}</span>
+                  <div className="result-info">
+                    <span className="result-nombre">{item.nombre}</span>
+                    <span className="result-categoria">{item.categoria}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <nav className="sidebar-nav">
+          {/* GENERAL */}
+          <div className="nav-section">
+            <div className="section-title">
+              <span className="section-icon">⭐</span>
+              GENERAL
+            </div>
+            <Link 
+              to="dashboard" 
+              className={`nav-link ${isActive('dashboard') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">📊</span>
+              <span className="nav-text">Dashboard</span>
+              {isActive('dashboard') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Vista general</span>
+            </Link>
+
+            <Link 
+              to="atrasos" 
+              className={`nav-link ${isActive('atrasos') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">⚠️</span>
+              <span className="nav-text">Atrasos</span>
+              {hayAtrasosGraves && (
+                <span className="nav-badge grave">
+                  <span className="badge-pulse"></span>
+                  3
+                </span>
+              )}
+              {isActive('atrasos') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Control de atrasos</span>
+            </Link>
+          </div>
+
+          {/* OPERACIONES */}
+          <div className="nav-section">
+            <div className="section-title">
+              <span className="section-icon">⚙️</span>
+              OPERACIONES
+            </div>
+            
+            <Link 
+              to="plan-semanal" 
+              className={`nav-link ${isActive('plan-semanal') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">📅</span>
+              <span className="nav-text">Plan Semanal</span>
+              {isActive('plan-semanal') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Planificación semanal</span>
+            </Link>
+
+            <Link 
+              to="ordenes" 
+              className={`nav-link ${isActive('ordenes') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">📋</span>
+              <span className="nav-text">Órdenes</span>
+              <span className="nav-badge info">12</span>
+              {isActive('ordenes') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Gestión de órdenes</span>
+            </Link>
+
+            <Link 
+              to="produccion" 
+              className={`nav-link ${isActive('produccion') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">⚙️</span>
+              <span className="nav-text">Producción</span>
+              {isActive('produccion') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Línea de producción</span>
+            </Link>
+
+            <Link 
+              to="maquinas" 
+              className={`nav-link ${isActive('maquinas') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">🚀</span>
+              <span className="nav-text">Máquinas Tiempo Real</span>
+              <span className="live-badge-small">LIVE</span>
+              {isActive('maquinas') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Monitoreo en vivo</span>
+            </Link>
+            
+            {/* LINK DESTACADO DE TRAZABILIDAD */}
+            <Link 
+              to="trazabilidad" 
+              className={`nav-link destacado ${isActive('trazabilidad') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">📊</span>
+              <span className="nav-text">Trazabilidad de Lotes</span>
+              <span className="nav-badge nuevo">NUEVO</span>
+              <span className="destacado-glow"></span>
+              {isActive('trazabilidad') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Seguimiento de lotes</span>
+            </Link>
+
+            <Link 
+              to="reporte-rh" 
+              className={`nav-link ${isActive('reporte-rh') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">👥</span>
+              <span className="nav-text">Reporte RH</span>
+              {isActive('reporte-rh') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Recursos humanos</span>
+            </Link>
+
+            <Link 
+              to="scan" 
+              className={`nav-link ${isActive('scan') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">📱</span>
+              <span className="nav-text">Escaneo</span>
+              {isActive('scan') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Escaneo de códigos</span>
+            </Link>
+
+            <Link 
+              to="micelanios" 
+              className={`nav-link ${isActive('micelanios') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">📦</span>
+              <span className="nav-text">Miceláneos</span>
+              {isActive('micelanios') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Productos varios</span>
+            </Link>
+          </div>
+
+          {/* SISTEMA */}
+          <div className="nav-section">
+            <div className="section-title">
+              <span className="section-icon">🔧</span>
+              SISTEMA
+            </div>
+
+            <Link 
+              to="reportes" 
+              className={`nav-link ${isActive('reportes') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">📈</span>
+              <span className="nav-text">Reportes</span>
+              {isActive('reportes') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Informes y análisis</span>
+            </Link>
+
+            <Link 
+              to="configuracion" 
+              className={`nav-link ${isActive('configuracion') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">⚙️</span>
+              <span className="nav-text">Configuración</span>
+              {isActive('configuracion') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Ajustes del sistema</span>
+            </Link>
+          </div>
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-avatar">
+              <span className="avatar-icon">👤</span>
+              <span className="user-status"></span>
+            </div>
+            <div className="user-details">
+              <span className="user-name">Josué Cardona</span>
+              <span className="user-role">Administrador</span>
+            </div>
+          </div>
+
+          <div className="footer-actions">
+            <button
+              className="btn-modo"
+              onClick={() => setModoOscuro(!modoOscuro)}
+              title={modoOscuro ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+            >
+              {modoOscuro ? '☀️' : '🌙'}
+              <span className="btn-text">{modoOscuro ? 'Claro' : 'Oscuro'}</span>
+            </button>
+            
+            <button className="btn-logout" title="Cerrar sesión">
+              <span className="logout-icon">🚪</span>
+            </button>
+          </div>
+
+          <div className="footer-stats">
+            <div className="stat-item">
+              <span className="stat-label">Versión</span>
+              <span className="stat-value">2.5.0</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Sincro</span>
+              <span className="stat-value">{new Date().toLocaleTimeString()}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* CONTENIDO */}
-      <div className="content">
-        <Outlet />
-      </div>
+      {/* CONTENIDO PRINCIPAL MEJORADO */}
+      <div className={`main-content ${sidebarAbierto ? '' : 'expandido'}`}>
+        <div className="content-header">
+          <div className="header-title">
+            <h1>{getPageTitle()}</h1>
+            <p className="header-subtitle">
+              {new Date().toLocaleDateString('es-ES', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
+          </div>
+          <div className="header-actions">
+            <button className="action-btn" title="Notificaciones">
+              <span className="btn-icon">🔔</span>
+              {notificaciones.length > 0 && (
+                <span className="notification-badge">{notificaciones.length}</span>
+              )}
+            </button>
+            <button className="action-btn" title="Mensajes">
+              <span className="btn-icon">💬</span>
+            </button>
+            <button className="action-btn" title="Actividad reciente">
+              <span className="btn-icon">⚡</span>
+            </button>
+            <div className="header-profile">
+              <span className="profile-iniciales">JC</span>
+            </div>
+          </div>
+        </div>
 
+        {/* CONTENIDO DE LA PÁGINA CON SCROLL */}
+        <div className="content-body">
+          <Outlet />
+        </div>
+      </div>
     </div>
   );
 }
@@ -91,12 +424,11 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-
         {/* LOGIN */}
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
 
-        {/* SISTEMA */}
+        {/* SISTEMA PRINCIPAL */}
         <Route path="/" element={<AppLayout />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="atrasos" element={<AtrasosDashboard />} />
@@ -108,9 +440,10 @@ function App() {
           <Route path="reportes" element={<Reportes />} />
           <Route path="produccion" element={<Produccion />} />
           <Route path="reporte-rh" element={<ReporteRH />} />
+          <Route path="maquinas" element={<MaquinasTiempoReal />} />
+          <Route path="trazabilidad" element={<TrazabilidadLotes />} />
           <Route path="*" element={<Navigate to="dashboard" />} />
         </Route>
-
       </Routes>
     </BrowserRouter>
   );

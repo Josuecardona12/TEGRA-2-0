@@ -1,152 +1,235 @@
-import { useState, useEffect, useMemo } from "react";
-import "./AtrasosDashboard.css";
+import React, { useState, useEffect } from 'react';
+import './AtrasosDashboard.css';
 
 export default function AtrasosDashboard() {
-  const [lotes, setLotes] = useState([]);
-  const [ahora, setAhora] = useState(new Date());
-  const [areaFiltro, setAreaFiltro] = useState("Todas");
+  const [filtroArea, setFiltroArea] = useState('todas');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [vista, setVista] = useState('tabla');
+  const [atrasos, setAtrasos] = useState([]);
+  const [estadisticas, setEstadisticas] = useState({
+    graves: 0,
+    medios: 0,
+    leves: 0,
+    total: 0,
+    piezas: 0,
+    dias: 0
+  });
+  const [tiempoActual, setTiempoActual] = useState(new Date());
+  const [actualizando, setActualizando] = useState(false);
 
-  // 🔄 reloj en tiempo real
+  // Datos iniciales
   useEffect(() => {
-    const reloj = setInterval(() => {
-      setAhora(new Date());
-    }, 1000);
-    return () => clearInterval(reloj);
+    const datosIniciales = [
+      { id: 1, lote: 'NK-228', area: 'Empaque', piezas: 1260, dias: 12, horas: 0, estado: 'GRAVE', progreso: 15, cliente: 'Nike' },
+      { id: 2, lote: 'NK-335', area: 'Sublimado', piezas: 1099, dias: 5, horas: 0, estado: 'MEDIO', progreso: 45, cliente: 'Adidas' },
+      { id: 3, lote: 'NK-959', area: 'Corte', piezas: 804, dias: 5, horas: 0, estado: 'MEDIO', progreso: 60, cliente: 'Puma' },
+      { id: 4, lote: 'NK-935', area: 'Empaque', piezas: 562, dias: 1, horas: 0, estado: 'LEVE', progreso: 85, cliente: 'Nike' },
+      { id: 5, lote: 'NK-554', area: 'Estampado', piezas: 750, dias: 8, horas: 0, estado: 'GRAVE', progreso: 20, cliente: 'Adidas' },
+      { id: 6, lote: 'NK-348', area: 'Empaque', piezas: 976, dias: 6, horas: 0, estado: 'MEDIO', progreso: 40, cliente: 'Local' }
+    ];
+    setAtrasos(datosIniciales);
+    calcularEstadisticas(datosIniciales);
   }, []);
 
-  // 🔥 Generar lote aleatorio
-  const generarLote = () => {
-    const areas = ["Sublimado", "Costura", "Empaque", "Corte", "Estampado"];
-    const diasAtraso = Math.floor(Math.random() * 12) + 1;
-
-    return {
-      id: "NK-" + Math.floor(Math.random() * 900 + 100),
-      area: areas[Math.floor(Math.random() * areas.length)],
-      piezas: Math.floor(Math.random() * 2000 + 200),
-      entrega: new Date(Date.now() - diasAtraso * 24 * 60 * 60 * 1000),
-    };
+  // Calcular estadísticas
+  const calcularEstadisticas = (datos) => {
+    setEstadisticas({
+      graves: datos.filter(a => a.estado === 'GRAVE').length,
+      medios: datos.filter(a => a.estado === 'MEDIO').length,
+      leves: datos.filter(a => a.estado === 'LEVE').length,
+      total: datos.length,
+      piezas: datos.reduce((acc, a) => acc + a.piezas, 0),
+      dias: datos.reduce((acc, a) => acc + a.dias, 0)
+    });
   };
 
-  // 🔥 Cargar muchos lotes iniciales
+  // Tiempo real - actualiza cada 5 segundos
   useEffect(() => {
-    const iniciales = [];
-    for (let i = 0; i < 10; i++) {
-      iniciales.push(generarLote());
-    }
-    setLotes(iniciales);
-
-    // 🔄 cada 6 segundos entra uno nuevo
     const intervalo = setInterval(() => {
-      setLotes(prev => [...prev, generarLote()]);
-    }, 6000);
+      setActualizando(true);
+      setTiempoActual(new Date());
+      
+      setAtrasos(prevAtrasos => {
+        const nuevosAtrasos = prevAtrasos.map(item => {
+          if (item.progreso < 100 && Math.random() > 0.7) {
+            const nuevoProgreso = Math.min(100, item.progreso + Math.floor(Math.random() * 5) + 1);
+            return { ...item, progreso: nuevoProgreso };
+          }
+          return item;
+        });
+        
+        calcularEstadisticas(nuevosAtrasos);
+        return nuevosAtrasos;
+      });
+
+      setTimeout(() => setActualizando(false), 500);
+    }, 5000);
 
     return () => clearInterval(intervalo);
   }, []);
 
-  const lotesProcesados = lotes
-    .map(lote => {
-      const diffMs = ahora - lote.entrega;
-      if (diffMs <= 0) return null;
+  // Filtrar datos
+  const atrasosFiltrados = atrasos.filter(item => {
+    if (filtroArea !== 'todas' && item.area !== filtroArea) return false;
+    if (filtroEstado !== 'todos' && item.estado !== filtroEstado) return false;
+    return true;
+  });
 
-      const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const horas = Math.floor(
-        (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-      );
-
-      let estado = "leve";
-      if (dias >= 7) estado = "grave";
-      else if (dias >= 3) estado = "medio";
-
-      return { ...lote, dias, horas, estado };
-    })
-    .filter(Boolean);
-
-  const areas = ["Todas", ...new Set(lotesProcesados.map(l => l.area))];
-
-  const filtrados = useMemo(() => {
-    if (areaFiltro === "Todas") return lotesProcesados;
-    return lotesProcesados.filter(l => l.area === areaFiltro);
-  }, [areaFiltro, lotesProcesados]);
-
-  const atrasosGraves = lotesProcesados.filter(
-    l => l.estado === "grave"
-  ).length;
+  const getEstadoClass = (estado) => {
+    switch(estado) {
+      case 'GRAVE': return 'estado-grave';
+      case 'MEDIO': return 'estado-medio';
+      case 'LEVE': return 'estado-leve';
+      default: return '';
+    }
+  };
 
   return (
-    <div className="dashboard-container">
-      <div className="header">
-        <h1>Dashboard de Atrasos - NIKE</h1>
-        <div className="live-badge">● LIVE</div>
+    <div className="atrasos-dashboard">
+      {/* Header con tiempo real */}
+      <div className="dashboard-header">
+        <div>
+          <h1 className="header-titulo">
+            Control de Atrasos
+            <span className="header-fecha">
+              {tiempoActual.toLocaleDateString('es-ES', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </span>
+          </h1>
+        </div>
+        <div className="header-tiempo-real">
+          <div className={`indicador-tiempo-real ${actualizando ? 'parpadeando' : ''}`}>
+            <span className="punto-tiempo-real"></span>
+            <span className="tiempo-real-texto">EN VIVO</span>
+          </div>
+          <div className="reloj-digital">
+            {tiempoActual.toLocaleTimeString()}
+          </div>
+        </div>
       </div>
 
-      <div className="clock">
-        {ahora.toLocaleString()}
-      </div>
-
-      <div className="kpis">
-        <div className="kpi-card grave-card">
-          <h2>{atrasosGraves}</h2>
-          <p>Atrasos Graves</p>
+      {/* KPI Cards */}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-numero">{estadisticas.graves}</div>
+          <div className="kpi-label">Atrasos Graves</div>
+          <div className="kpi-trend">+2 vs ayer</div>
         </div>
 
-        <div className="kpi-card total-card">
-          <h2>{lotesProcesados.length}</h2>
-          <p>Total Atrasados</p>
+        <div className="kpi-card">
+          <div className="kpi-numero">{estadisticas.medios}</div>
+          <div className="kpi-label">Atrasos Medios</div>
+          <div className="kpi-trend">+1 esta semana</div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-numero">{estadisticas.leves}</div>
+          <div className="kpi-label">Atrasos Leves</div>
+          <div className="kpi-trend">-3 resueltos</div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-numero">{estadisticas.total}</div>
+          <div className="kpi-label">Total Atrasados</div>
+          <div className="kpi-trend">{estadisticas.dias} días</div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-numero">{estadisticas.piezas.toLocaleString()}</div>
+          <div className="kpi-label">Piezas Atrasadas</div>
+          <div className="kpi-trend">Alto impacto</div>
         </div>
       </div>
 
-      <div className="filter-box">
-        <label>Área:</label>
-        <select
-          value={areaFiltro}
-          onChange={e => setAreaFiltro(e.target.value)}
-        >
-          {areas.map(area => (
-            <option key={area}>{area}</option>
-          ))}
-        </select>
+      {/* Filtros */}
+      <div className="filtros-container">
+        <div className="filtros-izquierda">
+          <select 
+            className="filtro-select"
+            value={filtroArea}
+            onChange={(e) => setFiltroArea(e.target.value)}
+          >
+            <option value="todas">Todas las áreas</option>
+            <option value="Empaque">Empaque</option>
+            <option value="Sublimado">Sublimado</option>
+            <option value="Corte">Corte</option>
+            <option value="Estampado">Estampado</option>
+          </select>
+
+          <select 
+            className="filtro-select"
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+          >
+            <option value="todos">Todos los estados</option>
+            <option value="GRAVE">Graves</option>
+            <option value="MEDIO">Medios</option>
+            <option value="LEVE">Leves</option>
+          </select>
+        </div>
+
+        <button className="btn-buscar">
+          Buscar
+        </button>
       </div>
 
-      <div className="table-wrapper">
-        <table>
+      {/* Tabla */}
+      <div className="tabla-container">
+        <table className="tabla-atrasos">
           <thead>
             <tr>
-              <th>Lote</th>
-              <th>Área</th>
-              <th>Piezas</th>
-              <th>Días</th>
-              <th>Horas</th>
-              <th>Estado</th>
-              <th>Progreso</th>
+              <th>LOTE</th>
+              <th>CLIENTE</th>
+              <th>ÁREA</th>
+              <th>PIEZAS</th>
+              <th>DÍAS</th>
+              <th>ESTADO</th>
+              <th>PROGRESO</th>
             </tr>
           </thead>
           <tbody>
-            {filtrados.map(lote => (
-              <tr key={lote.id} className={`row ${lote.estado}`}>
-                <td>{lote.id}</td>
-                <td>{lote.area}</td>
-                <td>{lote.piezas}</td>
-                <td>{lote.dias}</td>
-                <td>{lote.horas}</td>
+            {atrasosFiltrados.map((item) => (
+              <tr key={item.id} className={actualizando ? 'fila-actualizando' : ''}>
+                <td><strong>{item.lote}</strong></td>
+                <td>{item.cliente}</td>
+                <td>{item.area}</td>
+                <td className="numero">{item.piezas.toLocaleString()}</td>
+                <td className="numero">{item.dias}</td>
                 <td>
-                  <span className={`badge ${lote.estado}`}>
-                    {lote.estado.toUpperCase()}
+                  <span className={`estado-badge ${getEstadoClass(item.estado)}`}>
+                    {item.estado}
                   </span>
                 </td>
                 <td>
-                  <div className="barra">
-                    <div
-                      className={`barra-interna ${lote.estado}`}
-                      style={{
-                        width: `${Math.min(lote.dias * 8, 100)}%`,
-                      }}
-                    />
+                  <div className="progreso-container">
+                    <div className="progreso-barra">
+                      <div 
+                        className={`progreso-llenado ${getEstadoClass(item.estado)}`}
+                        style={{ width: `${item.progreso}%` }}
+                      ></div>
+                    </div>
+                    <span className="progreso-texto">{item.progreso}%</span>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Footer */}
+      <div className="dashboard-footer">
+        <div className="info-actualizacion">
+          <span className={`punto-estado ${actualizando ? 'activo' : ''}`}></span>
+          <span>Actualización en tiempo real • cada 5 segundos</span>
+        </div>
+        <div className="total-registros">
+          Mostrando {atrasosFiltrados.length} de {atrasos.length} registros
+        </div>
       </div>
     </div>
   );
