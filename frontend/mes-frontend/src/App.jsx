@@ -22,6 +22,7 @@ import Produccion from "./pages/Produccion";
 import ReporteRH from "./pages/ReporteRH";
 import MaquinasTiempoReal from "./pages/MaquinasTiempoReal";
 import TrazabilidadLotes from "./trazabilidad-dashboard/TrazabilidadLotes";
+import ScanInicio from './pages/ScanInicio';
 
 import "./App.css";
 
