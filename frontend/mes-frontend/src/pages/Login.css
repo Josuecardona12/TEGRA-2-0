@@ -1,120 +1,466 @@
+/* src/pages/Login.css */
+
+/* Importar fuente premium */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Variables premium */
+:root {
+    --primary-1: #4158D0;
+    --primary-2: #C850C0;
+    --primary-3: #FFCC70;
+    --gradient-premium: linear-gradient(135deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);
+    --gradient-subtle: linear-gradient(135deg, rgba(65,88,208,0.1) 0%, rgba(200,80,192,0.1) 100%);
+    --glass-bg: rgba(255, 255, 255, 0.95);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --shadow-hover: 0 30px 60px -12px rgba(65, 88, 208, 0.3);
+    --text-dark: #1e1e2f;
+    --text-light: #6b6b8b;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+}
+
+/* Contenedor principal */
 .login-container {
-  display: flex;
-  height: 100vh;
-  font-family: "Segoe UI", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0b0b1a 0%, #1a1a2f 100%);
+    position: relative;
+    overflow: hidden;
 }
 
-/* PANEL IZQUIERDO */
-.login-left {
-  flex: 1;
-  background: linear-gradient(135deg, #1f3c88, #162e66);
-  color: white;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 80px;
+/* Partículas animadas */
+.particles {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
 }
 
-.login-left h1 {
-  font-size: 42px;
-  margin-bottom: 10px;
+.particle {
+    position: absolute;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-1), var(--primary-2));
+    opacity: 0.15;
+    animation: float 20s infinite ease-in-out;
 }
 
-.login-left p {
-  font-size: 18px;
-  margin-bottom: 10px;
-  opacity: 0.9;
+.particle:nth-child(1) {
+    width: 300px;
+    height: 300px;
+    top: -150px;
+    right: -150px;
+    animation-delay: 0s;
 }
 
-.login-left span {
-  font-size: 14px;
-  opacity: 0.7;
+.particle:nth-child(2) {
+    width: 400px;
+    height: 400px;
+    bottom: -200px;
+    left: -200px;
+    animation-delay: -5s;
+    background: linear-gradient(135deg, var(--primary-2), var(--primary-3));
 }
 
-/* TARJETA */
+.particle:nth-child(3) {
+    width: 200px;
+    height: 200px;
+    top: 30%;
+    left: 10%;
+    animation-delay: -2s;
+}
+
+.particle:nth-child(4) {
+    width: 150px;
+    height: 150px;
+    bottom: 20%;
+    right: 15%;
+    animation-delay: -7s;
+}
+
+.particle:nth-child(5) {
+    width: 250px;
+    height: 250px;
+    top: 10%;
+    right: 20%;
+    animation-delay: -3s;
+}
+
+.particle:nth-child(6) {
+    width: 180px;
+    height: 180px;
+    bottom: 30%;
+    left: 20%;
+    animation-delay: -9s;
+}
+
+.particle:nth-child(7) {
+    width: 280px;
+    height: 280px;
+    top: 40%;
+    right: 30%;
+    animation-delay: -4s;
+}
+
+.particle:nth-child(8) {
+    width: 320px;
+    height: 320px;
+    bottom: 10%;
+    right: 5%;
+    animation-delay: -6s;
+}
+
+.particle:nth-child(9) {
+    width: 220px;
+    height: 220px;
+    top: 15%;
+    left: 25%;
+    animation-delay: -8s;
+}
+
+.particle:nth-child(10) {
+    width: 380px;
+    height: 380px;
+    bottom: 15%;
+    left: 5%;
+    animation-delay: -10s;
+}
+
+/* Tarjeta de login */
 .login-card {
-  flex: 1;
-  background: #f4f7fb;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 80px;
-  animation: fadeIn 0.6s ease-in-out;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 40px;
+    padding: 50px;
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+    z-index: 10;
+    box-shadow: var(--shadow-premium);
+    border: 1px solid var(--glass-border);
+    animation: cardAppear 0.8s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.login-card h2 {
-  margin-bottom: 30px;
-  color: #1f3c88;
+/* Logo flotante */
+.logo-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 30px;
 }
 
+.logo-glow {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--gradient-premium);
+    filter: blur(20px);
+    opacity: 0.6;
+    animation: glowPulse 3s infinite;
+}
+
+.logo {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-premium);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(65, 88, 208, 0.3);
+    animation: logoFloat 6s infinite ease-in-out;
+}
+
+.logo-icon {
+    font-size: 48px;
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.2));
+    animation: iconRotate 10s infinite linear;
+}
+
+/* Texto de bienvenida */
+.welcome-text {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.title {
+    font-size: 42px;
+    font-weight: 800;
+    background: var(--gradient-premium);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+
+.subtitle {
+    color: var(--text-light);
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: 1px;
+}
+
+/* Formulario */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+/* Grupos de input */
 .input-group {
-  margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.input-group label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #374151;
+.input-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 14px;
+    margin-left: 5px;
 }
 
-.input-group input {
-  width: 100%;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  font-size: 14px;
-  transition: 0.2s;
+.label-icon {
+    font-size: 16px;
 }
 
-.input-group input:focus {
-  outline: none;
-  border-color: #1f3c88;
-  box-shadow: 0 0 0 2px rgba(31, 60, 136, 0.15);
+.input-wrapper {
+    position: relative;
 }
 
-button {
-  width: 100%;
-  padding: 12px;
-  background: #1f3c88;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s;
+.premium-input {
+    width: 100%;
+    padding: 18px 20px;
+    border: 2px solid rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    transition: all 0.3s ease;
+    outline: none;
+    color: var(--text-dark);
+    font-weight: 500;
 }
 
-button:hover {
-  background: #162e66;
+.premium-input:focus {
+    border-color: transparent;
+    background: white;
+    box-shadow: 0 5px 20px rgba(65, 88, 208, 0.15);
 }
 
-button:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
+.input-border {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: var(--gradient-premium);
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+    border-radius: 2px;
 }
 
-.error {
-  color: #dc2626;
-  font-size: 13px;
-  margin-bottom: 10px;
+.premium-input:focus ~ .input-border {
+    width: 80%;
 }
 
-.footer-text {
-  margin-top: 30px;
-  font-size: 12px;
-  color: #6b7280;
-  text-align: center;
+/* Botón premium */
+.premium-button {
+    position: relative;
+    padding: 18px 30px;
+    border: none;
+    border-radius: 25px;
+    background: var(--gradient-premium);
+    color: white;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    box-shadow: 0 10px 30px rgba(65, 88, 208, 0.3);
 }
 
-/* Animación */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+.premium-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px rgba(65, 88, 208, 0.4);
+}
+
+.premium-button:active {
+    transform: translateY(0);
+}
+
+.button-text {
+    position: relative;
+    z-index: 2;
+}
+
+.button-icon {
+    position: relative;
+    z-index: 2;
+    font-size: 20px;
+    transition: transform 0.3s ease;
+}
+
+.premium-button:hover .button-icon {
+    transform: translateX(5px);
+}
+
+.button-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 150%;
+    height: 150%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.5s ease;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.premium-button:hover .button-glow {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* Badge demo */
+.demo-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(65,88,208,0.05) 0%, rgba(200,80,192,0.05) 100%);
+    border-radius: 40px;
+    color: var(--text-dark);
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid rgba(65,88,208,0.1);
+    margin-top: 5px;
+}
+
+.demo-icon {
+    font-size: 16px;
+    animation: spin 3s infinite linear;
+}
+
+/* Footer */
+.login-footer {
+    margin-top: 30px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+/* Animaciones */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-30px) rotate(5deg);
+    }
+}
+
+@keyframes cardAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes glowPulse {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.2);
+    }
+}
+
+@keyframes logoFloat {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes iconRotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .login-card {
+        padding: 30px 20px;
+        margin: 20px;
+        border-radius: 30px;
+    }
+    
+    .title {
+        font-size: 32px;
+    }
+    
+    .logo-container {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .logo-icon {
+        font-size: 38px;
+    }
+    
+    .premium-input {
+        padding: 15px 18px;
+    }
+    
+    .premium-button {
+        padding: 15px 25px;
+        font-size: 16px;
+    }
 }

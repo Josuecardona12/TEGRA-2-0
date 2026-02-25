@@ -36,7 +36,6 @@
   align-items: center;
   gap: 12px;
 }
-
 .title-icon {
   font-size: 40px;
   background: var(--primary-bg);

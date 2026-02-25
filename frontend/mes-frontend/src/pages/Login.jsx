@@ -1,66 +1,110 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import "./Login.css";
+// src/pages/Login.jsx
+import React, { useState } from 'react';
+import './Login.css';
 
-export default function Login() {
-  const [usuario, setUsuario] = useState("");
-  const [password, setPassword] = useState("");
-  const navigate = useNavigate();
+function Login() {
+    const [form, setForm] = useState({
+        usuario: '',
+        password: ''
+    });
 
-  const handleLogin = (e) => {
-    e.preventDefault();
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        // Directo al dashboard sin validar nada
+        window.location.href = '/dashboard';
+    };
 
-    // LOGIN DEMO → entra siempre
-    if (usuario && password) {
-      navigate("/dashboard");
-    }
-  };
+    return (
+        <div className="login-container">
+            {/* Fondo con partículas */}
+            <div className="particles">
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+            </div>
 
-  return (
-    <div className="login-container">
+            {/* Tarjeta de login */}
+            <div className="login-card">
+                {/* Logo flotante */}
+                <div className="logo-container">
+                    <div className="logo-glow"></div>
+                    <div className="logo">
+                        <span className="logo-icon">🏭</span>
+                    </div>
+                </div>
 
-      <div className="login-left">
-        <h1>TEGRA ERP</h1>
-        <p>Sistema de Gestión Industrial</p>
-        <span>Demo Mode</span>
-      </div>
+                {/* Texto de bienvenida */}
+                <div className="welcome-text">
+                    <h1 className="title">ERP Gestión</h1>
+                    <p className="subtitle">Panel de Control</p>
+                </div>
 
-      <div className="login-card">
-        <h2>Iniciar Sesión</h2>
+                {/* Formulario */}
+                <form onSubmit={handleSubmit} className="login-form">
+                    {/* Campo usuario con diseño premium */}
+                    <div className="input-group">
+                        <label className="input-label">
+                            <span className="label-icon">👤</span>
+                            <span>Usuario</span>
+                        </label>
+                        <div className="input-wrapper">
+                            <input
+                                type="text"
+                                value={form.usuario}
+                                onChange={(e) => setForm({...form, usuario: e.target.value})}
+                                placeholder="admin"
+                                className="premium-input"
+                            />
+                            <div className="input-border"></div>
+                        </div>
+                    </div>
 
-        <form onSubmit={handleLogin}>
+                    {/* Campo contraseña con diseño premium */}
+                    <div className="input-group">
+                        <label className="input-label">
+                            <span className="label-icon">🔒</span>
+                            <span>Contraseña</span>
+                        </label>
+                        <div className="input-wrapper">
+                            <input
+                                type="password"
+                                value={form.password}
+                                onChange={(e) => setForm({...form, password: e.target.value})}
+                                placeholder="••••••••"
+                                className="premium-input"
+                            />
+                            <div className="input-border"></div>
+                        </div>
+                    </div>
 
-          <div className="input-group">
-            <label>Usuario</label>
-            <input
-              type="text"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              required
-            />
-          </div>
+                    {/* Botón premium */}
+                    <button type="submit" className="premium-button">
+                        <span className="button-text">Iniciar Sesión</span>
+                        <span className="button-icon">→</span>
+                        <div className="button-glow"></div>
+                    </button>
 
-          <div className="input-group">
-            <label>Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+                    {/* Mensaje demo */}
+                    <div className="demo-badge">
+                        <span className="demo-icon">⚡</span>
+                        <span>Acceso directo - Sin credenciales</span>
+                    </div>
+                </form>
 
-          <button type="submit">
-            Entrar
-          </button>
-
-        </form>
-
-        <p style={{ marginTop: "10px", fontSize: "12px", opacity: 0.6 }}>
-          Demo sin autenticación
-        </p>
-      </div>
-
-    </div>
-  );
+                {/* Footer */}
+                <div className="login-footer">
+                    <p>© 2024 ERP Gestión. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </div>
+    );
 }
+
+export default Login;
