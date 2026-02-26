@@ -32,7 +32,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
         { 
           id: '1002', 
           codigo: '1002', 
-          tipo: 'Twin', 
+          tipo: 'Twill', 
           areaOrigen: 'Corte', 
           areaDestino: 'Producción', 
           cantidad: 1, 
@@ -141,7 +141,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
   ]);
 
   const tiposMicelanio = [
-    'Twin',
+    'Twill',
     'Logos',
     'Paneles',
     'Mangas',
