@@ -1,665 +1,893 @@
-import React, { useState, useEffect } from 'react';
-import './MaquinasTiempoReal.css';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import "./MaquinasTiempoReal.css";
 
 const MaquinasTiempoReal = () => {
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [vista, setVista] = useState('grid'); // grid, lista, detalle
-  const [filtro, setFiltro] = useState('todas');
-  const [busqueda, setBusqueda] = useState('');
+  // ================ ESTADOS PRINCIPALES ================
+  const [loteEscaneado, setLoteEscaneado] = useState("");
+  const [loteActivo, setLoteActivo] = useState(null);
+  const [lotesEnProduccion, setLotesEnProduccion] = useState([]);
+  const [lotesFinalizados, setLotesFinalizados] = useState([]);
+  const [historialCompleto, setHistorialCompleto] = useState([]);
+  const [escaneando, setEscaneando] = useState(false);
+  const [turnoActual, setTurnoActual] = useState("");
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [busquedaMaquina, setBusquedaMaquina] = useState("");
+  const [vistaActiva, setVistaActiva] = useState("produccion");
+  const [filtroHistorial, setFiltroHistorial] = useState("todos");
+  const [modalCrearLote, setModalCrearLote] = useState(false);
+  const [modoOscuro, setModoOscuro] = useState(false);
+  const [vistaCompacta, setVistaCompacta] = useState(false);
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState(null);
-  const [modoEdicion, setModoEdicion] = useState(false);
-  const [notificacion, setNotificacion] = useState({ mostrar: false, mensaje: '', tipo: '' });
-
-  const [maquinas, setMaquinas] = useState([
-    { 
-      id: 1, 
-      nombre: 'Plotter HP Z6800', 
-      tipo: 'Plotter', 
-      estado: 'operando', 
-      eficiencia: 92, 
-      tiempo: '02:15:30',
-      temperatura: 42,
-      velocidad: 85,
-      produccion: 145,
-      alertas: 0,
-      operador: 'Carlos López',
-      ultimoMantenimiento: '15/02/2026',
-      proximoMantenimiento: '15/03/2026'
-    },
-    { 
-      id: 2, 
-      nombre: 'Sublimadora Epson F950', 
-      tipo: 'Sublimadora', 
-      estado: 'operando', 
-      eficiencia: 88, 
-      tiempo: '01:45:22',
-      temperatura: 38,
-      velocidad: 92,
-      produccion: 98,
-      alertas: 1,
-      operador: 'María González',
-      ultimoMantenimiento: '10/02/2026',
-      proximoMantenimiento: '10/03/2026'
-    },
-    { 
-      id: 3, 
-      nombre: 'Cortadora Zund G3', 
-      tipo: 'Corte', 
-      estado: 'pausada', 
-      eficiencia: 76, 
-      tiempo: '00:30:15',
-      temperatura: 35,
-      velocidad: 0,
-      produccion: 67,
-      alertas: 2,
-      operador: 'Pedro Ramírez',
-      ultimoMantenimiento: '05/02/2026',
-      proximoMantenimiento: '05/03/2026'
-    },
-    { 
-      id: 4, 
-      nombre: 'Impresora Durst Rho', 
-      tipo: 'Impresora', 
-      estado: 'mantenimiento', 
-      eficiencia: 0, 
-      tiempo: '00:00:00',
-      temperatura: 0,
-      velocidad: 0,
-      produccion: 0,
-      alertas: 3,
-      operador: 'Técnico',
-      ultimoMantenimiento: '20/02/2026',
-      proximoMantenimiento: '20/03/2026'
-    },
-    { 
-      id: 5, 
-      nombre: 'Plancha Monti Antonio', 
-      tipo: 'Plancha', 
-      estado: 'operando', 
-      eficiencia: 95, 
-      tiempo: '03:22:10',
-      temperatura: 180,
-      velocidad: 75,
-      produccion: 210,
-      alertas: 0,
-      operador: 'Juan Pérez',
-      ultimoMantenimiento: '12/02/2026',
-      proximoMantenimiento: '12/03/2026'
-    },
-    { 
-      id: 6, 
-      nombre: 'Plotter Mimaki', 
-      tipo: 'Plotter', 
-      estado: 'operando', 
-      eficiencia: 84, 
-      tiempo: '01:10:05',
-      temperatura: 41,
-      velocidad: 78,
-      produccion: 89,
-      alertas: 0,
-      operador: 'Ana Martínez',
-      ultimoMantenimiento: '08/02/2026',
-      proximoMantenimiento: '08/03/2026'
-    },
-    { 
-      id: 7, 
-      nombre: 'Sublimadora Sawgrass', 
-      tipo: 'Sublimadora', 
-      estado: 'operando', 
-      eficiencia: 90, 
-      tiempo: '02:30:45',
-      temperatura: 39,
-      velocidad: 88,
-      produccion: 156,
-      alertas: 1,
-      operador: 'Roberto Díaz',
-      ultimoMantenimiento: '14/02/2026',
-      proximoMantenimiento: '14/03/2026'
-    },
-    { 
-      id: 8, 
-      nombre: 'Cortadora Kongsberg', 
-      tipo: 'Corte', 
-      estado: 'inactiva', 
-      eficiencia: 0, 
-      tiempo: '00:00:00',
-      temperatura: 22,
-      velocidad: 0,
-      produccion: 0,
-      alertas: 0,
-      operador: 'Sin asignar',
-      ultimoMantenimiento: '01/02/2026',
-      proximoMantenimiento: '01/03/2026'
-    },
-  ]);
-
-  // Actualizar tiempos
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-      actualizarTiempos();
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
-
-  const actualizarTiempos = () => {
-    setMaquinas(prev => prev.map(maq => {
-      if (maq.estado === 'operando') {
-        const tiempo = maq.tiempo.split(':');
-        let horas = parseInt(tiempo[0]);
-        let minutos = parseInt(tiempo[1]);
-        let segundos = parseInt(tiempo[2]) + 1;
-        
-        if (segundos >= 60) {
-          segundos = 0;
-          minutos += 1;
-        }
-        if (minutos >= 60) {
-          minutos = 0;
-          horas += 1;
-        }
-        
-        const nuevoTiempo = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
-        
-        // Simular cambios en eficiencia
-        const variacion = (Math.random() * 2 - 1) * 0.5;
-        const nuevaEficiencia = Math.min(100, Math.max(0, maq.eficiencia + variacion));
-        
-        return { ...maq, tiempo: nuevoTiempo, eficiencia: Math.round(nuevaEficiencia * 10) / 10 };
-      }
-      return maq;
-    }));
-  };
-
-  const mostrarNotificacion = (mensaje, tipo) => {
-    setNotificacion({ mostrar: true, mensaje, tipo });
-    setTimeout(() => setNotificacion({ mostrar: false, mensaje: '', tipo: '' }), 3000);
-  };
-
-  const cambiarEstadoMaquina = (id, nuevoEstado) => {
-    setMaquinas(prev => prev.map(maq => 
-      maq.id === id ? { ...maq, estado: nuevoEstado } : maq
-    ));
-    mostrarNotificacion(`Estado de máquina actualizado a ${nuevoEstado}`, 'exito');
-  };
-
-  const iniciarMantenimiento = (id) => {
-    setMaquinas(prev => prev.map(maq => 
-      maq.id === id ? { ...maq, estado: 'mantenimiento', tiempo: '00:00:00' } : maq
-    ));
-    mostrarNotificacion('Mantenimiento iniciado', 'info');
-  };
-
-  const detenerEmergencia = (id) => {
-    setMaquinas(prev => prev.map(maq => 
-      maq.id === id ? { ...maq, estado: 'inactiva', tiempo: '00:00:00' } : maq
-    ));
-    mostrarNotificacion('¡Parada de emergencia activada!', 'error');
-  };
-
-  const reiniciarMaquina = (id) => {
-    setMaquinas(prev => prev.map(maq => 
-      maq.id === id ? { ...maq, estado: 'operando', tiempo: '00:00:00' } : maq
-    ));
-    mostrarNotificacion('Máquina reiniciada', 'exito');
-  };
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).replace(/^\w/, c => c.toUpperCase());
-  };
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
-  // Estadísticas
-  const stats = {
-    total: maquinas.length,
-    operando: maquinas.filter(m => m.estado === 'operando').length,
-    pausadas: maquinas.filter(m => m.estado === 'pausada').length,
-    mantenimiento: maquinas.filter(m => m.estado === 'mantenimiento').length,
-    inactivas: maquinas.filter(m => m.estado === 'inactiva').length,
-    eficiencia: Math.round(maquinas.filter(m => m.estado === 'operando').reduce((sum, m) => sum + m.eficiencia, 0) / 
-      (maquinas.filter(m => m.estado === 'operando').length || 1)),
-    produccionTotal: maquinas.reduce((sum, m) => sum + m.produccion, 0),
-    alertasTotal: maquinas.reduce((sum, m) => sum + m.alertas, 0)
-  };
-
-  // Filtrar máquinas
-  const maquinasFiltradas = maquinas.filter(maq => {
-    if (filtro !== 'todas' && maq.estado !== filtro) return false;
-    if (busqueda && !maq.nombre.toLowerCase().includes(busqueda.toLowerCase()) && 
-        !maq.tipo.toLowerCase().includes(busqueda.toLowerCase())) return false;
-    return true;
+  const [nuevoLoteForm, setNuevoLoteForm] = useState({
+    codigo: "",
+    cliente: "",
+    producto: "",
+    cantidadTotal: 0,
+    prioridad: "Media",
+    area: "Sublimado"
   });
 
-  const getEstadoColor = (estado) => {
-    switch(estado) {
-      case 'operando': return '#4caf50';
-      case 'pausada': return '#ff9800';
-      case 'mantenimiento': return '#f44336';
-      case 'inactiva': return '#9e9e9e';
-      default: return '#999';
+  // Estadísticas en tiempo real
+  const [estadisticas, setEstadisticas] = useState({
+    lotesActivos: 0,
+    lotesCompletados: 0,
+    piezasProcesadas: 0,
+    piezasTotales: 0,
+    eficienciaGlobal: 0,
+    tiempoPromedio: "00:00:00",
+    piezasPorHora: 0,
+    productividad: 0,
+    lotesRetrasados: 0,
+    tiempoReal: new Date().toLocaleTimeString()
+  });
+
+  const inputRef = useRef(null);
+  const intervalRef = useRef(null);
+
+  // ================ DETECTAR TURNO ================
+  useEffect(() => {
+    const hora = new Date().getHours();
+    if (hora >= 6 && hora < 14) {
+      setTurnoActual("🌅 MATUTINO");
+    } else if (hora >= 14 && hora < 22) {
+      setTurnoActual("☀️ VESPERTINO");
+    } else {
+      setTurnoActual("🌙 NOCTURNO");
+    }
+  }, []);
+
+  // ================ MÁQUINAS PREMIUM CON HISTORIAL ================
+  const [maquinas, setMaquinas] = useState([
+    {
+      id: "plot-001",
+      nombre: "PLOTTER",
+      icono: "🖨️",
+      tipo: "Impresión",
+      estado: "disponible",
+      temperatura: 85,
+      eficiencia: 92,
+      color: "#10b981",
+      colorSecundario: "#34d399",
+      loteActual: null,
+      velocidad: 1800,
+      operador: "Carlos R.",
+      ultimoMantenimiento: "2026-02-15",
+      produccionHoy: 1245,
+      historial: [] // Array para guardar lotes procesados
+    },
+    {
+      id: "sub-001",
+      nombre: "SUBLIMADORA 1",
+      icono: "🎨",
+      tipo: "Sublimado",
+      estado: "disponible",
+      temperatura: 92,
+      eficiencia: 88,
+      color: "#f97316",
+      colorSecundario: "#fb923c",
+      loteActual: null,
+      velocidad: 2100,
+      operador: "María G.",
+      ultimoMantenimiento: "2026-02-10",
+      produccionHoy: 2341,
+      historial: []
+    },
+    {
+      id: "cor-001",
+      nombre: "Sublimado 2",
+      icono: "🎨",
+      tipo: "Sublimado",
+      estado: "disponible",
+      temperatura: 0,
+      eficiencia: 95,
+      color: "#3b82f6",
+      colorSecundario: "#60a5fa",
+      loteActual: null,
+      velocidad: 1500,
+      operador: "Juan P.",
+      ultimoMantenimiento: "2026-02-18",
+      produccionHoy: 876,
+      historial: []
+    }
+  ]);
+
+  // ================ LOTES DB PREMIUM ================
+  const [lotesDB, setLotesDB] = useState([
+    {
+      id: "LOTE-001",
+      codigo: "NK-137",
+      cliente: "NIKE SPORTSWEAR",
+      clienteIcono: "👟",
+      producto: "CAMISETA DRI-FIT",
+      cantidadTotal: 1500,
+      cantidadProcesada: 0,
+      prioridad: "ALTA",
+      estado: "pendiente",
+      area: "Sublimado",
+      operador: "Carlos",
+      eficiencia: 0,
+      escaneos: 0,
+      fechaCreacion: "2026-02-27",
+      horaCreacion: "08:30"
+    },
+    {
+      id: "LOTE-002",
+      codigo: "NK-79",
+      cliente: "NIKE RUNNING",
+      clienteIcono: "🏃",
+      producto: "SHORT DEPORTIVO",
+      cantidadTotal: 600,
+      cantidadProcesada: 0,
+      prioridad: "MEDIA",
+      estado: "pendiente",
+      area: "Sublimado",
+      operador: "María",
+      eficiencia: 0,
+      escaneos: 0,
+      fechaCreacion: "2026-02-27",
+      horaCreacion: "09:15"
+    },
+    {
+      id: "LOTE-003",
+      codigo: "NK-1002",
+      cliente: "NIKE SB",
+      clienteIcono: "🛹",
+      producto: "Run",
+      cantidadTotal: 1502,
+      cantidadProcesada: 0,
+      prioridad: "MEDIA",
+      estado: "pendiente",
+      area: "Sublimado",
+      operador: "Juan",
+      eficiencia: 0,
+      escaneos: 0,
+      fechaCreacion: "2026-02-27",
+      horaCreacion: "10:00"
+    },
+    {
+      id: "LOTE-004",
+      codigo: "NK-73",
+      cliente: "NIKE ACG",
+      clienteIcono: "🏔️",
+      producto: "CHAQUETA",
+      cantidadTotal: 280,
+      cantidadProcesada: 0,
+      prioridad: "BAJA",
+      estado: "pendiente",
+      area: "Sublimado",
+      operador: "Ana",
+      eficiencia: 0,
+      escaneos: 0,
+      fechaCreacion: "2026-02-27",
+      horaCreacion: "11:30"
+    }
+  ]);
+
+  // ================ ENFOCAR INPUT ================
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  // ================ ACTUALIZACIÓN EN TIEMPO REAL (100ms) ================
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      actualizarProduccion();
+      actualizarEstadisticas();
+      setEstadisticas(prev => ({
+        ...prev,
+        tiempoReal: new Date().toLocaleTimeString()
+      }));
+    }, 100);
+
+    return () => clearInterval(intervalRef.current);
+  }, [lotesEnProduccion]);
+
+  // ================ ACTUALIZAR PRODUCCIÓN ================
+  const actualizarProduccion = useCallback(() => {
+    setLotesEnProduccion(prev => 
+      prev.map(lote => {
+        if (lote.estado !== "en_produccion" || !lote.maquinaId) return lote;
+        
+        const variacion = 0.9 + (Math.random() * 0.2);
+        const incremento = (lote.velocidadProduccion || 5) * variacion;
+        
+        const nuevaCantidad = Math.min(
+          lote.cantidadProcesada + incremento,
+          lote.cantidadTotal
+        );
+        
+        const tiempoTranscurrido = Math.floor((new Date() - new Date(lote.horaInicio)) / 1000);
+        const horas = Math.floor(tiempoTranscurrido / 3600);
+        const minutos = Math.floor((tiempoTranscurrido % 3600) / 60);
+        const segundos = tiempoTranscurrido % 60;
+        
+        const progreso = (nuevaCantidad / lote.cantidadTotal) * 100;
+        
+        const piezasPorHora = tiempoTranscurrido > 0 
+          ? Math.round((nuevaCantidad / tiempoTranscurrido) * 3600)
+          : 0;
+
+        return {
+          ...lote,
+          cantidadProcesada: nuevaCantidad,
+          tiempoActual: `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`,
+          progreso: progreso.toFixed(1),
+          piezasPorHora
+        };
+      })
+    );
+  }, []);
+
+  // ================ ACTUALIZAR ESTADÍSTICAS ================
+  const actualizarEstadisticas = useCallback(() => {
+    const totalPiezas = lotesEnProduccion.reduce((acc, l) => acc + l.cantidadProcesada, 0);
+    const totalPiezasFinalizadas = lotesFinalizados.reduce((acc, l) => acc + l.cantidadProcesada, 0);
+    const piezasPorHora = lotesEnProduccion.reduce((acc, l) => acc + (l.piezasPorHora || 0), 0);
+    
+    setEstadisticas(prev => ({
+      ...prev,
+      lotesActivos: lotesEnProduccion.length,
+      lotesCompletados: lotesFinalizados.length,
+      piezasProcesadas: Math.round(totalPiezas + totalPiezasFinalizadas),
+      piezasTotales: lotesDB.reduce((acc, l) => acc + l.cantidadTotal, 0),
+      piezasPorHora: Math.round(piezasPorHora)
+    }));
+  }, [lotesEnProduccion, lotesFinalizados, lotesDB]);
+
+  // ================ PROCESAR ESCANEO - DOBLE FUNCIÓN CORREGIDA ================
+  const procesarEscaneo = (codigo) => {
+    if (!codigo || codigo.trim() === "") {
+      agregarNotificacion("⚠️ Ingrese un código válido", "warning");
+      return;
+    }
+
+    const codigoLimpio = codigo.trim().toUpperCase();
+
+    // 1️⃣ SI YA ESTÁ EN PRODUCCIÓN → SEGUNDO ESCANEO: FINALIZAR
+    const loteEnProduccion = lotesEnProduccion.find(l => l.codigo === codigoLimpio);
+    
+    if (loteEnProduccion) {
+      finalizarLote(loteEnProduccion.idProduccion);
+      setLoteEscaneado("");
+      setTimeout(() => inputRef.current?.focus(), 100);
+      return;
+    }
+
+    // 2️⃣ SI ESTÁ PENDIENTE → PRIMER ESCANEO: INICIAR
+    const lotePendiente = lotesDB.find(l => l.codigo === codigoLimpio && l.estado === "pendiente");
+    
+    if (lotePendiente) {
+      iniciarNuevoLote(lotePendiente);
+      setLoteEscaneado("");
+      setTimeout(() => inputRef.current?.focus(), 100);
+      return;
+    }
+
+    // 3️⃣ SI YA FUE FINALIZADO → MOSTRAR DETALLE
+    const loteFinalizado = lotesFinalizados.find(l => l.codigo === codigoLimpio);
+    
+    if (loteFinalizado) {
+      setLoteActivo(loteFinalizado);
+      setEscaneando(true);
+      agregarNotificacion(`📋 Mostrando detalle de ${codigoLimpio}`, "info");
+      setLoteEscaneado("");
+      setTimeout(() => inputRef.current?.focus(), 100);
+      return;
+    }
+
+    // 4️⃣ NO EXISTE
+    agregarNotificacion(`❌ Lote ${codigoLimpio} no encontrado`, "error");
+    setLoteEscaneado("");
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  // ================ INICIAR NUEVO LOTE ================
+  const iniciarNuevoLote = (lote) => {
+    const maquinasDisponibles = maquinas.filter(m => m.estado === "disponible");
+    
+    const nuevoLoteProduccion = {
+      ...lote,
+      idProduccion: `PROD-${Date.now()}`,
+      horaInicio: new Date(),
+      horaInicioStr: new Date().toLocaleTimeString(),
+      turno: turnoActual,
+      maquinaId: null,
+      maquinaAsignada: null,
+      tiempoActual: "00:00:00",
+      progreso: "0.0",
+      cantidadProcesada: 0,
+      piezasPorHora: 0,
+      escaneos: 1,
+      estado: "en_produccion",
+      velocidadProduccion: 5,
+      color: `hsl(${Math.random() * 360}, 70%, 60%)`
+    };
+    
+    setLotesEnProduccion(prev => [...prev, nuevoLoteProduccion]);
+    setLoteActivo(nuevoLoteProduccion);
+    setEscaneando(true);
+    
+    setLotesDB(prev =>
+      prev.map(l =>
+        l.codigo === lote.codigo
+          ? { ...l, estado: "en_produccion" }
+          : l
+      )
+    );
+
+    setHistorialCompleto(prev => [{
+      id: Date.now(),
+      tipo: "INICIO_LOTE",
+      lote: lote.codigo,
+      timestamp: new Date().toLocaleString()
+    }, ...prev]);
+
+    agregarNotificacion(`🚀 Lote ${lote.codigo} iniciado`, "success");
+    
+    if (maquinasDisponibles.length > 0) {
+      setTimeout(() => {
+        agregarNotificacion(`💡 Hay ${maquinasDisponibles.length} máquina(s) disponible(s)`, "info");
+      }, 1500);
     }
   };
 
-  const getEstadoTexto = (estado) => {
-    switch(estado) {
-      case 'operando': return 'Operando';
-      case 'pausada': return 'Pausada';
-      case 'mantenimiento': return 'Mantenimiento';
-      case 'inactiva': return 'Inactiva';
-      default: return estado;
+  // ================ FINALIZAR LOTE - CORREGIDO (SIN PANTALLAZO) ================
+  const finalizarLote = (loteId) => {
+    const lote = lotesEnProduccion.find(l => l.idProduccion === loteId);
+    if (!lote) return;
+
+    const cantidadFinal = Math.round(lote.cantidadProcesada);
+    const eficiencia = ((cantidadFinal / lote.cantidadTotal) * 100).toFixed(1);
+
+    const loteFinalizado = {
+      ...lote,
+      cantidadProcesada: cantidadFinal,
+      horaFin: new Date().toLocaleTimeString(),
+      tiempoTotal: lote.tiempoActual,
+      eficienciaFinal: eficiencia,
+      estado: "finalizado"
+    };
+
+    // Si tenía máquina asignada, guardar en su historial
+    if (lote.maquinaId) {
+      setMaquinas(prev =>
+        prev.map(m => {
+          if (m.id === lote.maquinaId) {
+            const nuevoHistorial = [
+              ...m.historial,
+              {
+                lote: lote.codigo,
+                cliente: lote.cliente,
+                cantidad: cantidadFinal,
+                total: lote.cantidadTotal,
+                eficiencia: eficiencia,
+                tiempo: lote.tiempoActual,
+                fecha: new Date().toLocaleString()
+              }
+            ];
+            return {
+              ...m,
+              estado: "disponible",
+              loteActual: null,
+              produccionHoy: m.produccionHoy + cantidadFinal,
+              historial: nuevoHistorial
+            };
+          }
+          return m;
+        })
+      );
     }
+
+    setLotesFinalizados(prev => [loteFinalizado, ...prev]);
+    setLotesEnProduccion(prev => prev.filter(l => l.idProduccion !== loteId));
+
+    setHistorialCompleto(prev => [{
+      id: Date.now(),
+      tipo: "FINALIZACION",
+      lote: lote.codigo,
+      timestamp: new Date().toLocaleString()
+    }, ...prev]);
+
+    // MOSTRAR DETALLE AUTOMÁTICAMENTE
+    setLoteActivo(loteFinalizado);
+    setEscaneando(true);
+
+    agregarNotificacion(`🎉 Lote ${lote.codigo} finalizado - ${eficiencia}%`, "success");
+  };
+
+  // ================ ASIGNAR MÁQUINA ================
+  const asignarMaquina = (loteId, maquinaId, event) => {
+    if (event) event.stopPropagation();
+    
+    const maquina = maquinas.find(m => m.id === maquinaId);
+    const lote = lotesEnProduccion.find(l => l.idProduccion === loteId);
+    
+    if (!maquina || maquina.estado !== "disponible" || !lote) {
+      agregarNotificacion(`❌ No se puede asignar la máquina`, "error");
+      return;
+    }
+
+    setLotesEnProduccion(prev =>
+      prev.map(l =>
+        l.idProduccion === loteId
+          ? {
+              ...l,
+              maquinaId: maquinaId,
+              maquinaAsignada: maquina.nombre,
+              operadorAsignado: maquina.operador,
+              velocidadProduccion: maquina.velocidad / 360,
+              color: maquina.color
+            }
+          : l
+      )
+    );
+
+    setMaquinas(prev =>
+      prev.map(m =>
+        m.id === maquinaId
+          ? { ...m, estado: "ocupada", loteActual: loteId }
+          : m
+      )
+    );
+
+    agregarNotificacion(`⚡ Máquina ${maquina.nombre} asignada`, "success");
+  };
+
+  // ================ VER HISTORIAL DE MÁQUINA ================
+  const verHistorialMaquina = (maquina) => {
+    setMaquinaSeleccionada(maquina);
+  };
+
+  // ================ GENERAR LOTE ALEATORIO ================
+  const generarLoteAleatorio = () => {
+    const clientes = ["NIKE", "ADIDAS", "PUMA", "UNDER ARMOUR", "THE NORTH FACE"];
+    const productos = ["CAMISETA", "PANTALÓN", "SHORT", "GORRA", "CHAQUETA", "SUDADERA"];
+    const areas = ["Sublimado", "Costura", "Corte", "Empaque", "Bordado"];
+    const prioridades = ["ALTA", "MEDIA", "BAJA"];
+    const iconos = ["👟", "🏃", "⚽", "🎽", "🧥"];
+    
+    const codigo = `NK-${Math.floor(Math.random() * 9000 + 1000)}`;
+    const clienteIndex = Math.floor(Math.random() * clientes.length);
+    
+    const nuevoLote = {
+      id: `LOTE-${Date.now()}`,
+      codigo: codigo,
+      cliente: clientes[clienteIndex],
+      clienteIcono: iconos[clienteIndex % iconos.length],
+      producto: productos[Math.floor(Math.random() * productos.length)],
+      cantidadTotal: Math.floor(Math.random() * 2000) + 500,
+      cantidadProcesada: 0,
+      prioridad: prioridades[Math.floor(Math.random() * prioridades.length)],
+      estado: "pendiente",
+      area: areas[Math.floor(Math.random() * areas.length)],
+      operador: "Pendiente",
+      eficiencia: 0,
+      escaneos: 0,
+      fechaCreacion: new Date().toLocaleDateString(),
+      horaCreacion: new Date().toLocaleTimeString()
+    };
+    
+    setLotesDB(prev => [nuevoLote, ...prev]);
+    agregarNotificacion(`✨ Lote ${codigo} generado`, "success");
+  };
+
+  // ================ CREAR LOTE PERSONALIZADO ================
+  const crearLotePersonalizado = () => {
+    if (!nuevoLoteForm.codigo || nuevoLoteForm.cantidadTotal <= 0) {
+      agregarNotificacion("❌ Complete todos los campos", "error");
+      return;
+    }
+
+    const nuevoLote = {
+      id: `LOTE-${Date.now()}`,
+      ...nuevoLoteForm,
+      codigo: nuevoLoteForm.codigo.toUpperCase(),
+      clienteIcono: "📦",
+      cantidadProcesada: 0,
+      estado: "pendiente",
+      operador: "Pendiente",
+      eficiencia: 0,
+      escaneos: 0,
+      fechaCreacion: new Date().toLocaleDateString(),
+      horaCreacion: new Date().toLocaleTimeString()
+    };
+
+    setLotesDB(prev => [nuevoLote, ...prev]);
+    setModalCrearLote(false);
+    setNuevoLoteForm({
+      codigo: "",
+      cliente: "",
+      producto: "",
+      cantidadTotal: 0,
+      prioridad: "Media",
+      area: "Sublimado"
+    });
+    agregarNotificacion(`✅ Lote ${nuevoLote.codigo} creado`, "success");
+  };
+
+  // ================ AGREGAR NOTIFICACIÓN ================
+  const agregarNotificacion = (mensaje, tipo) => {
+    const id = Date.now();
+    setNotificaciones(prev => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setNotificaciones(prev => prev.filter(n => n.id !== id));
+    }, 3000);
+  };
+
+  // ================ HANDLE KEY PRESS ================
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      procesarEscaneo(loteEscaneado.trim());
+    }
+  };
+
+  // ================ CERRAR MODAL DETALLE ================
+  const cerrarDetalle = () => {
+    setEscaneando(false);
+    setLoteActivo(null);
+    setMaquinaSeleccionada(null);
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 100);
   };
 
   return (
-    <div className="maquinas-container-premium">
-      {/* Notificación */}
-      {notificacion.mostrar && (
-        <div className={`notificacion ${notificacion.tipo}`}>
-          {notificacion.mensaje}
+    <div className={`sistema-produccion-container ${modoOscuro ? 'dark-mode' : ''} ${vistaCompacta ? 'vista-compacta' : ''}`}>
+      
+      {/* Panel de Control Rápido */}
+      <div className="control-panel">
+        <button className={`control-btn ${modoOscuro ? 'active' : ''}`} onClick={() => setModoOscuro(!modoOscuro)}>
+          {modoOscuro ? '☀️' : '🌙'}
+        </button>
+        <button className={`control-btn ${vistaCompacta ? 'active' : ''}`} onClick={() => setVistaCompacta(!vistaCompacta)}>
+          {vistaCompacta ? '🔍' : '👁️'}
+        </button>
+        <button className="control-btn" onClick={() => setVistaActiva('produccion')}>⚡</button>
+        <button className="control-btn" onClick={() => setVistaActiva('historial')}>📜</button>
+        <button className="control-btn" onClick={() => setVistaActiva('estadisticas')}>📊</button>
+      </div>
+
+      {/* Notificaciones */}
+      <div className="notificaciones-premium">
+        {notificaciones.map(n => (
+          <div key={n.id} className={`notificacion-premium ${n.tipo}`}>
+            <span className="notificacion-icono">
+              {n.tipo === 'success' && '✅'}
+              {n.tipo === 'error' && '❌'}
+              {n.tipo === 'warning' && '⚠️'}
+              {n.tipo === 'info' && 'ℹ️'}
+            </span>
+            <span className="notificacion-texto">{n.mensaje}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal Crear Lote */}
+      {modalCrearLote && (
+        <div className="modal-premium" onClick={() => setModalCrearLote(false)}>
+          <div className="modal-contenido-premium" onClick={e => e.stopPropagation()}>
+            <h2>✨ CREAR NUEVO LOTE</h2>
+            <input
+              type="text"
+              placeholder="Código"
+              value={nuevoLoteForm.codigo}
+              onChange={(e) => setNuevoLoteForm({...nuevoLoteForm, codigo: e.target.value.toUpperCase()})}
+            />
+            <input
+              type="text"
+              placeholder="Cliente"
+              value={nuevoLoteForm.cliente}
+              onChange={(e) => setNuevoLoteForm({...nuevoLoteForm, cliente: e.target.value})}
+            />
+            <input
+              type="text"
+              placeholder="Producto"
+              value={nuevoLoteForm.producto}
+              onChange={(e) => setNuevoLoteForm({...nuevoLoteForm, producto: e.target.value})}
+            />
+            <input
+              type="number"
+              placeholder="Cantidad"
+              value={nuevoLoteForm.cantidadTotal}
+              onChange={(e) => setNuevoLoteForm({...nuevoLoteForm, cantidadTotal: parseInt(e.target.value) || 0})}
+            />
+            <select
+              value={nuevoLoteForm.prioridad}
+              onChange={(e) => setNuevoLoteForm({...nuevoLoteForm, prioridad: e.target.value})}
+            >
+              <option value="ALTA">🔴 ALTA</option>
+              <option value="MEDIA">🟡 MEDIA</option>
+              <option value="BAJA">🟢 BAJA</option>
+            </select>
+            <div className="modal-buttons">
+              <button onClick={() => setModalCrearLote(false)}>CANCELAR</button>
+              <button onClick={crearLotePersonalizado}>CREAR</button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Header Premium */}
+      {/* Header */}
       <div className="header-premium">
-        <div className="header-glow"></div>
-        <div className="header-content">
-          <div className="header-left">
-            <h1 className="title-gradient">
-              <span className="title-icon">⚙️</span>
-              Máquinas en Tiempo Real
-            </h1>
-            <div className="date-badge">
-              <span className="date-icon">📅</span>
-              {formatDate(currentTime)}
-            </div>
-          </div>
-          
-          <div className="header-right">
-            <div className="live-indicator-premium">
-              <span className="live-pulse"></span>
-              <span className="live-text">EN VIVO</span>
-              <span className="live-time">{formatTime(currentTime)}</span>
+        <h1>⚡ CONTROL DE PRODUCCIÓN - DOBLE ESCANEO</h1>
+        <div className="header-info">
+          <span>{turnoActual}</span>
+          <span>{estadisticas.tiempoReal}</span>
+        </div>
+      </div>
+
+      {/* Scanner */}
+      <div className="scanner-premium">
+        <h2>📷 ESCANEAR CÓDIGO DE LOTE</h2>
+        <div className="scanner-input-group">
+          <input
+            ref={inputRef}
+            type="text"
+            value={loteEscaneado}
+            onChange={(e) => setLoteEscaneado(e.target.value.toUpperCase())}
+            onKeyPress={handleKeyPress}
+            placeholder="EJ: NK-137"
+          />
+          <button onClick={() => procesarEscaneo(loteEscaneado)}>
+            PROCESAR
+          </button>
+        </div>
+        <div className="scanner-badges">
+          <span className="badge primero">🔵 1er ESCANEO = INICIAR</span>
+          <span className="badge segundo">🟢 2do ESCANEO = FINALIZAR</span>
+        </div>
+        <div className="scanner-actions">
+          <button onClick={generarLoteAleatorio}>🎲 GENERAR ALEATORIO</button>
+          <button onClick={() => setModalCrearLote(true)}>➕ CREAR PERSONALIZADO</button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="stats-rapidas">
+        <div className="stat-card">
+          <span className="stat-valor">{lotesDB.length}</span>
+          <span>LOTES TOTALES</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-valor">{lotesEnProduccion.length}</span>
+          <span>EN PRODUCCIÓN</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-valor">{lotesFinalizados.length}</span>
+          <span>FINALIZADOS</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-valor">{estadisticas.piezasPorHora}</span>
+          <span>PZ/HORA</span>
+        </div>
+      </div>
+
+      {/* Producción */}
+      <h3>⚡ PRODUCCIÓN EN TIEMPO REAL</h3>
+      <div className="lotes-grid">
+        {lotesEnProduccion.map(lote => (
+          <div key={lote.idProduccion} className="lote-card">
+            <div className="lote-header">
+              <span className="lote-codigo">{lote.codigo}</span>
+              <span className={`lote-prioridad ${lote.prioridad?.toLowerCase()}`}>
+                {lote.prioridad}
+              </span>
             </div>
             
-            <div className="header-actions">
-              <button 
-                className={`action-btn ${vista === 'grid' ? 'active' : ''}`}
-                onClick={() => setVista('grid')}
-              >
-                <span className="btn-icon">📱</span>
-                <span className="btn-text">Grid</span>
-              </button>
-              <button 
-                className={`action-btn ${vista === 'lista' ? 'active' : ''}`}
-                onClick={() => setVista('lista')}
-              >
-                <span className="btn-icon">📋</span>
-                <span className="btn-text">Lista</span>
-              </button>
-              <button 
-                className={`action-btn ${vista === 'detalle' ? 'active' : ''}`}
-                onClick={() => setVista('detalle')}
-              >
-                <span className="btn-icon">📊</span>
-                <span className="btn-text">Detalle</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros y Búsqueda */}
-      <div className="filtros-section">
-        <div className="search-box">
-          <span className="search-icon">🔍</span>
-          <input
-            type="text"
-            placeholder="Buscar máquina o tipo..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="search-input"
-          />
-          {busqueda && (
-            <button className="clear-search" onClick={() => setBusqueda('')}>✕</button>
-          )}
-        </div>
-
-        <div className="filtros-tabs">
-          <button 
-            className={`filtro-tab ${filtro === 'todas' ? 'active' : ''}`}
-            onClick={() => setFiltro('todas')}
-          >
-            Todas <span className="tab-count">{stats.total}</span>
-          </button>
-          <button 
-            className={`filtro-tab operando ${filtro === 'operando' ? 'active' : ''}`}
-            onClick={() => setFiltro('operando')}
-          >
-            Operando <span className="tab-count">{stats.operando}</span>
-          </button>
-          <button 
-            className={`filtro-tab pausada ${filtro === 'pausada' ? 'active' : ''}`}
-            onClick={() => setFiltro('pausada')}
-          >
-            Pausadas <span className="tab-count">{stats.pausadas}</span>
-          </button>
-          <button 
-            className={`filtro-tab mantenimiento ${filtro === 'mantenimiento' ? 'active' : ''}`}
-            onClick={() => setFiltro('mantenimiento')}
-          >
-            Mantenimiento <span className="tab-count">{stats.mantenimiento}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Cards Premium */}
-      <div className="kpi-grid-premium">
-        <div className="kpi-card-premium total">
-          <div className="kpi-glow"></div>
-          <div className="kpi-icon-wrapper">
-            <span className="kpi-icon">🏭</span>
-          </div>
-          <div className="kpi-content">
-            <span className="kpi-value">{stats.total}</span>
-            <span className="kpi-label">Total Máquinas</span>
-          </div>
-          <div className="kpi-trend">+2 este mes</div>
-        </div>
-
-        <div className="kpi-card-premium operando">
-          <div className="kpi-glow"></div>
-          <div className="kpi-icon-wrapper">
-            <span className="kpi-icon">⚡</span>
-          </div>
-          <div className="kpi-content">
-            <span className="kpi-value">{stats.operando}</span>
-            <span className="kpi-label">En Operación</span>
-          </div>
-          <div className="kpi-trend">{Math.round((stats.operando/stats.total)*100)}% activas</div>
-        </div>
-
-        <div className="kpi-card-premium eficiencia">
-          <div className="kpi-glow"></div>
-          <div className="kpi-icon-wrapper">
-            <span className="kpi-icon">📊</span>
-          </div>
-          <div className="kpi-content">
-            <span className="kpi-value">{stats.eficiencia}%</span>
-            <span className="kpi-label">Eficiencia</span>
-          </div>
-          <div className="kpi-trend">+5% vs ayer</div>
-        </div>
-
-        <div className="kpi-card-premium produccion">
-          <div className="kpi-glow"></div>
-          <div className="kpi-icon-wrapper">
-            <span className="kpi-icon">📦</span>
-          </div>
-          <div className="kpi-content">
-            <span className="kpi-value">{stats.produccionTotal}</span>
-            <span className="kpi-label">Producción</span>
-          </div>
-          <div className="kpi-trend">Unidades hoy</div>
-        </div>
-
-        <div className="kpi-card-premium alertas">
-          <div className="kpi-glow"></div>
-          <div className="kpi-icon-wrapper">
-            <span className="kpi-icon">⚠️</span>
-          </div>
-          <div className="kpi-content">
-            <span className="kpi-value">{stats.alertasTotal}</span>
-            <span className="kpi-label">Alertas</span>
-          </div>
-          <div className="kpi-trend">{stats.alertasTotal > 0 ? 'Requiere atención' : 'Sin alertas'}</div>
-        </div>
-      </div>
-
-      {/* Vista Grid */}
-      {vista === 'grid' && (
-        <div className="maquinas-grid-premium">
-          {maquinasFiltradas.map(maquina => (
-            <div key={maquina.id} className={`maquina-card-premium ${maquina.estado}`}>
-              <div className="card-glow"></div>
-              
-              <div className="card-header">
-                <div className="maquina-titulo">
-                  <h3>{maquina.nombre}</h3>
-                  <span className="maquina-tipo-badge">{maquina.tipo}</span>
-                </div>
-                <div className="estado-indicador-premium" style={{ backgroundColor: getEstadoColor(maquina.estado) }}>
-                  <span className="estado-texto">{getEstadoTexto(maquina.estado)}</span>
-                </div>
+            <div className="lote-cliente">{lote.cliente}</div>
+            
+            <div className="progreso">
+              <div className="progreso-header">
+                <span>PROGRESO</span>
+                <span>{lote.progreso}%</span>
               </div>
-
-              <div className="card-body">
-                <div className="metricas-grid">
-                  <div className="metrica">
-                    <span className="metrica-icon">⏱️</span>
-                    <div className="metrica-info">
-                      <span className="metrica-label">Tiempo</span>
-                      <span className="metrica-value">{maquina.tiempo}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="metrica">
-                    <span className="metrica-icon">🌡️</span>
-                    <div className="metrica-info">
-                      <span className="metrica-label">Temperatura</span>
-                      <span className="metrica-value">{maquina.temperatura}°C</span>
-                    </div>
-                  </div>
-                  
-                  <div className="metrica">
-                    <span className="metrica-icon">⚡</span>
-                    <div className="metrica-info">
-                      <span className="metrica-label">Velocidad</span>
-                      <span className="metrica-value">{maquina.velocidad}%</span>
-                    </div>
-                  </div>
-                  
-                  <div className="metrica">
-                    <span className="metrica-icon">📦</span>
-                    <div className="metrica-info">
-                      <span className="metrica-label">Producción</span>
-                      <span className="metrica-value">{maquina.produccion}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="eficiencia-container">
-                  <div className="eficiencia-header">
-                    <span>Eficiencia</span>
-                    <span className="eficiencia-valor">{maquina.eficiencia}%</span>
-                  </div>
-                  <div className="eficiencia-bar-premium">
-                    <div 
-                      className="eficiencia-progress-premium" 
-                      style={{ width: `${maquina.eficiencia}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                {maquina.alertas > 0 && (
-                  <div className="alertas-badge">
-                    ⚠️ {maquina.alertas} alerta{maquina.alertas > 1 ? 's' : ''}
-                  </div>
-                )}
-
-                <div className="operador-info">
-                  <span className="operador-icon">👤</span>
-                  <span className="operador-nombre">{maquina.operador}</span>
-                </div>
-              </div>
-
-              <div className="card-actions">
-                <button 
-                  className="action-icon-btn play" 
-                  onClick={() => cambiarEstadoMaquina(maquina.id, 'operando')}
-                  disabled={maquina.estado === 'operando'}
-                  title="Iniciar"
-                >
-                  ▶️
-                </button>
-                <button 
-                  className="action-icon-btn pause" 
-                  onClick={() => cambiarEstadoMaquina(maquina.id, 'pausada')}
-                  disabled={maquina.estado === 'pausada'}
-                  title="Pausar"
-                >
-                  ⏸️
-                </button>
-                <button 
-                  className="action-icon-btn maintenance" 
-                  onClick={() => iniciarMantenimiento(maquina.id)}
-                  disabled={maquina.estado === 'mantenimiento'}
-                  title="Mantenimiento"
-                >
-                  🔧
-                </button>
-                <button 
-                  className="action-icon-btn restart" 
-                  onClick={() => reiniciarMaquina(maquina.id)}
-                  title="Reiniciar"
-                >
-                  🔄
-                </button>
-                <button 
-                  className="action-icon-btn emergency" 
-                  onClick={() => detenerEmergencia(maquina.id)}
-                  title="Parada de emergencia"
-                >
-                  ⚠️
-                </button>
-                <button 
-                  className="action-icon-btn details" 
-                  onClick={() => setMaquinaSeleccionada(maquina)}
-                  title="Ver detalles"
-                >
-                  📊
-                </button>
-              </div>
-
-              <div className="mantenimiento-info">
-                <span>Último: {maquina.ultimoMantenimiento}</span>
-                <span>Próximo: {maquina.proximoMantenimiento}</span>
+              <div className="progreso-barra">
+                <div className="progreso-fill" style={{ width: `${lote.progreso}%` }}></div>
               </div>
             </div>
-          ))}
-        </div>
+
+            <div className="lote-footer">
+              <span>{Math.round(lote.cantidadProcesada)}/{lote.cantidadTotal}</span>
+              <span>{lote.tiempoActual}</span>
+              <span>{lote.piezasPorHora} pz/h</span>
+            </div>
+
+            {!lote.maquinaId ? (
+              <select 
+                className="maquina-selector"
+                onChange={(e) => asignarMaquina(lote.idProduccion, e.target.value, e)}
+                onClick={(e) => e.stopPropagation()}
+                defaultValue=""
+              >
+                <option value="" disabled>⚡ ASIGNAR MÁQUINA</option>
+                {maquinas.filter(m => m.estado === "disponible").map(m => (
+                  <option key={m.id} value={m.id}>{m.icono} {m.nombre}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="maquina-asignada">
+                ⚙️ {lote.maquinaAsignada}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Máquinas con Historial */}
+      <h3>🖨️ MÁQUINAS</h3>
+      <div className="maquinas-grid">
+        {maquinas.map(maquina => (
+          <div 
+            key={maquina.id} 
+            className={`maquina-card ${maquina.estado}`}
+            onClick={() => verHistorialMaquina(maquina)}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="maquina-header">
+              <span>{maquina.icono} {maquina.nombre}</span>
+              <span>{maquina.estado === 'disponible' ? '✅' : '⚡'}</span>
+            </div>
+            <div className="maquina-stats">
+              <span>🌡️ {maquina.temperatura}°C</span>
+              <span>⚡ {maquina.velocidad} pz/h</span>
+            </div>
+            {maquina.loteActual && (
+              <div className="maquina-lote">
+                Lote: {lotesEnProduccion.find(l => l.idProduccion === maquina.loteActual)?.codigo}
+              </div>
+            )}
+            {maquina.historial.length > 0 && (
+              <div className="maquina-historial">
+                📋 {maquina.historial.length} lotes procesados
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Finalizados */}
+      {lotesFinalizados.length > 0 && (
+        <>
+          <h3>✅ ÚLTIMOS LOTES FINALIZADOS</h3>
+          <div className="finalizados-grid">
+            {lotesFinalizados.slice(0, 4).map(lote => (
+              <div 
+                key={lote.idProduccion} 
+                className="finalizado-card"
+                onClick={() => {
+                  setLoteActivo(lote);
+                  setEscaneando(true);
+                }}
+              >
+                <div className="finalizado-header">
+                  <span>{lote.codigo}</span>
+                  <span className={`eficiencia ${parseFloat(lote.eficienciaFinal) > 90 ? 'alta' : 'media'}`}>
+                    {lote.eficienciaFinal}%
+                  </span>
+                </div>
+                <div className="finalizado-body">
+                  <span>{lote.cantidadProcesada}/{lote.cantidadTotal}</span>
+                  <span>⏱️ {lote.tiempoTotal}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
-      {/* Vista Lista */}
-      {vista === 'lista' && (
-        <div className="maquinas-lista-premium">
-          <table className="lista-table">
-            <thead>
-              <tr>
-                <th>Máquina</th>
-                <th>Tipo</th>
-                <th>Estado</th>
-                <th>Tiempo</th>
-                <th>Eficiencia</th>
-                <th>Temperatura</th>
-                <th>Producción</th>
-                <th>Operador</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {maquinasFiltradas.map(maquina => (
-                <tr key={maquina.id} className={`lista-row ${maquina.estado}`}>
-                  <td className="nombre-cell">{maquina.nombre}</td>
-                  <td>{maquina.tipo}</td>
-                  <td>
-                    <span className="estado-badge" style={{ backgroundColor: getEstadoColor(maquina.estado) }}>
-                      {getEstadoTexto(maquina.estado)}
-                    </span>
-                  </td>
-                  <td className="tiempo-cell">{maquina.tiempo}</td>
-                  <td>
-                    <div className="eficiencia-mini">
-                      <div className="mini-bar" style={{ width: `${maquina.eficiencia}%` }}></div>
-                      <span>{maquina.eficiencia}%</span>
-                    </div>
-                  </td>
-                  <td>{maquina.temperatura}°C</td>
-                  <td>{maquina.produccion}</td>
-                  <td>{maquina.operador}</td>
-                  <td>
-                    <div className="lista-acciones">
-                      <button className="lista-btn play" onClick={() => cambiarEstadoMaquina(maquina.id, 'operando')}>▶️</button>
-                      <button className="lista-btn pause" onClick={() => cambiarEstadoMaquina(maquina.id, 'pausada')}>⏸️</button>
-                      <button className="lista-btn details" onClick={() => setMaquinaSeleccionada(maquina)}>📊</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Modal de Detalle (Lote o Historial de Máquina) */}
+      {(escaneando && loteActivo) || maquinaSeleccionada ? (
+        <div className="modal-detalle-premium" onClick={cerrarDetalle}>
+          <div className="detalle-contenido-premium" onClick={e => e.stopPropagation()}>
+            
+            {/* DETALLE DE LOTE */}
+            {loteActivo && (
+              <>
+                <div className="detalle-header">
+                  <h2>
+                    {loteActivo.estado === 'finalizado' ? '✅ LOTE FINALIZADO' : '⚡ LOTE EN PRODUCCIÓN'}
+                  </h2>
+                  <button className="detalle-close" onClick={cerrarDetalle}>✕</button>
+                </div>
 
-      {/* Vista Detalle */}
-      {vista === 'detalle' && maquinaSeleccionada && (
-        <div className="detalle-premium">
-          <button className="close-detalle" onClick={() => setMaquinaSeleccionada(null)}>✕</button>
-          <h2>{maquinaSeleccionada.nombre}</h2>
-          <div className="detalle-grid">
-            <div className="detalle-section">
-              <h4>Información General</h4>
-              <p><strong>Tipo:</strong> {maquinaSeleccionada.tipo}</p>
-              <p><strong>Estado:</strong> {getEstadoTexto(maquinaSeleccionada.estado)}</p>
-              <p><strong>Operador:</strong> {maquinaSeleccionada.operador}</p>
-              <p><strong>Tiempo operación:</strong> {maquinaSeleccionada.tiempo}</p>
-            </div>
-            <div className="detalle-section">
-              <h4>Métricas</h4>
-              <p><strong>Eficiencia:</strong> {maquinaSeleccionada.eficiencia}%</p>
-              <p><strong>Temperatura:</strong> {maquinaSeleccionada.temperatura}°C</p>
-              <p><strong>Velocidad:</strong> {maquinaSeleccionada.velocidad}%</p>
-              <p><strong>Producción:</strong> {maquinaSeleccionada.produccion} unidades</p>
-            </div>
-            <div className="detalle-section">
-              <h4>Mantenimiento</h4>
-              <p><strong>Último:</strong> {maquinaSeleccionada.ultimoMantenimiento}</p>
-              <p><strong>Próximo:</strong> {maquinaSeleccionada.proximoMantenimiento}</p>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="detalle-codigo">
+                  <span className="codigo-label">CÓDIGO</span>
+                  <span className="codigo-valor">{loteActivo.codigo}</span>
+                </div>
 
-      {/* Footer Premium */}
-      <div className="footer-premium">
-        <div className="footer-left">
-          <div className="sync-status-premium">
-            <span className="sync-dot-premium"></span>
-            <span>Sincronizado {formatTime(currentTime)}</span>
+                <div className="detalle-grid">
+                  <div className="detalle-info">
+                    <p><strong>Cliente:</strong> {loteActivo.cliente}</p>
+                    <p><strong>Producto:</strong> {loteActivo.producto}</p>
+                    <p><strong>Área:</strong> {loteActivo.area}</p>
+                    <p><strong>Prioridad:</strong> {loteActivo.prioridad}</p>
+                    {loteActivo.maquinaAsignada && (
+                      <p><strong>Máquina:</strong> {loteActivo.maquinaAsignada}</p>
+                    )}
+                  </div>
+
+                  <div className="detalle-progreso">
+                    <div className="progreso-circular">
+                      <svg viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="#e0e0e0" strokeWidth="8"/>
+                        <circle 
+                          cx="50" cy="50" r="45" 
+                          fill="none" 
+                          stroke="#4361ee" 
+                          strokeWidth="8"
+                          strokeDasharray={`${parseFloat(loteActivo.progreso || 0) * 2.83}, 283`}
+                          transform="rotate(-90 50 50)"
+                        />
+                      </svg>
+                      <span className="progreso-porcentaje">{loteActivo.progreso || 0}%</span>
+                    </div>
+                    <p>{Math.round(loteActivo.cantidadProcesada)}/{loteActivo.cantidadTotal} piezas</p>
+                  </div>
+
+                  <div className="detalle-metricas">
+                    <p><strong>Tiempo:</strong> {loteActivo.tiempoActual || '00:00:00'}</p>
+                    <p><strong>Ritmo:</strong> {loteActivo.piezasPorHora || 0} pz/h</p>
+                    <p><strong>Eficiencia:</strong> {loteActivo.eficienciaFinal || loteActivo.eficiencia || 0}%</p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* HISTORIAL DE MÁQUINA */}
+            {maquinaSeleccionada && !loteActivo && (
+              <>
+                <div className="detalle-header">
+                  <h2>📋 HISTORIAL DE {maquinaSeleccionada.nombre}</h2>
+                  <button className="detalle-close" onClick={cerrarDetalle}>✕</button>
+                </div>
+
+                <div className="historial-lista">
+                  {maquinaSeleccionada.historial.length > 0 ? (
+                    maquinaSeleccionada.historial.map((item, index) => (
+                      <div key={index} className="historial-item">
+                        <span className="historial-lote">{item.lote}</span>
+                        <span>{item.cliente}</span>
+                        <span>{item.cantidad}/{item.total} pz</span>
+                        <span className={`eficiencia-badge ${
+                          parseFloat(item.eficiencia) > 90 ? 'alta' : 
+                          parseFloat(item.eficiencia) > 70 ? 'media' : 'baja'
+                        }`}>{item.eficiencia}%</span>
+                        <span className="historial-tiempo">⏱️ {item.tiempo}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="sin-historial">Esta máquina no tiene historial aún</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
-        <div className="footer-right">
-          <div className="footer-stats">
-            <span>📊 {stats.operando} activas</span>
-            <span className="stat-separator">•</span>
-            <span>⚡ {stats.eficiencia}% eficiencia</span>
-            <span className="stat-separator">•</span>
-            <span>⚠️ {stats.alertasTotal} alertas</span>
-          </div>
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 };

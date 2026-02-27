@@ -1,1191 +1,924 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Dashboard.css';
 
-const Dashboard = () => {
-  const [currentTime, setCurrentTime] = useState(new Date());
+const DashboardProduccion = () => {
+  // ================ ESTADOS PRINCIPALES ================
+  const [fechaActual, setFechaActual] = useState(new Date());
   const [periodo, setPeriodo] = useState('dia');
-  const [vista, setVista] = useState('principal');
-  const [menuAbierto, setMenuAbierto] = useState(false);
-  const [animacionGlobal, setAnimacionGlobal] = useState(false);
-  const [vistaGrafica, setVistaGrafica] = useState('barras'); // 'barras', 'lineas', 'areas'
-  const [filtroProduccion, setFiltroProduccion] = useState('hoy');
-  const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
-  const [maquinaSeleccionada, setMaquinaSeleccionada] = useState(null);
-  const [mostrarPanelDetalle, setMostrarPanelDetalle] = useState(false);
-  const [modoComparacion, setModoComparacion] = useState(false);
-  const [datosComparacion, setDatosComparacion] = useState([]);
-  const [zoomNivel, setZoomNivel] = useState(1);
+  const [vista, setVista] = useState('general');
+  const [menuLateral, setMenuLateral] = useState(true);
+  const [temaOscuro, setTemaOscuro] = useState(false);
   
-  // Notificaciones en tiempo real
-  const [notificaciones, setNotificaciones] = useState([
-    { id: 1, mensaje: 'LOTE-001 completado', tipo: 'exito', leida: false, timestamp: new Date() },
-    { id: 2, mensaje: 'Máquina 03 requiere mantenimiento', tipo: 'advertencia', leida: false, timestamp: new Date() },
-    { id: 3, mensaje: 'Nueva orden de producción', tipo: 'info', leida: true, timestamp: new Date() },
-    { id: 4, mensaje: 'Objetivo de producción alcanzado', tipo: 'exito', leida: false, timestamp: new Date() }
+  // ================ DATOS EN TIEMPO REAL ================
+  const [produccionHora, setProduccionHora] = useState([
+    { hora: '06:00', meta: 450, real: 445, eficiencia: 99, turno: 'A' },
+    { hora: '07:00', meta: 450, real: 458, eficiencia: 102, turno: 'A' },
+    { hora: '08:00', meta: 450, real: 462, eficiencia: 103, turno: 'A' },
+    { hora: '09:00', meta: 450, real: 478, eficiencia: 106, turno: 'A' },
+    { hora: '10:00', meta: 450, real: 481, eficiencia: 107, turno: 'A' },
+    { hora: '11:00', meta: 450, real: 492, eficiencia: 109, turno: 'A' },
+    { hora: '12:00', meta: 450, real: 485, eficiencia: 108, turno: 'A' },
+    { hora: '13:00', meta: 450, real: 470, eficiencia: 104, turno: 'A' },
+    { hora: '14:00', meta: 450, real: 475, eficiencia: 106, turno: 'B' },
+    { hora: '15:00', meta: 450, real: 482, eficiencia: 107, turno: 'B' },
+    { hora: '16:00', meta: 450, real: 488, eficiencia: 108, turno: 'B' },
+    { hora: '17:00', meta: 450, real: 479, eficiencia: 106, turno: 'B' },
+    { hora: '18:00', meta: 450, real: 465, eficiencia: 103, turno: 'B' },
+    { hora: '19:00', meta: 450, real: 455, eficiencia: 101, turno: 'B' },
+    { hora: '20:00', meta: 450, real: 442, eficiencia: 98, turno: 'B' },
+    { hora: '21:00', meta: 450, real: 438, eficiencia: 97, turno: 'B' },
+    { hora: '22:00', meta: 450, real: 425, eficiencia: 94, turno: 'C' },
+    { hora: '23:00', meta: 450, real: 415, eficiencia: 92, turno: 'C' },
+    { hora: '00:00', meta: 450, real: 402, eficiencia: 89, turno: 'C' },
+    { hora: '01:00', meta: 450, real: 395, eficiencia: 88, turno: 'C' },
+    { hora: '02:00', meta: 450, real: 388, eficiencia: 86, turno: 'C' },
+    { hora: '03:00', meta: 450, real: 380, eficiencia: 84, turno: 'C' },
+    { hora: '04:00', meta: 450, real: 375, eficiencia: 83, turno: 'C' },
+    { hora: '05:00', meta: 450, real: 370, eficiencia: 82, turno: 'C' }
   ]);
 
-  // Datos del dashboard con actualización en tiempo real
-  const [stats, setStats] = useState({
-    ordenesActivas: 24,
-    ordenesCompletadas: 156,
-    maquinasActivas: 8,
-    maquinasTotales: 12,
-    eficienciaGlobal: 87,
-    produccionHoy: 1245,
-    atrasos: 3,
-    alertas: 5,
-    productividad: 94,
-    tiempoPromedio: 45,
-    satisfaccion: 92,
-    oee: 85,
-    disponibilidad: 92,
-    calidad: 98,
-    rendimiento: 89
-  });
-
-  const [produccionPorHora, setProduccionPorHora] = useState([
-    { hora: '06:00', valor: 45, valorAnterior: 42, meta: 50 },
-    { hora: '07:00', valor: 78, valorAnterior: 70, meta: 80 },
-    { hora: '08:00', valor: 92, valorAnterior: 85, meta: 95 },
-    { hora: '09:00', valor: 110, valorAnterior: 100, meta: 115 },
-    { hora: '10:00', valor: 135, valorAnterior: 125, meta: 140 },
-    { hora: '11:00', valor: 142, valorAnterior: 130, meta: 145 },
-    { hora: '12:00', valor: 128, valorAnterior: 120, meta: 135 },
-    { hora: '13:00', valor: 115, valorAnterior: 110, meta: 120 },
-    { hora: '14:00', valor: 138, valorAnterior: 128, meta: 140 },
-    { hora: '15:00', valor: 145, valorAnterior: 135, meta: 150 },
-    { hora: '16:00', valor: 132, valorAnterior: 125, meta: 140 },
-    { hora: '17:00', valor: 98, valorAnterior: 95, meta: 100 }
+  const [produccionDiaria, setProduccionDiaria] = useState([
+    { dia: 'Lunes', fecha: '24/02', meta: 10800, real: 10650, eficiencia: 98.6, turnos: 3 },
+    { dia: 'Martes', fecha: '25/02', meta: 10800, real: 10920, eficiencia: 101.1, turnos: 3 },
+    { dia: 'Miércoles', fecha: '26/02', meta: 10800, real: 11050, eficiencia: 102.3, turnos: 3 },
+    { dia: 'Jueves', fecha: '27/02', meta: 10800, real: 10880, eficiencia: 100.7, turnos: 3 },
+    { dia: 'Viernes', fecha: '28/02', meta: 10800, real: 0, eficiencia: 0, turnos: 2 },
+    { dia: 'Sábado', fecha: '01/03', meta: 7200, real: 0, eficiencia: 0, turnos: 1 },
+    { dia: 'Domingo', fecha: '02/03', meta: 0, real: 0, eficiencia: 0, turnos: 0 }
   ]);
 
-  const [produccionPorDia, setProduccionPorDia] = useState([
-    { dia: 'Lun', valor: 980, valorAnterior: 950, meta: 1000 },
-    { dia: 'Mar', valor: 1050, valorAnterior: 1000, meta: 1100 },
-    { dia: 'Mié', valor: 1120, valorAnterior: 1080, meta: 1150 },
-    { dia: 'Jue', valor: 1080, valorAnterior: 1050, meta: 1100 },
-    { dia: 'Vie', valor: 1150, valorAnterior: 1100, meta: 1200 },
-    { dia: 'Sáb', valor: 820, valorAnterior: 800, meta: 850 },
-    { dia: 'Dom', valor: 650, valorAnterior: 620, meta: 700 }
+  const [produccionSemanal, setProduccionSemanal] = useState([
+    { semana: 'Semana 9', fecha: '24/02 - 02/03', meta: 75600, real: 32500, eficiencia: 43.0, avance: 43 },
+    { semana: 'Semana 8', fecha: '17/02 - 23/02', meta: 75600, real: 74800, eficiencia: 99.0, avance: 99 },
+    { semana: 'Semana 7', fecha: '10/02 - 16/02', meta: 75600, real: 76200, eficiencia: 100.8, avance: 101 },
+    { semana: 'Semana 6', fecha: '03/02 - 09/02', meta: 75600, real: 75100, eficiencia: 99.3, avance: 99 },
+    { semana: 'Semana 5', fecha: '27/01 - 02/02', meta: 75600, real: 74900, eficiencia: 99.1, avance: 99 }
   ]);
 
-  const [ordenesRecientes, setOrdenesRecientes] = useState([
-    { id: 'ORD-001', producto: 'Camiseta MLB', cantidad: 150, estado: 'en_proceso', fecha: '10:30 AM', prioridad: 'alta', cliente: 'Nike', progreso: 75, fechaEntrega: '2026-03-15' },
-    { id: 'ORD-002', producto: 'Gorra NBA', cantidad: 75, estado: 'completada', fecha: '09:15 AM', prioridad: 'media', cliente: 'Adidas', progreso: 100, fechaEntrega: '2026-03-10' },
-    { id: 'ORD-003', producto: 'Uniforme NFL', cantidad: 200, estado: 'pendiente', fecha: '11:45 AM', prioridad: 'alta', cliente: 'Puma', progreso: 0, fechaEntrega: '2026-03-20' },
-    { id: 'ORD-004', producto: 'Sudadera NHL', cantidad: 100, estado: 'en_proceso', fecha: '08:20 AM', prioridad: 'baja', cliente: 'Local', progreso: 45, fechaEntrega: '2026-03-18' },
-    { id: 'ORD-005', producto: 'Camiseta FIFA', cantidad: 300, estado: 'revision', fecha: '12:10 PM', prioridad: 'alta', cliente: 'Nike', progreso: 90, fechaEntrega: '2026-03-12' },
-    { id: 'ORD-006', producto: 'Gorra MLB', cantidad: 50, estado: 'pendiente', fecha: '01:30 PM', prioridad: 'media', cliente: 'Adidas', progreso: 0, fechaEntrega: '2026-03-25' },
-    { id: 'ORD-007', producto: 'Jersey NBA', cantidad: 180, estado: 'en_proceso', fecha: '02:15 PM', prioridad: 'alta', cliente: 'Puma', progreso: 60, fechaEntrega: '2026-03-22' },
-    { id: 'ORD-008', producto: 'Bufanda NFL', cantidad: 120, estado: 'pendiente', fecha: '03:00 PM', prioridad: 'baja', cliente: 'Local', progreso: 0, fechaEntrega: '2026-03-28' }
+  const [produccionMensual, setProduccionMensual] = useState([
+    { mes: 'Enero', año: 2026, meta: 324000, real: 321500, eficiencia: 99.2, cumplimiento: 99 },
+    { mes: 'Febrero', año: 2026, meta: 302400, real: 295800, eficiencia: 97.8, cumplimiento: 98 },
+    { mes: 'Marzo', año: 2026, meta: 324000, real: 0, eficiencia: 0, cumplimiento: 0 },
+    { mes: 'Abril', año: 2026, meta: 313200, real: 0, eficiencia: 0, cumplimiento: 0 },
+    { mes: 'Mayo', año: 2026, meta: 324000, real: 0, eficiencia: 0, cumplimiento: 0 },
+    { mes: 'Junio', año: 2026, meta: 313200, real: 0, eficiencia: 0, cumplimiento: 0 }
   ]);
 
+  // ================ MÁQUINAS Y LÍNEAS ================
   const [maquinas, setMaquinas] = useState([
-    { id: 1, nombre: 'Plotter HP', estado: 'operando', eficiencia: 92, orden: 'ORD-001', temperatura: 42, velocidad: 85, tiempoRestante: '2h 15m', mantenimiento: '2026-04-01', horasOperacion: 1250 },
-    { id: 2, nombre: 'Sublimadora Epson', estado: 'operando', eficiencia: 88, orden: 'ORD-003', temperatura: 38, velocidad: 92, tiempoRestante: '1h 30m', mantenimiento: '2026-03-28', horasOperacion: 980 },
-    { id: 3, nombre: 'Cortadora Zund', estado: 'pausada', eficiencia: 76, orden: 'ORD-002', temperatura: 35, velocidad: 0, tiempoRestante: '0h 45m', mantenimiento: '2026-03-30', horasOperacion: 2100 },
-    { id: 4, nombre: 'Impresora Durst', estado: 'mantenimiento', eficiencia: 0, orden: '-', temperatura: 0, velocidad: 0, tiempoRestante: '3h 00m', mantenimiento: '2026-03-15', horasOperacion: 3500 },
-    { id: 5, nombre: 'Plancha Monti', estado: 'operando', eficiencia: 95, orden: 'ORD-004', temperatura: 180, velocidad: 75, tiempoRestante: '4h 20m', mantenimiento: '2026-04-05', horasOperacion: 850 },
-    { id: 6, nombre: 'Plotter Mimaki', estado: 'operando', eficiencia: 84, orden: 'ORD-005', temperatura: 41, velocidad: 78, tiempoRestante: '1h 10m', mantenimiento: '2026-03-25', horasOperacion: 1450 },
-    { id: 7, nombre: 'Sublimadora Sawgrass', estado: 'inactiva', eficiencia: 0, orden: '-', temperatura: 22, velocidad: 0, tiempoRestante: '0h 00m', mantenimiento: '2026-03-20', horasOperacion: 670 },
-    { id: 8, nombre: 'Cortadora Kongsberg', estado: 'operando', eficiencia: 91, orden: 'ORD-006', temperatura: 37, velocidad: 82, tiempoRestante: '2h 45m', mantenimiento: '2026-04-10', horasOperacion: 1820 }
+    { id: 1, nombre: 'Plotter HP Z6800', linea: 'Impresión', estado: 'produccion', operador: 'Carlos R.', eficiencia: 96, produccion: 1245, meta: 1300, uptime: 98, alertas: 0, temperatura: 42, velocidad: 85, tiempoRestante: '2.5h', orden: 'ORD-001' },
+    { id: 2, nombre: 'Sublimadora Epson F950', linea: 'Sublimado', estado: 'produccion', operador: 'María G.', eficiencia: 94, produccion: 2341, meta: 2500, uptime: 97, alertas: 0, temperatura: 38, velocidad: 92, tiempoRestante: '1.5h', orden: 'ORD-003' },
+    { id: 3, nombre: 'Cortadora Zund G3', linea: 'Corte', estado: 'produccion', operador: 'Juan P.', eficiencia: 91, produccion: 876, meta: 950, uptime: 95, alertas: 1, temperatura: 35, velocidad: 78, tiempoRestante: '0.8h', orden: 'ORD-002' },
+    { id: 4, nombre: 'Impresora Durst Rho', linea: 'Impresión', estado: 'mantenimiento', operador: 'Ana L.', eficiencia: 0, produccion: 0, meta: 800, uptime: 82, alertas: 3, temperatura: 28, velocidad: 0, tiempoRestante: '3.0h', orden: 'N/A' },
+    { id: 5, nombre: 'Plancha Monti', linea: 'Terminado', estado: 'produccion', operador: 'Pedro M.', eficiencia: 98, produccion: 567, meta: 600, uptime: 99, alertas: 0, temperatura: 180, velocidad: 75, tiempoRestante: '1.2h', orden: 'ORD-004' },
+    { id: 6, nombre: 'Plotter Mimaki', linea: 'Impresión', estado: 'produccion', operador: 'Luisa F.', eficiencia: 89, produccion: 1450, meta: 1600, uptime: 93, alertas: 2, temperatura: 41, velocidad: 78, tiempoRestante: '2.0h', orden: 'ORD-005' },
+    { id: 7, nombre: 'Sublimadora Sawgrass', linea: 'Sublimado', estado: 'inactiva', operador: 'Roberto C.', eficiencia: 0, produccion: 670, meta: 900, uptime: 88, alertas: 1, temperatura: 22, velocidad: 0, tiempoRestante: '0h', orden: 'N/A' },
+    { id: 8, nombre: 'Cortadora Kongsberg', linea: 'Corte', estado: 'produccion', operador: 'Sofía R.', eficiencia: 93, produccion: 1820, meta: 2000, uptime: 96, alertas: 0, temperatura: 37, velocidad: 82, tiempoRestante: '2.8h', orden: 'ORD-006' },
+    { id: 9, nombre: 'Bordadora Tajima', linea: 'Bordado', estado: 'produccion', operador: 'Jorge L.', eficiencia: 87, produccion: 345, meta: 400, uptime: 91, alertas: 1, temperatura: 45, velocidad: 65, tiempoRestante: '1.8h', orden: 'ORD-007' },
+    { id: 10, nombre: 'Laminadora', linea: 'Acabado', estado: 'produccion', operador: 'Carmen V.', eficiencia: 92, produccion: 890, meta: 950, uptime: 94, alertas: 0, temperatura: 52, velocidad: 70, tiempoRestante: '2.3h', orden: 'ORD-008' },
+    { id: 11, nombre: 'Dobladora', linea: 'Metal', estado: 'produccion', operador: 'Diego H.', eficiencia: 90, produccion: 560, meta: 600, uptime: 92, alertas: 1, temperatura: 48, velocidad: 60, tiempoRestante: '1.5h', orden: 'ORD-009' },
+    { id: 12, nombre: 'Ensambladora', linea: 'Ensamblaje', estado: 'produccion', operador: 'Laura P.', eficiencia: 95, produccion: 780, meta: 800, uptime: 97, alertas: 0, temperatura: 36, velocidad: 72, tiempoRestante: '2.0h', orden: 'ORD-010' }
   ]);
 
-  const [alertas, setAlertas] = useState([
-    { id: 1, tipo: 'critica', mensaje: 'Temperatura alta en Máquina 05', tiempo: 'hace 2m', solucion: 'Verificar sistema de enfriamiento' },
-    { id: 2, tipo: 'advertencia', mensaje: 'Mantenimiento preventivo requerido', tiempo: 'hace 15m', solucion: 'Programar mantenimiento' },
-    { id: 3, tipo: 'info', mensaje: 'Orden ORD-003 completada', tiempo: 'hace 25m', solucion: '' },
-    { id: 4, tipo: 'critica', mensaje: 'Retraso en producción', tiempo: 'hace 30m', solucion: 'Revisar planificación' },
-    { id: 5, tipo: 'advertencia', mensaje: 'Nivel bajo de tinta', tiempo: 'hace 45m', solucion: 'Reabastecer insumos' }
+  // ================ ÓRDENES DE PRODUCCIÓN ================
+  const [ordenes, setOrdenes] = useState([
+    { id: 'ORD-001', cliente: 'Nike', producto: 'Camisetas MLB', cantidad: 1500, producido: 1245, pendiente: 255, avance: 83, linea: 'Impresión', fechaEntrega: '15/03/2026', prioridad: 'alta', estado: 'en_proceso' },
+    { id: 'ORD-002', cliente: 'NBA', producto: 'Gorras NBA', cantidad: 800, producido: 876, pendiente: 0, avance: 100, linea: 'Corte', fechaEntrega: '10/03/2026', prioridad: 'media', estado: 'completada' },
+    { id: 'ORD-003', cliente: 'RUN', producto: 'Uniformes NFL', cantidad: 2000, producido: 1450, pendiente: 550, avance: 73, linea: 'Sublimado', fechaEntrega: '20/03/2026', prioridad: 'alta', estado: 'en_proceso' },
+    { id: 'ORD-004', cliente: 'Fanatics', producto: 'Sudadera NHL', cantidad: 600, producido: 345, pendiente: 255, avance: 58, linea: 'Bordado', fechaEntrega: '18/03/2026', prioridad: 'baja', estado: 'en_proceso' },
+    { id: 'ORD-005', cliente: 'NikeRetail', producto: 'Camisetas FIFA', cantidad: 1200, producido: 890, pendiente: 310, avance: 74, linea: 'Acabado', fechaEntrega: '22/03/2026', prioridad: 'media', estado: 'en_proceso' },
+    { id: 'ORD-006', cliente: 'Sport', producto: 'Pantalones', cantidad: 900, producido: 560, pendiente: 340, avance: 62, linea: 'Metal', fechaEntrega: '25/03/2026', prioridad: 'baja', estado: 'en_proceso' },
+    { id: 'ORD-007', cliente: 'NHL', producto: 'Chalecos', cantidad: 400, producido: 0, pendiente: 400, avance: 0, linea: 'Ensamblaje', fechaEntrega: '28/03/2026', prioridad: 'media', estado: 'pendiente' },
+    { id: 'ORD-008', cliente: 'Running', producto: 'Jerseys', cantidad: 750, producido: 0, pendiente: 750, avance: 0, linea: 'Impresión', fechaEntrega: '30/03/2026', prioridad: 'baja', estado: 'pendiente' }
   ]);
 
-  const [proyectos, setProyectos] = useState([
-    { nombre: 'Proyecto MLB', progreso: 75, fechaEntrega: '2026-03-15', responsable: 'Carlos', tareas: 12, completadas: 9 },
-    { nombre: 'Proyecto NBA', progreso: 45, fechaEntrega: '2026-03-20', responsable: 'María', tareas: 15, completadas: 7 },
-    { nombre: 'Proyecto NFL', progreso: 90, fechaEntrega: '2026-03-10', responsable: 'José', tareas: 10, completadas: 9 },
-    { nombre: 'Proyecto NHL', progreso: 30, fechaEntrega: '2026-03-25', responsable: 'Ana', tareas: 8, completadas: 2 },
-    { nombre: 'Proyecto FIFA', progreso: 60, fechaEntrega: '2026-03-18', responsable: 'Luis', tareas: 14, completadas: 8 }
-  ]);
-
-  const [tiemposPromedio, setTiemposPromedio] = useState({
-    setup: 15,
-    produccion: 45,
-    mantenimiento: 30,
-    cambioHerramienta: 12,
-    espera: 8
-  });
-
-  const [inventario, setInventario] = useState([
-    { nombre: 'Tinta Negra', cantidad: 15, unidad: '%', estado: 'bajo', minima: 20 },
-    { nombre: 'Tinta Cyan', cantidad: 45, unidad: '%', estado: 'medio', minima: 30 },
-    { nombre: 'Tinta Magenta', cantidad: 38, unidad: '%', estado: 'medio', minima: 30 },
-    { nombre: 'Tinta Amarilla', cantidad: 52, unidad: '%', estado: 'bueno', minima: 30 },
-    { nombre: 'Papel Sublimación', cantidad: 45, unidad: '%', estado: 'medio', minima: 25 },
-    { nombre: 'Filamento', cantidad: 78, unidad: '%', estado: 'bueno', minima: 20 },
-    { nombre: 'Vinilo', cantidad: 62, unidad: '%', estado: 'bueno', minima: 30 }
-  ]);
-
+  // ================ PERSONAL Y TURNOS ================
   const [personal, setPersonal] = useState({
-    produccion: 12,
-    calidad: 4,
-    mantenimiento: 3,
-    planificacion: 2,
-    administracion: 5
+    total: 145,
+    presentes: 128,
+    ausentes: 12,
+    vacaciones: 5,
+    turnoA: 52,
+    turnoB: 48,
+    turnoC: 28,
+    eficienciaGeneral: 94,
+    productividad: 92,
+    satisfaccion: 88,
+    capacitacion: 76
   });
 
-  // Actualización en tiempo real
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const [turnos, setTurnos] = useState([
+    { turno: 'A', horario: '06:00 - 14:00', personal: 52, produccion: 3875, eficiencia: 106, meta: 3600, supervisor: 'Carlos Ruiz' },
+    { turno: 'B', horario: '14:00 - 22:00', personal: 48, produccion: 3250, eficiencia: 98, meta: 3300, supervisor: 'María López' },
+    { turno: 'C', horario: '22:00 - 06:00', personal: 28, produccion: 1650, eficiencia: 87, meta: 1900, supervisor: 'Juan Pérez' }
+  ]);
 
-  // Simular cambios en tiempo real cada 6 segundos
+  // ================ CALIDAD ================
+  const [calidad, setCalidad] = useState({
+    tasaAprobacion: 97.5,
+    rechazos: 125,
+    reprocesos: 45,
+    scrap: 2.5,
+    inspecciones: 12500,
+    quejasCliente: 3,
+    devoluciones: 8
+  });
+
+  const [defectos, setDefectos] = useState([
+    { tipo: 'Impresión', cantidad: 45, porcentaje: 36, tendencia: 'down' },
+    { tipo: 'Corte', cantidad: 32, porcentaje: 25.6, tendencia: 'stable' },
+    { tipo: 'Color', cantidad: 28, porcentaje: 22.4, tendencia: 'up' },
+    { tipo: 'Acabado', cantidad: 20, porcentaje: 16, tendencia: 'down' }
+  ]);
+
+  // ================ INVENTARIO ================
+  const [inventario, setInventario] = useState({
+    materiaPrima: 78,
+    productoTerminado: 65,
+    insumos: 82,
+    criticidad: 15
+  });
+
+  // ================ SIMULACIÓN TIEMPO REAL ================
   useEffect(() => {
     const interval = setInterval(() => {
-      setAnimacionGlobal(true);
-      setTimeout(() => setAnimacionGlobal(false), 500);
-
-      setStats(prev => ({
-        ...prev,
-        ordenesActivas: Math.max(0, prev.ordenesActivas + Math.floor(Math.random() * 3) - 1),
-        ordenesCompletadas: prev.ordenesCompletadas + Math.floor(Math.random() * 5),
-        produccionHoy: prev.produccionHoy + Math.floor(Math.random() * 20),
-        eficienciaGlobal: Number((Math.min(100, Math.max(0, prev.eficienciaGlobal + (Math.random() * 2 - 1)))).toFixed(1)),
-        atrasos: Math.max(0, prev.atrasos + Math.floor(Math.random() * 2) - 1),
-        alertas: Math.max(0, prev.alertas + Math.floor(Math.random() * 3) - 1),
-        productividad: Number((Math.min(100, Math.max(0, prev.productividad + (Math.random() * 3 - 1.5)))).toFixed(1)),
-        tiempoPromedio: Math.max(30, Math.min(60, prev.tiempoPromedio + Math.floor(Math.random() * 4) - 2)),
-        satisfaccion: Number((Math.min(100, Math.max(0, prev.satisfaccion + (Math.random() * 2 - 1)))).toFixed(1)),
-        oee: Number((Math.min(100, Math.max(0, prev.oee + (Math.random() * 2 - 1)))).toFixed(1)),
-        disponibilidad: Number((Math.min(100, Math.max(0, prev.disponibilidad + (Math.random() * 2 - 1)))).toFixed(1)),
-        calidad: Number((Math.min(100, Math.max(0, prev.calidad + (Math.random() * 2 - 1)))).toFixed(1)),
-        rendimiento: Number((Math.min(100, Math.max(0, prev.rendimiento + (Math.random() * 2 - 1)))).toFixed(1))
-      }));
-
-      setProduccionPorHora(prev => {
+      setFechaActual(new Date());
+      
+      // Actualizar producción por hora
+      setProduccionHora(prev => {
         const nuevas = [...prev];
-        const ultimaHora = nuevas.length - 1;
-        nuevas[ultimaHora] = {
-          ...nuevas[ultimaHora],
-          valor: Math.max(0, Math.min(200, nuevas[ultimaHora].valor + Math.floor(Math.random() * 10) - 3))
-        };
+        const horaActual = new Date().getHours();
+        const indice = nuevas.findIndex(p => parseInt(p.hora) === horaActual);
+        
+        if (indice >= 0) {
+          nuevas[indice] = {
+            ...nuevas[indice],
+            real: Math.min(nuevas[indice].real + Math.floor(Math.random() * 3) + 1, nuevas[indice].meta * 1.15),
+            eficiencia: Math.round((nuevas[indice].real / nuevas[indice].meta) * 100)
+          };
+        }
         return nuevas;
       });
 
-      setMaquinas(prev => prev.map(maq => ({
-        ...maq,
-        eficiencia: maq.estado === 'operando' 
-          ? Number((Math.min(100, Math.max(0, maq.eficiencia + (Math.random() * 4 - 2)))).toFixed(1))
-          : maq.eficiencia,
-        temperatura: maq.estado === 'operando'
-          ? Number((maq.temperatura + (Math.random() * 2 - 1)).toFixed(1))
-          : maq.temperatura
-      })));
+      // Actualizar producción diaria
+      setProduccionDiaria(prev => {
+        const hoy = new Date().getDay();
+        const indice = hoy === 0 ? 6 : hoy - 1;
+        if (indice >= 0 && indice < prev.length) {
+          const totalHoy = produccionHora.reduce((acc, p) => acc + p.real, 0);
+          prev[indice] = {
+            ...prev[indice],
+            real: totalHoy,
+            eficiencia: Math.round((totalHoy / prev[indice].meta) * 100)
+          };
+        }
+        return [...prev];
+      });
 
-      if (Math.random() > 0.7) {
-        const nuevasNotificaciones = [
-          { tipo: 'exito', mensaje: 'Orden completada exitosamente' },
-          { tipo: 'advertencia', mensaje: 'Máquina con bajo rendimiento' },
-          { tipo: 'info', mensaje: 'Nuevo lote disponible' },
-          { tipo: 'critica', mensaje: 'Fallo en sistema de refrigeración' }
-        ];
-        const random = nuevasNotificaciones[Math.floor(Math.random() * nuevasNotificaciones.length)];
-        
-        setNotificaciones(prev => [
-          {
-            id: Date.now(),
-            mensaje: random.mensaje,
-            tipo: random.tipo,
-            leida: false,
-            timestamp: new Date()
-          },
-          ...prev.slice(0, 9)
-        ]);
+      // Actualizar máquinas
+      setMaquinas(prev => prev.map(m => {
+        if (m.estado === 'produccion') {
+          const nuevoProducido = m.produccion + Math.floor(Math.random() * 2);
+          return {
+            ...m,
+            produccion: nuevoProducido,
+            eficiencia: Math.round((nuevoProducido / m.meta) * 100),
+            temperatura: m.temperatura + (Math.random() * 0.5 - 0.25)
+          };
+        }
+        return m;
+      }));
 
-        setAlertas(prev => [
-          {
-            id: Date.now(),
-            tipo: random.tipo,
-            mensaje: random.mensaje,
-            tiempo: 'ahora',
-            solucion: 'Revisar sistema'
-          },
-          ...prev.slice(0, 4)
-        ]);
-      }
+      // Actualizar calidad
+      setCalidad(prev => ({
+        ...prev,
+        inspecciones: prev.inspecciones + Math.floor(Math.random() * 5)
+      }));
 
-    }, 6000);
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [produccionHora]);
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).replace(/^\w/, c => c.toUpperCase());
+  // ================ FUNCIONES AUXILIARES ================
+  const formatNumber = (num) => {
+    return new Intl.NumberFormat('es-MX').format(num);
   };
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+  const formatPercent = (num) => {
+    return `${num}%`;
   };
 
-  const marcarNotificacionLeida = (id) => {
-    setNotificaciones(notificaciones.map(n => 
-      n.id === id ? { ...n, leida: true } : n
-    ));
-  };
-
-  const marcarTodasLeidas = () => {
-    setNotificaciones(notificaciones.map(n => ({ ...n, leida: true })));
-  };
-
-  const getEstadoColor = (estado) => {
+  const getStatusColor = (estado) => {
     switch(estado) {
-      case 'completada': return '#10b981';
-      case 'en_proceso': return '#3b82f6';
-      case 'pendiente': return '#f59e0b';
-      case 'revision': return '#8b5cf6';
+      case 'produccion': return '#10b981';
+      case 'mantenimiento': return '#f59e0b';
+      case 'inactiva': return '#ef4444';
       default: return '#6b7280';
     }
   };
 
-  const getPrioridadColor = (prioridad) => {
-    switch(prioridad) {
-      case 'alta': return '#ef4444';
-      case 'media': return '#f59e0b';
-      case 'baja': return '#10b981';
-      default: return '#6b7280';
-    }
+  const getEficienciaColor = (eficiencia) => {
+    if (eficiencia >= 100) return '#10b981';
+    if (eficiencia >= 90) return '#3b82f6';
+    if (eficiencia >= 80) return '#f59e0b';
+    return '#ef4444';
   };
 
-  const getAlertaColor = (tipo) => {
-    switch(tipo) {
-      case 'critica': return '#ef4444';
-      case 'advertencia': return '#f59e0b';
-      case 'info': return '#3b82f6';
-      default: return '#6b7280';
-    }
-  };
+  // ================ RENDER GRÁFICAS ================
+  const renderGraficoProduccionHora = () => {
+    const maxValor = Math.max(...produccionHora.map(p => p.meta)) * 1.2;
+    const datosVisibles = produccionHora.slice(0, 12);
 
-  const notificacionesNoLeidas = notificaciones.filter(n => !n.leida).length;
-
-  const handleOrdenClick = (orden) => {
-    setOrdenSeleccionada(orden);
-    setMostrarPanelDetalle(true);
-  };
-
-  const handleMaquinaClick = (maquina) => {
-    setMaquinaSeleccionada(maquina);
-    setMostrarPanelDetalle(true);
-  };
-
-  const cerrarPanelDetalle = () => {
-    setMostrarPanelDetalle(false);
-    setOrdenSeleccionada(null);
-    setMaquinaSeleccionada(null);
-  };
-
-  const toggleComparacion = (item) => {
-    if (modoComparacion) {
-      if (datosComparacion.includes(item)) {
-        setDatosComparacion(datosComparacion.filter(d => d !== item));
-      } else {
-        setDatosComparacion([...datosComparacion, item]);
-      }
-    }
-  };
-
-  const renderGraficaProduccion = () => {
-    const datos = filtroProduccion === 'hoy' ? produccionPorHora : produccionPorDia;
-    const maxValor = Math.max(...datos.map(d => d.meta)) * 1.2;
-
-    switch(vistaGrafica) {
-      case 'barras':
-        return (
-          <div className="chart-container barras">
-            {datos.map((item, index) => (
-              <div key={index} className="chart-bar-wrapper" onClick={() => toggleComparacion(item)}>
-                <div className="bar-group">
-                  <div 
-                    className="chart-bar actual" 
-                    style={{ height: `${(item.valor / maxValor) * 100}%` }}
-                  >
-                    <span className="bar-value">{item.valor}</span>
-                  </div>
-                  {modoComparacion && (
-                    <div 
-                      className="chart-bar anterior" 
-                      style={{ height: `${(item.valorAnterior / maxValor) * 100}%` }}
-                    >
-                      <span className="bar-value">{item.valorAnterior}</span>
-                    </div>
-                  )}
-                </div>
-                <span className="bar-label">{item.hora || item.dia}</span>
-                <div className="bar-meta" style={{ bottom: `${(item.meta / maxValor) * 100}%` }}>
-                  <span className="meta-line"></span>
-                </div>
-              </div>
-            ))}
+    return (
+      <div className="grafico-barras-container">
+        {datosVisibles.map((item, index) => (
+          <div key={index} className="barra-grupo">
+            <div className="barra-meta" style={{ height: `${(item.meta / maxValor) * 180}px` }}>
+              <span className="barra-meta-valor">{item.meta}</span>
+            </div>
+            <div 
+              className="barra-real" 
+              style={{ 
+                height: `${(item.real / maxValor) * 180}px`,
+                backgroundColor: getEficienciaColor(item.eficiencia)
+              }}
+            >
+              <span className="barra-real-valor">{item.real}</span>
+            </div>
+            <div className="barra-etiqueta">
+              <span>{item.hora}</span>
+              <span className="barra-turno">{item.turno}</span>
+            </div>
+            {item.eficiencia >= 100 && (
+              <span className="barra-badge">🔥</span>
+            )}
           </div>
-        );
+        ))}
+      </div>
+    );
+  };
 
-      case 'lineas':
-        return (
-          <div className="chart-container lineas">
-            <svg viewBox="0 0 1000 300" className="line-chart">
-              <polyline
-                points={datos.map((d, i) => `${(i * (1000 / (datos.length - 1)))},${300 - (d.valor / maxValor) * 250}`).join(' ')}
-                fill="none"
-                stroke="#3b82f6"
-                strokeWidth="3"
-              />
-              {modoComparacion && (
-                <polyline
-                  points={datos.map((d, i) => `${(i * (1000 / (datos.length - 1)))},${300 - (d.valorAnterior / maxValor) * 250}`).join(' ')}
-                  fill="none"
-                  stroke="#9ca3af"
-                  strokeWidth="2"
-                  strokeDasharray="5,5"
-                />
-              )}
-              {datos.map((d, i) => (
-                <circle
-                  key={i}
-                  cx={i * (1000 / (datos.length - 1))}
-                  cy={300 - (d.valor / maxValor) * 250}
-                  r="5"
-                  fill="#3b82f6"
-                  className="chart-point"
-                />
-              ))}
-            </svg>
-          </div>
-        );
+  const renderGraficoLineas = () => {
+    const puntos = produccionHora.map((p, i) => {
+      const x = (i / produccionHora.length) * 800;
+      const y = 200 - (p.real / 600) * 180;
+      return `${x},${y}`;
+    }).join(' ');
 
-      case 'areas':
-        return (
-          <div className="chart-container areas">
-            <svg viewBox="0 0 1000 300" className="area-chart">
-              <defs>
-                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8"/>
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.2"/>
-                </linearGradient>
-              </defs>
-              <polygon
-                points={`0,300 ${datos.map((d, i) => `${(i * (1000 / (datos.length - 1)))},${300 - (d.valor / maxValor) * 250}`).join(' ')} 1000,300`}
-                fill="url(#areaGradient)"
-              />
-            </svg>
-          </div>
-        );
+    const puntosMeta = produccionHora.map((p, i) => {
+      const x = (i / produccionHora.length) * 800;
+      const y = 200 - (p.meta / 600) * 180;
+      return `${x},${y}`;
+    }).join(' ');
 
-      default:
-        return null;
-    }
+    return (
+      <svg viewBox="0 0 800 200" className="grafico-lineas">
+        <defs>
+          <linearGradient id="gradienteArea" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        
+        <polyline
+          points={puntosMeta}
+          fill="none"
+          stroke="#94a3b8"
+          strokeWidth="2"
+          strokeDasharray="5,5"
+        />
+        
+        <polyline
+          points={puntos}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="3"
+        />
+        
+        <polygon
+          points={`0,200 ${puntos} 800,200`}
+          fill="url(#gradienteArea)"
+        />
+        
+        {produccionHora.map((p, i) => (
+          <circle
+            key={i}
+            cx={(i / produccionHora.length) * 800}
+            cy={200 - (p.real / 600) * 180}
+            r="4"
+            fill="#3b82f6"
+            className="punto-linea"
+          />
+        ))}
+      </svg>
+    );
+  };
+
+  const renderGraficoCircular = (valor, total, color, tamaño = 120) => {
+    const porcentaje = (valor / total) * 100;
+    const dash = (porcentaje / 100) * 283;
+    
+    return (
+      <svg width={tamaño} height={tamaño} viewBox="0 0 100 100" className="grafico-circular">
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth="8"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          fill="none"
+          stroke={color}
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={`${dash}, 283`}
+          transform="rotate(-90 50 50)"
+        />
+        <text x="50" y="55" textAnchor="middle" className="grafico-texto">
+          {Math.round(porcentaje)}%
+        </text>
+      </svg>
+    );
   };
 
   return (
-    <div className={`dashboard-premium ${animacionGlobal ? 'global-update' : ''}`}>
-      {/* Overlay del panel de detalle */}
-      {mostrarPanelDetalle && (
-        <div className="panel-detalle-overlay" onClick={cerrarPanelDetalle}>
-          <div className="panel-detalle" onClick={e => e.stopPropagation()}>
-            <button className="panel-detalle-cerrar" onClick={cerrarPanelDetalle}>✕</button>
-            {ordenSeleccionada && (
-              <div className="detalle-contenido">
-                <h3>Detalle de Orden {ordenSeleccionada.id}</h3>
-                <div className="detalle-grid">
-                  <div className="detalle-item">
-                    <span className="detalle-label">Producto</span>
-                    <span className="detalle-valor">{ordenSeleccionada.producto}</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Cliente</span>
-                    <span className="detalle-valor">{ordenSeleccionada.cliente}</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Cantidad</span>
-                    <span className="detalle-valor">{ordenSeleccionada.cantidad}</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Progreso</span>
-                    <span className="detalle-valor">{ordenSeleccionada.progreso}%</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Fecha Entrega</span>
-                    <span className="detalle-valor">{ordenSeleccionada.fechaEntrega}</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Prioridad</span>
-                    <span className="detalle-valor" style={{ color: getPrioridadColor(ordenSeleccionada.prioridad) }}>
-                      {ordenSeleccionada.prioridad}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-            {maquinaSeleccionada && (
-              <div className="detalle-contenido">
-                <h3>Detalle de {maquinaSeleccionada.nombre}</h3>
-                <div className="detalle-grid">
-                  <div className="detalle-item">
-                    <span className="detalle-label">Estado</span>
-                    <span className="detalle-valor">{maquinaSeleccionada.estado}</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Eficiencia</span>
-                    <span className="detalle-valor">{maquinaSeleccionada.eficiencia}%</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Temperatura</span>
-                    <span className="detalle-valor">{maquinaSeleccionada.temperatura}°C</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Orden Actual</span>
-                    <span className="detalle-valor">{maquinaSeleccionada.orden}</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Tiempo Restante</span>
-                    <span className="detalle-valor">{maquinaSeleccionada.tiempoRestante}</span>
-                  </div>
-                  <div className="detalle-item">
-                    <span className="detalle-label">Horas Operación</span>
-                    <span className="detalle-valor">{maquinaSeleccionada.horasOperacion}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Header Premium */}
-      <div className="dashboard-header">
+    <div className={`dashboard-maquila ${temaOscuro ? 'tema-oscuro' : ''}`}>
+      
+      {/* ========== HEADER PRINCIPAL ========== */}
+      <header className="dashboard-header">
         <div className="header-left">
-          <button 
-            className="menu-toggle-btn"
-            onClick={() => setMenuAbierto(!menuAbierto)}
-          >
+          <button className="menu-toggle" onClick={() => setMenuLateral(!menuLateral)}>
             <span className="menu-icon">☰</span>
           </button>
+          
           <div className="logo-area">
             <div className="logo-icon">T</div>
-            <h1 className="dashboard-title">
-              TEGRA
-              <span className="title-badge">ERP</span>
-            </h1>
+            <div className="logo-texto">
+              <h1>TEGRA</h1>
+              <span>Manufacturing Suite</span>
+            </div>
           </div>
-          <div className="date-badge">
-            <span className="date-icon">📅</span>
-            <span className="date-text">{formatDate(currentTime)}</span>
+
+          <div className="fecha-display">
+            <span className="fecha-icon">📅</span>
+            <div className="fecha-info">
+              <span className="fecha-dia">
+                {fechaActual.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+              <span className="fecha-hora">
+                {fechaActual.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            </div>
           </div>
         </div>
 
         <div className="header-right">
           <div className="live-indicator">
             <span className="live-pulse"></span>
-            <span className="live-text">EN VIVO</span>
-            <span className="live-time">{formatTime(currentTime)}</span>
+            <span className="live-text">TIEMPO REAL</span>
           </div>
 
-          <div className="header-actions">
-            <button className="action-btn" title="Comparar datos" onClick={() => setModoComparacion(!modoComparacion)}>
-              {modoComparacion ? '📊' : '📈'}
-            </button>
-            <button className="action-btn" title="Zoom in" onClick={() => setZoomNivel(Math.min(2, zoomNivel + 0.1))}>
-              🔍+
-            </button>
-            <button className="action-btn" title="Zoom out" onClick={() => setZoomNivel(Math.max(0.5, zoomNivel - 0.1))}>
-              🔍-
-            </button>
+          <div className="tema-toggle" onClick={() => setTemaOscuro(!temaOscuro)}>
+            {temaOscuro ? '☀️' : '🌙'}
+          </div>
 
-            <div className="notificaciones-dropdown">
-              <button className="notificaciones-btn">
-                🔔
-                {notificacionesNoLeidas > 0 && (
-                  <span className="notificaciones-badge">{notificacionesNoLeidas}</span>
-                )}
-              </button>
-              <div className="notificaciones-menu">
-                <div className="notificaciones-header">
-                  <h4>Notificaciones</h4>
-                  {notificacionesNoLeidas > 0 && (
-                    <button className="marcar-leidas" onClick={marcarTodasLeidas}>
-                      Marcar todas
-                    </button>
-                  )}
-                </div>
-                <div className="notificaciones-lista">
-                  {notificaciones.map(notif => (
-                    <div 
-                      key={notif.id} 
-                      className={`notificacion-item ${!notif.leida ? 'no-leida' : ''} ${notif.tipo}`}
-                      onClick={() => marcarNotificacionLeida(notif.id)}
-                    >
-                      <span className="notif-icon">
-                        {notif.tipo === 'exito' && '✅'}
-                        {notif.tipo === 'advertencia' && '⚠️'}
-                        {notif.tipo === 'info' && 'ℹ️'}
-                        {notif.tipo === 'critica' && '🔴'}
-                      </span>
-                      <div className="notif-contenido">
-                        <span className="notif-mensaje">{notif.mensaje}</span>
-                        <span className="notif-time">
-                          {notif.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="user-profile">
-              <div className="user-avatar">JC</div>
-              <div className="user-info">
-                <span className="user-name">Josué Cardona</span>
-                <span className="user-role">Administrador</span>
-              </div>
+          <div className="usuario-info">
+            <div className="usuario-avatar">JC</div>
+            <div className="usuario-detalles">
+              <span className="usuario-nombre">Josué Cardona</span>
+              <span className="usuario-rol">Director de Operaciones</span>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Menú Lateral */}
-      <div className={`side-menu ${menuAbierto ? 'abierto' : ''}`}>
-        <div className="menu-header">
-          <div className="menu-logo">
-            <span className="menu-logo-icon">T</span>
-            <span className="menu-logo-text">TEGRA</span>
-          </div>
-          <span className="menu-version">v2.5.0</span>
-        </div>
-
-        <div className="menu-search">
-          <input type="text" placeholder="Buscar..." />
-          <span className="search-icon">🔍</span>
-        </div>
-
+      {/* ========== MENÚ LATERAL ========== */}
+      <aside className={`menu-lateral ${menuLateral ? 'abierto' : ''}`}>
         <nav className="menu-nav">
-          <div className="menu-section">
+          <div className="menu-seccion">
             <h4>PRINCIPAL</h4>
-            <button className={`menu-item ${vista === 'principal' ? 'active' : ''}`} onClick={() => setVista('principal')}>
+            <button className={`menu-item ${vista === 'general' ? 'active' : ''}`} onClick={() => setVista('general')}>
               <span className="item-icon">📊</span>
-              <span className="item-text">Dashboard</span>
+              <span>Dashboard General</span>
+            </button>
+            <button className="menu-item">
+              <span className="item-icon">⚙️</span>
+              <span>Máquinas</span>
+              <span className="item-badge">12</span>
             </button>
             <button className="menu-item">
               <span className="item-icon">📋</span>
-              <span className="item-text">Órdenes</span>
-              <span className="item-badge">{stats.ordenesActivas}</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">⚙️</span>
-              <span className="item-text">Máquinas</span>
-              <span className="item-badge">{stats.maquinasActivas}/{stats.maquinasTotales}</span>
-            </button>
-          </div>
-
-          <div className="menu-section">
-            <h4>OPERACIONES</h4>
-            <button className="menu-item">
-              <span className="item-icon">📅</span>
-              <span className="item-text">Plan Semanal</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">🏭</span>
-              <span className="item-text">Producción</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">📦</span>
-              <span className="item-text">Miceláneos</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">🔧</span>
-              <span className="item-text">Mantenimiento</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">✅</span>
-              <span className="item-text">Calidad</span>
-            </button>
-          </div>
-
-          <div className="menu-section">
-            <h4>REPORTES</h4>
-            <button className="menu-item">
-              <span className="item-icon">📈</span>
-              <span className="item-text">Eficiencia</span>
+              <span>Órdenes</span>
+              <span className="item-badge">8</span>
             </button>
             <button className="menu-item">
               <span className="item-icon">👥</span>
-              <span className="item-text">Recursos Humanos</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">📊</span>
-              <span className="item-text">Estadísticas</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">📉</span>
-              <span className="item-text">Tendencias</span>
-            </button>
-            <button className="menu-item">
-              <span className="item-icon">💰</span>
-              <span className="item-text">Costos</span>
+              <span>Personal</span>
+              <span className="item-badge">145</span>
             </button>
           </div>
 
-          <div className="menu-section">
+          <div className="menu-seccion">
+            <h4>PRODUCCIÓN</h4>
+            <button className="menu-item">
+              <span className="item-icon">📈</span>
+              <span>Plan de Producción</span>
+            </button>
+            <button className="menu-item">
+              <span className="item-icon">🔄</span>
+              <span>Líneas de Ensamble</span>
+            </button>
+            <button className="menu-item">
+              <span className="item-icon">✅</span>
+              <span>Control de Calidad</span>
+            </button>
+            <button className="menu-item">
+              <span className="item-icon">📦</span>
+              <span>Inventario</span>
+            </button>
+          </div>
+
+          <div className="menu-seccion">
+            <h4>ANÁLISIS</h4>
+            <button className="menu-item">
+              <span className="item-icon">📊</span>
+              <span>Eficiencia OEE</span>
+            </button>
+            <button className="menu-item">
+              <span className="item-icon">📉</span>
+              <span>Tendencias</span>
+            </button>
+            <button className="menu-item">
+              <span className="item-icon">💰</span>
+              <span>Costos</span>
+            </button>
+            <button className="menu-item">
+              <span className="item-icon">📑</span>
+              <span>Reportes</span>
+            </button>
+          </div>
+
+          <div className="menu-seccion">
             <h4>CONFIGURACIÓN</h4>
             <button className="menu-item">
               <span className="item-icon">⚙️</span>
-              <span className="item-text">Ajustes</span>
+              <span>Ajustes</span>
             </button>
             <button className="menu-item">
               <span className="item-icon">👤</span>
-              <span className="item-text">Perfil</span>
+              <span>Mi Perfil</span>
             </button>
             <button className="menu-item">
               <span className="item-icon">🔒</span>
-              <span className="item-text">Seguridad</span>
+              <span>Seguridad</span>
             </button>
           </div>
         </nav>
 
         <div className="menu-footer">
-          <div className="system-status">
+          <div className="sistema-status">
             <span className="status-dot verde"></span>
-            <span>Sistema activo</span>
+            <span>Sistema Operativo</span>
           </div>
-          <div className="sync-status">
-            <span className="sync-icon">🔄</span>
-            <span>Tiempo real</span>
-          </div>
-          <div className="storage-status">
-            <div className="storage-bar">
-              <div className="storage-fill" style={{ width: '78%' }}></div>
-            </div>
-            <span>78% usado</span>
+          <div className="sistema-info">
+            <span>v3.2.0</span>
+            <span>•</span>
+            <span>Producción</span>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <div className="dashboard-main" style={{ transform: `scale(${zoomNivel})`, transformOrigin: 'top center' }}>
-        {/* Top Bar con Selector de Período y Controles de Gráfica */}
-        <div className="top-bar">
-          <div className="periodo-selector">
-            <button 
-              className={`periodo-btn ${periodo === 'dia' ? 'active' : ''}`}
-              onClick={() => setPeriodo('dia')}
-            >
-              Día
-            </button>
-            <button 
-              className={`periodo-btn ${periodo === 'semana' ? 'active' : ''}`}
-              onClick={() => setPeriodo('semana')}
-            >
-              Semana
-            </button>
-            <button 
-              className={`periodo-btn ${periodo === 'mes' ? 'active' : ''}`}
-              onClick={() => setPeriodo('mes')}
-            >
-              Mes
-            </button>
-            <button 
-              className={`periodo-btn ${periodo === 'trimestre' ? 'active' : ''}`}
-              onClick={() => setPeriodo('trimestre')}
-            >
-              Trimestre
-            </button>
-          </div>
-
-          <div className="grafica-controles">
-            <button 
-              className={`control-btn ${vistaGrafica === 'barras' ? 'active' : ''}`}
-              onClick={() => setVistaGrafica('barras')}
-              title="Gráfica de barras"
-            >
-              📊
-            </button>
-            <button 
-              className={`control-btn ${vistaGrafica === 'lineas' ? 'active' : ''}`}
-              onClick={() => setVistaGrafica('lineas')}
-              title="Gráfica de líneas"
-            >
-              📈
-            </button>
-            <button 
-              className={`control-btn ${vistaGrafica === 'areas' ? 'active' : ''}`}
-              onClick={() => setVistaGrafica('areas')}
-              title="Gráfica de áreas"
-            >
-              📉
-            </button>
-            <select 
-              className="filtro-select"
-              value={filtroProduccion}
-              onChange={(e) => setFiltroProduccion(e.target.value)}
-            >
-              <option value="hoy">Hoy</option>
-              <option value="semana">Esta semana</option>
-              <option value="mes">Este mes</option>
-            </select>
-          </div>
-
-          <div className="acciones-rapidas">
-            <button className="accion-btn" title="Exportar reporte">
+      {/* ========== CONTENIDO PRINCIPAL ========== */}
+      <main className={`contenido-principal ${menuLateral ? 'con-menu' : ''}`}>
+        
+        {/* ========== SELECTOR DE PERÍODO ========== */}
+        <div className="periodo-selector">
+          <button className={`periodo-btn ${periodo === 'dia' ? 'active' : ''}`} onClick={() => setPeriodo('dia')}>
+            DÍA
+          </button>
+          <button className={`periodo-btn ${periodo === 'semana' ? 'active' : ''}`} onClick={() => setPeriodo('semana')}>
+            SEMANA
+          </button>
+          <button className={`periodo-btn ${periodo === 'mes' ? 'active' : ''}`} onClick={() => setPeriodo('mes')}>
+            MES
+          </button>
+          <button className={`periodo-btn ${periodo === 'trimestre' ? 'active' : ''}`} onClick={() => setPeriodo('trimestre')}>
+            TRIMESTRE
+          </button>
+          <button className={`periodo-btn ${periodo === 'año' ? 'active' : ''}`} onClick={() => setPeriodo('año')}>
+            AÑO
+          </button>
+          
+          <div className="periodo-acciones">
+            <button className="accion-btn" title="Exportar datos">
               📥 Exportar
             </button>
-            <button className="accion-btn" title="Imprimir">
-              🖨️ Imprimir
-            </button>
-            <button className="accion-btn" title="Actualizar datos">
+            <button className="accion-btn" title="Actualizar">
               🔄 Actualizar
-            </button>
-            <button className="accion-btn" title="Ayuda">
-              ❓ Ayuda
             </button>
           </div>
         </div>
 
-        {/* KPI Cards - 12 KPIs con OEE */}
+        {/* ========== KPI PRINCIPALES ========== */}
         <div className="kpi-grid">
-          <div className="kpi-card ordenes">
-            <div className="kpi-header">
-              <span className="kpi-icon">📋</span>
-              <span className="kpi-tendencia positive">+12%</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.ordenesActivas}</span>
-              <span className="kpi-label">Órdenes Activas</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">vs ayer +2</span>
-            </div>
-          </div>
-
-          <div className="kpi-card completadas">
-            <div className="kpi-header">
-              <span className="kpi-icon">✅</span>
-              <span className="kpi-tendencia positive">+8%</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.ordenesCompletadas}</span>
-              <span className="kpi-label">Completadas</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">esta semana</span>
-            </div>
-          </div>
-
-          <div className="kpi-card maquinas">
-            <div className="kpi-header">
-              <span className="kpi-icon">⚙️</span>
-              <span className="kpi-tendencia">{Math.round((stats.maquinasActivas/stats.maquinasTotales)*100)}%</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.maquinasActivas}/{stats.maquinasTotales}</span>
-              <span className="kpi-label">Máquinas Activas</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">8 operando</span>
-            </div>
-          </div>
-
-          <div className="kpi-card eficiencia">
-            <div className="kpi-header">
-              <span className="kpi-icon">📊</span>
-              <span className="kpi-tendencia positive">+5%</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.eficienciaGlobal}%</span>
-              <span className="kpi-label">Eficiencia Global</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">meta 90%</span>
-            </div>
-          </div>
-
           <div className="kpi-card produccion">
-            <div className="kpi-header">
-              <span className="kpi-icon">📦</span>
-              <span className="kpi-tendencia positive">+15%</span>
+            <div className="kpi-icono">📊</div>
+            <div className="kpi-contenido">
+              <span className="kpi-valor">{formatNumber(produccionDiaria.find(d => d.dia === 'Jueves')?.real || 0)}</span>
+              <span className="kpi-etiqueta">Producción Hoy</span>
+              <div className="kpi-tendencia positiva">
+                <span>↑ 8.5%</span>
+                <span>vs ayer</span>
+              </div>
             </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.produccionHoy}</span>
-              <span className="kpi-label">Prod. Hoy</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">unidades</span>
-            </div>
-          </div>
-
-          <div className="kpi-card alertas">
-            <div className="kpi-header">
-              <span className="kpi-icon">⚠️</span>
-              <span className="kpi-tendencia negative">+2</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.alertas}</span>
-              <span className="kpi-label">Alertas</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">3 críticas</span>
-            </div>
-          </div>
-
-          <div className="kpi-card atrasos">
-            <div className="kpi-header">
-              <span className="kpi-icon">⏰</span>
-              <span className="kpi-tendencia negative">-1</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.atrasos}</span>
-              <span className="kpi-label">Atrasos</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">2 graves</span>
-            </div>
-          </div>
-
-          <div className="kpi-card productividad">
-            <div className="kpi-header">
-              <span className="kpi-icon">📈</span>
-              <span className="kpi-tendencia positive">+3%</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.productividad}%</span>
-              <span className="kpi-label">Productividad</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">meta 95%</span>
-            </div>
-          </div>
-
-          <div className="kpi-card satisfaccion">
-            <div className="kpi-header">
-              <span className="kpi-icon">⭐</span>
-              <span className="kpi-tendencia positive">+2%</span>
-            </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.satisfaccion}%</span>
-              <span className="kpi-label">Satisfacción</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">cliente</span>
+            <div className="kpi-mini-grafica">
+              {renderGraficoCircular(produccionDiaria.find(d => d.dia === 'Jueves')?.eficiencia || 0, 100, '#3b82f6', 60)}
             </div>
           </div>
 
           <div className="kpi-card oee">
-            <div className="kpi-header">
-              <span className="kpi-icon">⚡</span>
-              <span className="kpi-tendencia positive">+1%</span>
+            <div className="kpi-icono">⚡</div>
+            <div className="kpi-contenido">
+              <span className="kpi-valor">{personal.eficienciaGeneral}%</span>
+              <span className="kpi-etiqueta">OEE Global</span>
+              <div className="kpi-tendencia positiva">
+                <span>↑ 2.3%</span>
+                <span>vs ayer</span>
+              </div>
             </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.oee}%</span>
-              <span className="kpi-label">OEE</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">world class 85%</span>
+            <div className="oee-detalle">
+              <div className="oee-item">
+                <span>D</span>
+                <span>{personal.disponibilidad}%</span>
+              </div>
+              <div className="oee-item">
+                <span>R</span>
+                <span>{personal.productividad}%</span>
+              </div>
+              <div className="oee-item">
+                <span>C</span>
+                <span>{calidad.tasaAprobacion}%</span>
+              </div>
             </div>
           </div>
 
-          <div className="kpi-card disponibilidad">
-            <div className="kpi-header">
-              <span className="kpi-icon">⏱️</span>
-              <span className="kpi-tendencia positive">+0.5%</span>
+          <div className="kpi-card maquinas">
+            <div className="kpi-icono">⚙️</div>
+            <div className="kpi-contenido">
+              <span className="kpi-valor">{maquinas.filter(m => m.estado === 'produccion').length}/{maquinas.length}</span>
+              <span className="kpi-etiqueta">Máquinas Activas</span>
+              <div className="kpi-mini-status">
+                <span className="status-badge disponible">8 activas</span>
+                <span className="status-badge inactiva">2 inactivas</span>
+                <span className="status-badge mantenimiento">2 mantenimiento</span>
+              </div>
             </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.disponibilidad}%</span>
-              <span className="kpi-label">Disponibilidad</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">tiempo operativo</span>
+          </div>
+
+          <div className="kpi-card personal">
+            <div className="kpi-icono">👥</div>
+            <div className="kpi-contenido">
+              <span className="kpi-valor">{personal.presentes}/{personal.total}</span>
+              <span className="kpi-etiqueta">Personal Activo</span>
+              <div className="kpi-mini-status">
+                <span className="turno-badge A">A: {personal.turnoA}</span>
+                <span className="turno-badge B">B: {personal.turnoB}</span>
+                <span className="turno-badge C">C: {personal.turnoC}</span>
+              </div>
             </div>
           </div>
 
           <div className="kpi-card calidad">
-            <div className="kpi-header">
-              <span className="kpi-icon">✨</span>
-              <span className="kpi-tendencia positive">+0.3%</span>
+            <div className="kpi-icono">✅</div>
+            <div className="kpi-contenido">
+              <span className="kpi-valor">{calidad.tasaAprobacion}%</span>
+              <span className="kpi-etiqueta">Calidad</span>
+              <div className="kpi-tendencia positiva">
+                <span>↑ 1.2%</span>
+                <span>rechazos: {calidad.rechazos}</span>
+              </div>
             </div>
-            <div className="kpi-content">
-              <span className="kpi-value">{stats.calidad}%</span>
-              <span className="kpi-label">Calidad</span>
-            </div>
-            <div className="kpi-footer">
-              <span className="kpi-sub">primera pasada</span>
+          </div>
+
+          <div className="kpi-card cumplimiento">
+            <div className="kpi-icono">🎯</div>
+            <div className="kpi-contenido">
+              <span className="kpi-valor">94%</span>
+              <span className="kpi-etiqueta">Cumplimiento</span>
+              <div className="kpi-barra">
+                <div className="kpi-barra-fill" style={{ width: '94%' }}></div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Gráfico Principal de Producción */}
-        <div className="chart-card produccion-chart">
-          <div className="chart-header">
-            <div className="chart-title">
-              <h3>Producción por {filtroProduccion === 'hoy' ? 'Hora' : 'Día'}</h3>
-              <div className="chart-legend">
-                <span className="legend-item">
-                  <span className="legend-color actual"></span>
-                  Actual
+        {/* ========== GRÁFICO PRINCIPAL ========== */}
+        <div className="grafico-principal">
+          <div className="grafico-header">
+            <div className="grafico-titulo">
+              <h3>Producción por Hora - Tiempo Real</h3>
+              <div className="grafico-leyenda">
+                <span className="leyenda-item">
+                  <span className="leyenda-color real"></span>
+                  Producción Real
                 </span>
-                {modoComparacion && (
-                  <span className="legend-item">
-                    <span className="legend-color anterior"></span>
-                    Anterior
-                  </span>
-                )}
-                <span className="legend-item">
-                  <span className="legend-color meta"></span>
+                <span className="leyenda-item">
+                  <span className="leyenda-color meta"></span>
                   Meta
                 </span>
+                <span className="leyenda-item">
+                  <span className="leyenda-color turnoA"></span>
+                  Turno A
+                </span>
+                <span className="leyenda-item">
+                  <span className="leyenda-color turnoB"></span>
+                  Turno B
+                </span>
+                <span className="leyenda-item">
+                  <span className="leyenda-color turnoC"></span>
+                  Turno C
+                </span>
               </div>
             </div>
-            <div className="chart-controls">
-              <select className="chart-filter">
-                <option>Hoy</option>
-                <option>Ayer</option>
-                <option>Semana</option>
-              </select>
-              <span className="real-time-badge">
-                <span className="pulse-dot"></span>
-                Tiempo real
-              </span>
+            <div className="grafico-controles">
+              <button className="control-grafico active">📊 Barras</button>
+              <button className="control-grafico">📈 Líneas</button>
+              <button className="control-grafico">📉 Áreas</button>
             </div>
           </div>
-          <div className="chart-body">
-            {renderGraficaProduccion()}
+          <div className="grafico-body">
+            {renderGraficoProduccionHora()}
+          </div>
+          <div className="grafico-footer">
+            <div className="total-produccion">
+              <span>Total hoy:</span>
+              <strong>{formatNumber(produccionHora.reduce((acc, p) => acc + p.real, 0))} unidades</strong>
+            </div>
+            <div className="meta-produccion">
+              <span>Meta hoy:</span>
+              <strong>{formatNumber(produccionHora.reduce((acc, p) => acc + p.meta, 0))} unidades</strong>
+            </div>
+            <div className="eficiencia-promedio">
+              <span>Eficiencia promedio:</span>
+              <strong style={{ color: getEficienciaColor(Math.round(produccionHora.reduce((acc, p) => acc + p.eficiencia, 0) / produccionHora.length)) }}>
+                {Math.round(produccionHora.reduce((acc, p) => acc + p.eficiencia, 0) / produccionHora.length)}%
+              </strong>
+            </div>
           </div>
         </div>
 
-        {/* Segunda fila - Máquinas y Proyectos */}
-        <div className="charts-row">
-          <div className="chart-card maquinas-chart">
-            <div className="chart-header">
-              <h3>Estado de Máquinas</h3>
-              <button className="chart-btn">Ver todas</button>
+        {/* ========== FILA DE GRÁFICOS SECUNDARIOS ========== */}
+        <div className="graficos-secundarios">
+          
+          {/* Producción por Día */}
+          <div className="grafico-card">
+            <div className="card-header">
+              <h4>Producción por Día</h4>
+              <button className="card-btn">Ver detalles →</button>
             </div>
-            <div className="maquinas-grid">
-              {maquinas.slice(0, 4).map(maq => (
-                <div 
-                  key={maq.id} 
-                  className={`maquina-item ${maq.estado}`}
-                  onClick={() => handleMaquinaClick(maq)}
-                >
-                  <div className="maquina-header">
-                    <span className="maquina-nombre">{maq.nombre}</span>
-                    <span className={`maquina-estado estado-${maq.estado}`}>{maq.estado}</span>
+            <div className="card-body">
+              {produccionDiaria.map((dia, index) => (
+                <div key={index} className="dia-item">
+                  <div className="dia-info">
+                    <span className="dia-nombre">{dia.dia}</span>
+                    <span className="dia-fecha">{dia.fecha}</span>
                   </div>
+                  <div className="dia-barra-container">
+                    <div 
+                      className="dia-barra" 
+                      style={{ 
+                        width: `${(dia.real / dia.meta) * 100}%`,
+                        backgroundColor: getEficienciaColor(dia.eficiencia)
+                      }}
+                    ></div>
+                  </div>
+                  <div className="dia-valores">
+                    <span className="dia-real">{formatNumber(dia.real)}</span>
+                    <span className="dia-meta">/{formatNumber(dia.meta)}</span>
+                    <span className="dia-eficiencia" style={{ color: getEficienciaColor(dia.eficiencia) }}>
+                      {dia.eficiencia}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Estado de Máquinas */}
+          <div className="grafico-card">
+            <div className="card-header">
+              <h4>Máquinas en Tiempo Real</h4>
+              <button className="card-btn">Ver todas →</button>
+            </div>
+            <div className="card-body maquinas-lista">
+              {maquinas.slice(0, 6).map(maquina => (
+                <div key={maquina.id} className="maquina-item-lista">
                   <div className="maquina-info">
+                    <div className="maquina-nombre">
+                      <span className={`maquina-estado-dot ${maquina.estado}`}></span>
+                      <span>{maquina.nombre}</span>
+                    </div>
+                    <span className="maquina-linea">{maquina.linea}</span>
+                  </div>
+                  <div className="maquina-stats">
                     <div className="maquina-eficiencia">
-                      <div className="eficiencia-label">Eficiencia</div>
-                      <div className="eficiencia-valor">{maq.eficiencia}%</div>
                       <div className="eficiencia-barra">
-                        <div className="eficiencia-progreso" style={{ width: `${maq.eficiencia}%` }}></div>
+                        <div 
+                          className="eficiencia-fill" 
+                          style={{ 
+                            width: `${maquina.eficiencia}%`,
+                            backgroundColor: getEficienciaColor(maquina.eficiencia)
+                          }}
+                        ></div>
                       </div>
+                      <span className="eficiencia-valor">{maquina.eficiencia}%</span>
                     </div>
-                    <div className="maquina-temp">
-                      <span className="temp-icon">🌡️</span>
-                      <span className={`temp-valor ${maq.temperatura > 100 ? 'alta' : maq.temperatura > 50 ? 'media' : 'normal'}`}>
-                        {maq.temperatura}°C
+                    <span className="maquina-temp">{maquina.temperatura}°C</span>
+                  </div>
+                  <div className="maquina-footer">
+                    <span className="maquina-operador">👤 {maquina.operador}</span>
+                    <span className="maquina-orden">{maquina.orden}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Rendimiento por Turno */}
+          <div className="grafico-card">
+            <div className="card-header">
+              <h4>Rendimiento por Turno</h4>
+              <button className="card-btn">Ver detalles →</button>
+            </div>
+            <div className="card-body">
+              {turnos.map((turno, index) => (
+                <div key={index} className="turno-item">
+                  <div className="turno-header">
+                    <span className={`turno-badge ${turno.turno}`}>Turno {turno.turno}</span>
+                    <span className="turno-horario">{turno.horario}</span>
+                    <span className="turno-supervisor">{turno.supervisor}</span>
+                  </div>
+                  <div className="turno-stats">
+                    <div className="turno-stat">
+                      <span className="stat-label">Personal</span>
+                      <span className="stat-valor">{turno.personal}</span>
+                    </div>
+                    <div className="turno-stat">
+                      <span className="stat-label">Producción</span>
+                      <span className="stat-valor">{formatNumber(turno.produccion)}</span>
+                    </div>
+                    <div className="turno-stat">
+                      <span className="stat-label">Meta</span>
+                      <span className="stat-valor">{formatNumber(turno.meta)}</span>
+                    </div>
+                    <div className="turno-stat">
+                      <span className="stat-label">Eficiencia</span>
+                      <span className="stat-valor" style={{ color: getEficienciaColor(turno.eficiencia) }}>
+                        {turno.eficiencia}%
                       </span>
                     </div>
                   </div>
-                  <div className="maquina-orden">
-                    Orden: {maq.orden}
-                    <span className="maquina-tiempo">{maq.tiempoRestante}</span>
+                  <div className="turno-progreso">
+                    <div 
+                      className="turno-progreso-fill" 
+                      style={{ 
+                        width: `${(turno.produccion / turno.meta) * 100}%`,
+                        backgroundColor: getEficienciaColor(turno.eficiencia)
+                      }}
+                    ></div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="chart-card proyectos-chart">
-            <div className="chart-header">
-              <h3>Progreso de Proyectos</h3>
-              <button className="chart-btn">Ver todos</button>
+          {/* Calidad */}
+          <div className="grafico-card">
+            <div className="card-header">
+              <h4>Control de Calidad</h4>
+              <button className="card-btn">Ver reporte →</button>
             </div>
-            <div className="proyectos-lista">
-              {proyectos.map((proyecto, index) => (
-                <div key={index} className="proyecto-item">
-                  <div className="proyecto-header">
-                    <span className="proyecto-nombre">{proyecto.nombre}</span>
-                    <span className="proyecto-responsable">👤 {proyecto.responsable}</span>
-                  </div>
-                  <div className="proyecto-progress">
-                    <div className="progress-info">
-                      <span className="progress-tareas">{proyecto.completadas}/{proyecto.tareas} tareas</span>
-                      <span className="progress-porcentaje">{proyecto.progreso}%</span>
-                    </div>
-                    <div className="progress-bar-container">
-                      <div className="progress-bar-fill" style={{ width: `${proyecto.progreso}%` }}></div>
-                    </div>
-                  </div>
-                  <div className="proyecto-footer">
-                    <span className="proyecto-fecha">📅 {proyecto.fechaEntrega}</span>
-                    {proyecto.progreso >= 90 && <span className="proyecto-badge">¡Casi listo!</span>}
+            <div className="card-body">
+              <div className="calidad-grid">
+                <div className="calidad-item">
+                  <span className="calidad-label">Aprobación</span>
+                  <span className="calidad-valor">{calidad.tasaAprobacion}%</span>
+                  <div className="calidad-barra">
+                    <div className="calidad-barra-fill" style={{ width: `${calidad.tasaAprobacion}%` }}></div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Tercera fila - Alertas y Rendimiento */}
-        <div className="charts-row-secondary">
-          <div className="chart-card alertas-chart">
-            <div className="chart-header">
-              <h3>Alertas Activas</h3>
-              <button className="chart-btn">Ver todas</button>
-            </div>
-            <div className="alertas-lista">
-              {alertas.map(alerta => (
-                <div key={alerta.id} className="alerta-item" style={{ borderLeftColor: getAlertaColor(alerta.tipo) }}>
-                  <div className="alerta-icono">
-                    {alerta.tipo === 'critica' && '🔴'}
-                    {alerta.tipo === 'advertencia' && '🟠'}
-                    {alerta.tipo === 'info' && '🔵'}
-                  </div>
-                  <div className="alerta-contenido">
-                    <div className="alerta-header">
-                      <span className="alerta-tipo" style={{ color: getAlertaColor(alerta.tipo) }}>
-                        {alerta.tipo.toUpperCase()}
-                      </span>
-                      <span className="alerta-tiempo">{alerta.tiempo}</span>
-                    </div>
-                    <span className="alerta-mensaje">{alerta.mensaje}</span>
-                    {alerta.solucion && (
-                      <span className="alerta-solucion">💡 {alerta.solucion}</span>
-                    )}
+                <div className="calidad-item">
+                  <span className="calidad-label">Rechazos</span>
+                  <span className="calidad-valor">{calidad.rechazos}</span>
+                  <div className="calidad-barra">
+                    <div className="calidad-barra-fill" style={{ width: (calidad.rechazos / calidad.inspecciones) * 100 }}></div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="chart-card rendimiento-chart">
-            <div className="chart-header">
-              <h3>Rendimiento por Turno</h3>
-              <button className="chart-btn">Ver detalles</button>
-            </div>
-            <div className="rendimiento-contenido">
-              <div className="turnos-grid">
-                <div className="turno-card">
-                  <span className="turno-nombre">Turno A</span>
-                  <span className="turno-valor">78%</span>
-                  <div className="turno-barra">
-                    <div className="turno-progreso" style={{ width: '78%' }}></div>
-                  </div>
-                  <span className="turno-produccion">450 uds</span>
+                <div className="calidad-item">
+                  <span className="calidad-label">Reprocesos</span>
+                  <span className="calidad-valor">{calidad.reprocesos}</span>
                 </div>
-                <div className="turno-card">
-                  <span className="turno-nombre">Turno B</span>
-                  <span className="turno-valor">82%</span>
-                  <div className="turno-barra">
-                    <div className="turno-progreso" style={{ width: '82%' }}></div>
-                  </div>
-                  <span className="turno-produccion">520 uds</span>
-                </div>
-                <div className="turno-card">
-                  <span className="turno-nombre">Turno C</span>
-                  <span className="turno-valor">71%</span>
-                  <div className="turno-barra">
-                    <div className="turno-progreso" style={{ width: '71%' }}></div>
-                  </div>
-                  <span className="turno-produccion">380 uds</span>
+                <div className="calidad-item">
+                  <span className="calidad-label">Scrap</span>
+                  <span className="calidad-valor">{calidad.scrap}%</span>
                 </div>
               </div>
 
-              <div className="tiempos-promedio">
-                <h4>Tiempos Promedio</h4>
-                <div className="tiempos-grid">
-                  <div className="tiempo-item">
-                    <span className="tiempo-label">Setup</span>
-                    <span className="tiempo-valor">{tiemposPromedio.setup} min</span>
+              <div className="defectos-lista">
+                <h5>Defectos por tipo</h5>
+                {defectos.map((defecto, index) => (
+                  <div key={index} className="defecto-item">
+                    <div className="defecto-info">
+                      <span>{defecto.tipo}</span>
+                      <span className={`defecto-tendencia ${defecto.tendencia}`}>
+                        {defecto.tendencia === 'up' ? '↑' : defecto.tendencia === 'down' ? '↓' : '→'}
+                      </span>
+                    </div>
+                    <div className="defecto-barra-container">
+                      <div className="defecto-barra" style={{ width: `${defecto.porcentaje}%` }}></div>
+                    </div>
+                    <span className="defecto-cantidad">{defecto.cantidad}</span>
                   </div>
-                  <div className="tiempo-item">
-                    <span className="tiempo-label">Producción</span>
-                    <span className="tiempo-valor">{tiemposPromedio.produccion} min</span>
-                  </div>
-                  <div className="tiempo-item">
-                    <span className="tiempo-label">Mantenimiento</span>
-                    <span className="tiempo-valor">{tiemposPromedio.mantenimiento} min</span>
-                  </div>
-                  <div className="tiempo-item">
-                    <span className="tiempo-label">Cambio</span>
-                    <span className="tiempo-valor">{tiemposPromedio.cambioHerramienta} min</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabla de Órdenes Recientes */}
-        <div className="table-card">
+        {/* ========== TABLA DE ÓRDENES ========== */}
+        <div className="ordenes-table-container">
           <div className="table-header">
-            <h3>Órdenes de Producción</h3>
+            <h3>Órdenes de Producción Activas</h3>
             <div className="table-actions">
               <button className="table-btn">Filtrar</button>
               <button className="table-btn primary">Nueva Orden</button>
             </div>
           </div>
+          
           <div className="table-responsive">
-            <table className="data-table">
+            <table className="ordenes-table">
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Producto</th>
                   <th>Cliente</th>
+                  <th>Producto</th>
                   <th>Cantidad</th>
+                  <th>Producido</th>
+                  <th>Pendiente</th>
+                  <th>Avance</th>
+                  <th>Línea</th>
+                  <th>Entrega</th>
                   <th>Prioridad</th>
                   <th>Estado</th>
-                  <th>Progreso</th>
-                  <th>Fecha Entrega</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {ordenesRecientes.map(orden => (
-                  <tr key={orden.id} onClick={() => handleOrdenClick(orden)}>
+                {ordenes.filter(o => o.estado !== 'completada').map(orden => (
+                  <tr key={orden.id}>
                     <td className="orden-id">{orden.id}</td>
-                    <td className="orden-producto">{orden.producto}</td>
-                    <td className="orden-cliente">{orden.cliente}</td>
-                    <td className="orden-cantidad">{orden.cantidad}</td>
+                    <td>{orden.cliente}</td>
+                    <td>{orden.producto}</td>
+                    <td className="orden-cantidad">{formatNumber(orden.cantidad)}</td>
+                    <td className="orden-producido">{formatNumber(orden.producido)}</td>
+                    <td className="orden-pendiente">{formatNumber(orden.pendiente)}</td>
                     <td>
-                      <span className="prioridad-badge" style={{ backgroundColor: getPrioridadColor(orden.prioridad) }}>
+                      <div className="table-progress">
+                        <div className="progress-bar">
+                          <div 
+                            className="progress-fill" 
+                            style={{ 
+                              width: `${orden.avance}%`,
+                              backgroundColor: getEficienciaColor(orden.avance)
+                            }}
+                          ></div>
+                        </div>
+                        <span className="progress-text">{orden.avance}%</span>
+                      </div>
+                    </td>
+                    <td>{orden.linea}</td>
+                    <td className="orden-fecha">{orden.fechaEntrega}</td>
+                    <td>
+                      <span className={`prioridad-badge ${orden.prioridad}`}>
                         {orden.prioridad}
                       </span>
                     </td>
                     <td>
-                      <span className="estado-badge" style={{ backgroundColor: getEstadoColor(orden.estado) }}>
+                      <span className={`estado-badge ${orden.estado}`}>
                         {orden.estado.replace('_', ' ')}
                       </span>
                     </td>
                     <td>
-                      <div className="table-progress">
-                        <div className="table-progress-bar">
-                          <div className="table-progress-fill" style={{ width: `${orden.progreso}%` }}></div>
-                        </div>
-                        <span className="table-progress-text">{orden.progreso}%</span>
-                      </div>
-                    </td>
-                    <td className="orden-fecha">{orden.fechaEntrega}</td>
-                    <td>
                       <div className="table-acciones">
-                        <button className="table-accion-btn" title="Ver detalles">👁️</button>
-                        <button className="table-accion-btn" title="Editar">✏️</button>
-                        <button className="table-accion-btn" title="Más opciones">⋯</button>
+                        <button className="accion-icono" title="Ver detalles">👁️</button>
+                        <button className="accion-icono" title="Editar">✏️</button>
+                        <button className="accion-icono" title="Más">⋯</button>
                       </div>
                     </td>
                   </tr>
@@ -1195,129 +928,141 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Cards de Información Adicional */}
-        <div className="info-cards-grid">
-          <div className="info-card inventario-card">
-            <div className="info-card-header">
-              <span className="info-card-icon">📦</span>
-              <h4>Inventario Crítico</h4>
-              <button className="info-card-btn">Ver todos</button>
-            </div>
-            <div className="info-card-content">
-              {inventario.slice(0, 5).map((item, index) => (
-                <div key={index} className="inventario-item">
-                  <span className="inventario-nombre">{item.nombre}</span>
-                  <div className="inventario-progress">
-                    <div className="inventario-bar">
-                      <div 
-                        className={`inventario-fill ${item.estado}`} 
-                        style={{ width: `${item.cantidad}%` }}
-                      ></div>
-                    </div>
-                    <span className={`inventario-valor ${item.estado}`}>{item.cantidad}{item.unidad}</span>
-                  </div>
+        {/* ========== ESTADÍSTICAS AVANZADAS ========== */}
+        <div className="estadisticas-avanzadas">
+          
+          <div className="estadistica-card">
+            <h4>OEE por Línea</h4>
+            <div className="oee-lineas">
+              <div className="oee-linea">
+                <span className="linea-nombre">Impresión</span>
+                <div className="linea-barra">
+                  <div className="linea-fill" style={{ width: '92%' }}></div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="info-card personal-card">
-            <div className="info-card-header">
-              <span className="info-card-icon">👥</span>
-              <h4>Personal Activo</h4>
-              <button className="info-card-btn">Ver todos</button>
-            </div>
-            <div className="info-card-content">
-              <div className="personal-stats">
-                <div className="personal-stat">
-                  <span className="stat-label">Producción</span>
-                  <span className="stat-value">{personal.produccion}</span>
-                </div>
-                <div className="personal-stat">
-                  <span className="stat-label">Calidad</span>
-                  <span className="stat-value">{personal.calidad}</span>
-                </div>
-                <div className="personal-stat">
-                  <span className="stat-label">Mantenimiento</span>
-                  <span className="stat-value">{personal.mantenimiento}</span>
-                </div>
-                <div className="personal-stat">
-                  <span className="stat-label">Planificación</span>
-                  <span className="stat-value">{personal.planificacion}</span>
-                </div>
-                <div className="personal-stat">
-                  <span className="stat-label">Administración</span>
-                  <span className="stat-value">{personal.administracion}</span>
-                </div>
+                <span className="linea-valor">92%</span>
               </div>
-              <div className="personal-total">
-                <span className="total-label">Total</span>
-                <span className="total-valor">
-                  {Object.values(personal).reduce((a, b) => a + b, 0)}
-                </span>
+              <div className="oee-linea">
+                <span className="linea-nombre">Sublimado</span>
+                <div className="linea-barra">
+                  <div className="linea-fill" style={{ width: '88%' }}></div>
+                </div>
+                <span className="linea-valor">88%</span>
+              </div>
+              <div className="oee-linea">
+                <span className="linea-nombre">Corte</span>
+                <div className="linea-barra">
+                  <div className="linea-fill" style={{ width: '91%' }}></div>
+                </div>
+                <span className="linea-valor">91%</span>
+              </div>
+              <div className="oee-linea">
+                <span className="linea-nombre">Bordado</span>
+                <div className="linea-barra">
+                  <div className="linea-fill" style={{ width: '87%' }}></div>
+                </div>
+                <span className="linea-valor">87%</span>
+              </div>
+              <div className="oee-linea">
+                <span className="linea-nombre">Acabado</span>
+                <div className="linea-barra">
+                  <div className="linea-fill" style={{ width: '93%' }}></div>
+                </div>
+                <span className="linea-valor">93%</span>
               </div>
             </div>
           </div>
 
-          <div className="info-card metricas-card">
-            <div className="info-card-header">
-              <span className="info-card-icon">📊</span>
-              <h4>Métricas Clave</h4>
-            </div>
-            <div className="info-card-content">
-              <div className="metricas-grid">
-                <div className="metrica-item">
-                  <span className="metrica-label">MTBF</span>
-                  <span className="metrica-valor">245 h</span>
-                </div>
-                <div className="metrica-item">
-                  <span className="metrica-label">MTTR</span>
-                  <span className="metrica-valor">2.5 h</span>
-                </div>
-                <div className="metrica-item">
-                  <span className="metrica-label">Takt Time</span>
-                  <span className="metrica-valor">45 s</span>
-                </div>
-                <div className="metrica-item">
-                  <span className="metrica-label">Throughput</span>
-                  <span className="metrica-valor">120/h</span>
-                </div>
+          <div className="estadistica-card">
+            <h4>Indicadores Clave</h4>
+            <div className="indicadores-grid">
+              <div className="indicador">
+                <span className="indicador-label">MTBF</span>
+                <span className="indicador-valor">245 h</span>
+                <span className="indicador-trend up">↑ 12h</span>
+              </div>
+              <div className="indicador">
+                <span className="indicador-label">MTTR</span>
+                <span className="indicador-valor">2.5 h</span>
+                <span className="indicador-trend down">↓ 0.3h</span>
+              </div>
+              <div className="indicador">
+                <span className="indicador-label">Takt Time</span>
+                <span className="indicador-valor">45 s</span>
+                <span className="indicador-trend stable">→</span>
+              </div>
+              <div className="indicador">
+                <span className="indicador-label">Throughput</span>
+                <span className="indicador-valor">120/h</span>
+                <span className="indicador-trend up">↑ 8</span>
+              </div>
+              <div className="indicador">
+                <span className="indicador-label">Scrap Rate</span>
+                <span className="indicador-valor">2.5%</span>
+                <span className="indicador-trend down">↓ 0.3%</span>
+              </div>
+              <div className="indicador">
+                <span className="indicador-label">First Pass</span>
+                <span className="indicador-valor">96.5%</span>
+                <span className="indicador-trend up">↑ 1.2%</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Footer */}
-      <div className="dashboard-footer">
-        <div className="footer-left">
-          <span className="copyright">© 2026 TEGRA Manufacturing</span>
-          <span className="footer-separator">•</span>
-          <span className="environment">Producción</span>
-          <span className="footer-separator">•</span>
-          <span className="update-frequency">Actualización cada 6s</span>
-          <span className="footer-separator">•</span>
-          <span className="version-info">v2.5.0</span>
+          <div className="estadistica-card">
+            <h4>Alertas Activas</h4>
+            <div className="alertas-lista">
+              <div className="alerta-item critica">
+                <span className="alerta-icono">🔴</span>
+                <div className="alerta-contenido">
+                  <span className="alerta-mensaje">Temperatura alta en Máquina 05</span>
+                  <span className="alerta-tiempo">hace 2m</span>
+                </div>
+              </div>
+              <div className="alerta-item advertencia">
+                <span className="alerta-icono">🟠</span>
+                <div className="alerta-contenido">
+                  <span className="alerta-mensaje">Mantenimiento preventivo requerido</span>
+                  <span className="alerta-tiempo">hace 15m</span>
+                </div>
+              </div>
+              <div className="alerta-item info">
+                <span className="alerta-icono">🔵</span>
+                <div className="alerta-contenido">
+                  <span className="alerta-mensaje">Orden ORD-003 completada</span>
+                  <span className="alerta-tiempo">hace 25m</span>
+                </div>
+              </div>
+              <div className="alerta-item critica">
+                <span className="alerta-icono">🔴</span>
+                <div className="alerta-contenido">
+                  <span className="alerta-mensaje">Retraso en producción</span>
+                  <span className="alerta-tiempo">hace 30m</span>
+                </div>
+              </div>
+            </div>
+            <button className="ver-todas-btn">Ver todas las alertas</button>
+          </div>
         </div>
-        <div className="footer-right">
-          <span className="last-update">
-            <span className="update-icon">🕒</span>
-            {formatTime(currentTime)}
-          </span>
-          <span className="footer-separator">•</span>
-          <span className="connection-status">
-            <span className="connection-dot verde"></span>
-            Tiempo real
-          </span>
-          <span className="footer-separator">•</span>
-          <span className="server-status">
-            <span className="server-dot verde"></span>
-            Servidor OK
-          </span>
-        </div>
-      </div>
+
+        {/* ========== FOOTER ========== */}
+        <footer className="dashboard-footer">
+          <div className="footer-left">
+            <span>© 2026 TEGRA Manufacturing. Todos los derechos reservados.</span>
+            <span className="footer-separator">•</span>
+            <span>v3.2.0</span>
+            <span className="footer-separator">•</span>
+            <span>Actualización en tiempo real</span>
+          </div>
+          <div className="footer-right">
+            <span className="tiempo-real">
+              <span className="punto-verde"></span>
+              Última actualización: {fechaActual.toLocaleTimeString()}
+            </span>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 };
 
-export default Dashboard;
+export default DashboardProduccion;

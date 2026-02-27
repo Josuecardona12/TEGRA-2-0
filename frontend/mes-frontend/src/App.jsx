@@ -18,7 +18,6 @@ import Ordenes from "./pages/Ordenes";
 import Configuracion from "./pages/Configuracion";
 import ScanMovimiento from "./pages/ScanMovimiento";
 import Reportes from "./pages/Reportes";
-import Produccion from "./pages/Produccion";
 import ReporteRH from "./pages/ReporteRH";
 import MaquinasTiempoReal from "./pages/MaquinasTiempoReal";
 import TrazabilidadLotes from "./trazabilidad-dashboard/TrazabilidadLotes";
@@ -42,7 +41,7 @@ function AppLayout() {
     { path: 'atrasos', nombre: 'Atrasos', icono: '⚠️', categoria: 'GENERAL' },
     { path: 'plan-semanal', nombre: 'Plan Semanal', icono: '📅', categoria: 'OPERACIONES' },
     { path: 'ordenes', nombre: 'Órdenes', icono: '📋', categoria: 'OPERACIONES' },
-    { path: 'produccion', nombre: 'Producción', icono: '⚙️', categoria: 'OPERACIONES' },
+
     { path: 'maquinas', nombre: 'Máquinas Tiempo Real', icono: '🚀', categoria: 'OPERACIONES' },
     { path: 'trazabilidad', nombre: 'Trazabilidad de Lotes', icono: '📊', categoria: 'OPERACIONES' },
     { path: 'reporte-rh', nombre: 'Reporte RH', icono: '👥', categoria: 'OPERACIONES' },
@@ -245,16 +244,7 @@ function AppLayout() {
               <span className="nav-tooltip">Gestión de órdenes</span>
             </Link>
 
-            <Link 
-              to="produccion" 
-              className={`nav-link ${isActive('produccion') ? 'active' : ''}`}
-            >
-              <span className="nav-icon">⚙️</span>
-              <span className="nav-text">Producción</span>
-              {isActive('produccion') && <span className="nav-indicator"></span>}
-              <span className="nav-tooltip">Línea de producción</span>
-            </Link>
-
+           
             <Link 
               to="maquinas" 
               className={`nav-link ${isActive('maquinas') ? 'active' : ''}`}
@@ -439,7 +429,7 @@ function App() {
           <Route path="plan-semanal" element={<PlanSemanal />} />
           <Route path="configuracion" element={<Configuracion />} />
           <Route path="reportes" element={<Reportes />} />
-          <Route path="produccion" element={<Produccion />} />
+   
           <Route path="reporte-rh" element={<ReporteRH />} />
           <Route path="maquinas" element={<MaquinasTiempoReal />} />
           <Route path="trazabilidad" element={<TrazabilidadLotes />} />
