@@ -22,6 +22,7 @@ import ReporteRH from "./pages/ReporteRH";
 import MaquinasTiempoReal from "./pages/MaquinasTiempoReal";
 import TrazabilidadLotes from "./trazabilidad-dashboard/TrazabilidadLotes";
 import ScanInicio from './pages/ScanInicio';
+import FFTTquality from "./pages/FFTTquality"; // ✅ IMPORTACIÓN DE FFTT
 
 import "./App.css";
 
@@ -35,18 +36,18 @@ function AppLayout() {
   const hayAtrasosGraves = true;
   const location = useLocation();
 
-  // Datos del menú para búsqueda
+  // Datos del menú para búsqueda - INCLUYE FFTT
   const menuItems = [
     { path: 'dashboard', nombre: 'Dashboard', icono: '📊', categoria: 'GENERAL' },
     { path: 'atrasos', nombre: 'Atrasos', icono: '⚠️', categoria: 'GENERAL' },
     { path: 'plan-semanal', nombre: 'Plan Semanal', icono: '📅', categoria: 'OPERACIONES' },
     { path: 'ordenes', nombre: 'Órdenes', icono: '📋', categoria: 'OPERACIONES' },
-
     { path: 'maquinas', nombre: 'Máquinas Tiempo Real', icono: '🚀', categoria: 'OPERACIONES' },
     { path: 'trazabilidad', nombre: 'Trazabilidad de Lotes', icono: '📊', categoria: 'OPERACIONES' },
     { path: 'reporte-rh', nombre: 'Reporte RH', icono: '👥', categoria: 'OPERACIONES' },
     { path: 'scan', nombre: 'Escaneo', icono: '📱', categoria: 'OPERACIONES' },
     { path: 'micelanios', nombre: 'Miceláneos', icono: '📦', categoria: 'OPERACIONES' },
+    { path: 'fftt-quality', nombre: 'FFTT Quality Control', icono: '🔬', categoria: 'OPERACIONES' }, // ✅ NUEVO
     { path: 'reportes', nombre: 'Reportes', icono: '📈', categoria: 'SISTEMA' },
     { path: 'configuracion', nombre: 'Configuración', icono: '⚙️', categoria: 'SISTEMA' },
   ];
@@ -56,9 +57,9 @@ function AppLayout() {
     const interval = setInterval(() => {
       if (Math.random() > 0.7) {
         const nuevasNotificaciones = [
-          { id: Date.now(), mensaje: "Nuevo lote escaneado", tipo: "info", tiempo: "ahora" },
+          { id: Date.now(), mensaje: "Nuevo lote FFTT escaneado", tipo: "info", tiempo: "ahora" },
           { id: Date.now() + 1, mensaje: "Producción completada", tipo: "success", tiempo: "ahora" },
-          { id: Date.now() + 2, mensaje: "Alerta en máquina 03", tipo: "warning", tiempo: "ahora" }
+          { id: Date.now() + 2, mensaje: "Alerta en calidad FFTT", tipo: "warning", tiempo: "ahora" }
         ];
         setNotificaciones(prev => [nuevasNotificaciones[Math.floor(Math.random() * 3)], ...prev].slice(0, 4));
       }
@@ -95,12 +96,12 @@ function AppLayout() {
     if (path.includes('atrasos')) return 'Control de Atrasos';
     if (path.includes('plan-semanal')) return 'Plan Semanal';
     if (path.includes('ordenes')) return 'Gestión de Órdenes';
-    if (path.includes('produccion')) return 'Producción';
     if (path.includes('maquinas')) return 'Máquinas en Tiempo Real';
     if (path.includes('trazabilidad')) return 'Trazabilidad de Lotes';
-    if (path.includes('reporte-rh')) return 'Reporte de Recursos Humanos';
+    if (path.includes('reporte-rh')) return 'Reportes de RH';
     if (path.includes('scan')) return 'Escaneo de Movimiento';
     if (path.includes('micelanios')) return 'Miceláneos';
+    if (path.includes('fftt-quality')) return 'FFTT Quality Control - First Time Through'; // ✅ NUEVO TÍTULO
     if (path.includes('reportes')) return 'Reportes';
     if (path.includes('configuracion')) return 'Configuración del Sistema';
     return 'TEGRA ERP';
@@ -136,7 +137,7 @@ function AppLayout() {
         {sidebarAbierto ? '◀' : '▶'}
       </button>
 
-      {/* SIDEBAR MEJORADO */}
+      {/* SIDEBAR CON NUEVA ENTRADA FFTT */}
       <div className={`sidebar ${sidebarAbierto ? 'abierto' : 'cerrado'}`}>
         <div className="sidebar-header">
           <div className="logo">
@@ -216,7 +217,7 @@ function AppLayout() {
             </Link>
           </div>
 
-          {/* OPERACIONES */}
+          {/* OPERACIONES - CON FFTT INCLUIDO */}
           <div className="nav-section">
             <div className="section-title">
               <span className="section-icon">⚙️</span>
@@ -244,7 +245,6 @@ function AppLayout() {
               <span className="nav-tooltip">Gestión de órdenes</span>
             </Link>
 
-           
             <Link 
               to="maquinas" 
               className={`nav-link ${isActive('maquinas') ? 'active' : ''}`}
@@ -256,7 +256,6 @@ function AppLayout() {
               <span className="nav-tooltip">Monitoreo en vivo</span>
             </Link>
             
-            {/* LINK DESTACADO DE TRAZABILIDAD */}
             <Link 
               to="trazabilidad" 
               className={`nav-link destacado ${isActive('trazabilidad') ? 'active' : ''}`}
@@ -276,7 +275,7 @@ function AppLayout() {
               <span className="nav-icon">👥</span>
               <span className="nav-text">Reporte RH</span>
               {isActive('reporte-rh') && <span className="nav-indicator"></span>}
-              <span className="nav-tooltip">Recursos humanos</span>
+              <span className="nav-tooltip">Reporte RH</span>
             </Link>
 
             <Link 
@@ -297,6 +296,19 @@ function AppLayout() {
               <span className="nav-text">Miceláneos</span>
               {isActive('micelanios') && <span className="nav-indicator"></span>}
               <span className="nav-tooltip">Productos varios</span>
+            </Link>
+
+            {/* 🔬 NUEVO: FFTT Quality Control - DESTACADO */}
+            <Link 
+              to="fftt-quality" 
+              className={`nav-link premium ${isActive('fftt-quality') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">🔬</span>
+              <span className="nav-text">FFTT Quality</span>
+              <span className="nav-badge premium">PREMIUM</span>
+              <span className="premium-glow"></span>
+              {isActive('fftt-quality') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Control de calidad FFTT</span>
             </Link>
           </div>
 
@@ -369,7 +381,7 @@ function AppLayout() {
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL MEJORADO */}
+      {/* CONTENIDO PRINCIPAL */}
       <div className={`main-content ${sidebarAbierto ? '' : 'expandido'}`}>
         <div className="content-header">
           <div className="header-title">
@@ -402,7 +414,6 @@ function AppLayout() {
           </div>
         </div>
 
-        {/* CONTENIDO DE LA PÁGINA CON SCROLL */}
         <div className="content-body">
           <Outlet />
         </div>
@@ -429,10 +440,11 @@ function App() {
           <Route path="plan-semanal" element={<PlanSemanal />} />
           <Route path="configuracion" element={<Configuracion />} />
           <Route path="reportes" element={<Reportes />} />
-   
           <Route path="reporte-rh" element={<ReporteRH />} />
           <Route path="maquinas" element={<MaquinasTiempoReal />} />
           <Route path="trazabilidad" element={<TrazabilidadLotes />} />
+          {/* ✅ NUEVA RUTA PARA FFTT */}
+          <Route path="fftt-quality" element={<FFTTquality />} />
           <Route path="*" element={<Navigate to="dashboard" />} />
         </Route>
       </Routes>

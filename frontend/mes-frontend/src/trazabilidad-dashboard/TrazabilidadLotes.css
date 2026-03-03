@@ -1,4 +1,12 @@
 /* ========== VARIABLES ========== */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto !important;
+}
 :root {
   --primary-50: #eff6ff;
   --primary-100: #dbeafe;
@@ -123,19 +131,17 @@ body {
   font-family: var(--font-sans);
   background: var(--bg-primary);
   color: var(--text-primary);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   transition: background-color 0.3s, color 0.3s;
 }
 
 /* ========== CONTAINER PRINCIPAL ========== */
 .trazabilidad-container {
-  height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: var(--bg-primary);
+  min-height: 100%;
 }
-
 /* ========== HEADER FIJO ========== */
 .app-header {
   flex-shrink: 0;
@@ -770,7 +776,6 @@ body {
 /* ===== MAIN CONTENT CON SCROLL ===== */
 .app-main {
   flex: 1;
-  overflow-y: auto;
   padding: 0 32px 20px;
 }
 
@@ -1122,7 +1127,6 @@ body {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   animation: slideUp 0.3s ease;
 }
-
 /* ===== GRID PRINCIPAL ===== */
 .main-grid {
   display: grid;
@@ -1145,27 +1149,21 @@ body {
   max-height: 600px;
   overflow-y: auto;
 }
-
-.areas-column::-webkit-scrollbar,
-.tracking-column::-webkit-scrollbar,
-.events-column::-webkit-scrollbar {
-  width: 4px;
+/* Columnas comunes */
+.areas-column,
+.tracking-column,
+.events-column {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 600px;
+  overflow-y: auto;
 }
-
-.areas-column::-webkit-scrollbar-track,
-.tracking-column::-webkit-scrollbar-track,
-.events-column::-webkit-scrollbar-track {
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-}
-
-.areas-column::-webkit-scrollbar-thumb,
-.tracking-column::-webkit-scrollbar-thumb,
-.events-column::-webkit-scrollbar-thumb {
-  background: var(--gray-400);
-  border-radius: 4px;
-}
-
 /* ===== COLUMNA ÁREAS ===== */
 .areas-header {
   display: flex;
@@ -2818,4 +2816,31 @@ body {
   .tracking-column .camera-placeholder small {
     font-size: 0.65rem;
   }
+}
+/* ===== CORRECCIÓN PARA EVITAR NÚMEROS PEGADOS ===== */
+.tracking-column {
+  position: relative !important;
+  overflow-y: auto !important;
+}
+
+.tracking-column > * {
+  position: relative !important;
+  transform: none !important;
+}
+
+.tracking-column .progreso-general,
+.tracking-column .progreso-porcentaje,
+.tracking-column .info-progreso {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
+
+/* Asegurar que todos los elementos dentro de tracking-column tengan posición normal */
+.tracking-column * {
+  position: relative !important;
+  transform: none !important;
 }

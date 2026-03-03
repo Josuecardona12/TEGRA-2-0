@@ -351,52 +351,43 @@ const DashboardProduccion = () => {
     <div className={`dashboard-maquila ${temaOscuro ? 'tema-oscuro' : ''}`}>
       
       {/* ========== HEADER PRINCIPAL ========== */}
-      <header className="dashboard-header">
-        <div className="header-left">
-          <button className="menu-toggle" onClick={() => setMenuLateral(!menuLateral)}>
-            <span className="menu-icon">☰</span>
-          </button>
-          
-          <div className="logo-area">
-            <div className="logo-icon">T</div>
-            <div className="logo-texto">
-              <h1>TEGRA</h1>
-              <span>Manufacturing Suite</span>
-            </div>
-          </div>
+<header className="dashboard-header">
+  <div className="header-left">
+    <button className="menu-toggle" onClick={() => setMenuLateral(!menuLateral)}>
+      <span className="menu-icon">☰</span>
+    </button>
+    
+    <div className="logo-area">
+      <div className="logo-icon">TEGRA</div>
+      <div className="logo-texto">
+        <h1>Manufacturing Suite</h1>
+      </div>
+    </div>
+  </div>
 
-          <div className="fecha-display">
-            <span className="fecha-icon">📅</span>
-            <div className="fecha-info">
-              <span className="fecha-dia">
-                {fechaActual.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
-              <span className="fecha-hora">
-                {fechaActual.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
-            </div>
-          </div>
-        </div>
+  {/* FECHA CENTRADA - CORREGIDA */}
+  <div className="fecha-display">
+    <span className="fecha-icon">📅</span>
+    <div className="fecha-info">
+      <span className="fecha-dia">
+        Lunes, 2 de Marzo de 2026
+      </span>
+      <span className="fecha-hora">
+        09:00:07 a.m.
+      </span>
+    </div>
+  </div>
 
-        <div className="header-right">
-          <div className="live-indicator">
-            <span className="live-pulse"></span>
-            <span className="live-text">TIEMPO REAL</span>
-          </div>
-
-          <div className="tema-toggle" onClick={() => setTemaOscuro(!temaOscuro)}>
-            {temaOscuro ? '☀️' : '🌙'}
-          </div>
-
-          <div className="usuario-info">
-            <div className="usuario-avatar">JC</div>
-            <div className="usuario-detalles">
-              <span className="usuario-nombre">Josué Cardona</span>
-              <span className="usuario-rol">Director de Operaciones</span>
-            </div>
-          </div>
-        </div>
-      </header>
+  <div className="header-right">
+    <div className="usuario-info">
+      <div className="usuario-avatar">JC</div>
+      <div className="usuario-detalles">
+        <span className="usuario-nombre">Josué Cardona</span>
+        <span className="usuario-rol">Director de Operaciones</span>
+      </div>
+    </div>
+  </div>
+</header>
 
       {/* ========== MENÚ LATERAL ========== */}
       <aside className={`menu-lateral ${menuLateral ? 'abierto' : ''}`}>

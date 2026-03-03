@@ -63,7 +63,7 @@ const TrazabilidadLotes = () => {
     { id: 'AREA-004', codigo: '9004', nombre: 'Corte', icono: '✂️', color: '#f59e0b', orden: 4 },
     { id: 'AREA-005', codigo: '9005', nombre: 'Sublimado', icono: '🔥', color: '#10b981', orden: 5 },
     { id: 'AREA-006', codigo: '9006', nombre: 'Colorimetría', icono: '🎯', color: '#6366f1', orden: 6 },
-    { id: 'AREA-007', codigo: '9007', nombre: 'Producción', icono: '⚙️', color: '#14b8a6', orden: 7 },
+    { id: 'AREA-007', codigo: '9007', nombre: 'Preparacion', icono: '⚙️', color: '#14b8a6', orden: 7 },
     { id: 'AREA-008', codigo: '9008', nombre: 'Calidad', icono: '✅', color: '#a855f7', orden: 8 },
     { id: 'AREA-009', codigo: '9009', nombre: 'RH', icono: '👥', color: '#f43f5e', orden: 9 },
     { id: 'AREA-010', codigo: '9010', nombre: 'Logística', icono: '🚚', color: '#06b6d4', orden: 10 },
@@ -142,7 +142,7 @@ const TrazabilidadLotes = () => {
           { area: 'Corte', codigoArea: '9004', fecha: '2024-02-26 14:00', operador: 'Juan Pérez' },
           { area: 'Sublimado', codigoArea: '9005', fecha: '2024-02-26 15:30', operador: 'Roberto Díaz' },
           { area: 'Colorimetría', codigoArea: '9006', fecha: '2024-02-26 16:45', operador: 'Laura Martínez' },
-          { area: 'Producción', codigoArea: '9007', fecha: '2024-02-26 17:30', operador: 'Carlos Ruiz' },
+          { area: 'Preparacion', codigoArea: '9007', fecha: '2024-02-26 17:30', operador: 'Carlos Ruiz' },
           { area: 'Calidad', codigoArea: '9008', fecha: '2024-02-26 18:15', operador: 'Ana López', actual: true }
         ]
       },
@@ -187,7 +187,7 @@ const TrazabilidadLotes = () => {
           { area: 'Corte', codigoArea: '9004', fecha: '2024-02-26 11:45', operador: 'Juan Pérez' },
           { area: 'Sublimado', codigoArea: '9005', fecha: '2024-02-26 13:00', operador: 'Roberto Díaz' },
           { area: 'Colorimetría', codigoArea: '9006', fecha: '2024-02-26 14:15', operador: 'Laura Martínez' },
-          { area: 'Producción', codigoArea: '9007', fecha: '2024-02-26 15:30', operador: 'Carlos Ruiz' },
+          { area: 'Preparacion', codigoArea: '9007', fecha: '2024-02-26 15:30', operador: 'Carlos Ruiz' },
           { area: 'Calidad', codigoArea: '9008', fecha: '2024-02-26 16:45', operador: 'Ana López' },
           { area: 'RH', codigoArea: '9009', fecha: '2024-02-26 17:30', operador: 'Sistema RH' },
           { area: 'Logística', codigoArea: '9010', fecha: '2024-02-26 18:15', operador: 'Logística', actual: true },
@@ -513,73 +513,106 @@ const TrazabilidadLotes = () => {
   // PROCESAR MOVIMIENTO
   // ============================================
   const procesarMovimiento = (area, lote) => {
-    const yaPaso = lote.historial.some(h => h.codigoArea === area.codigo);
-    
-    if (yaPaso) {
-      setMensajeEscaner(`⚠️ ${lote.id} YA PASÓ por ${area.nombre}`);
-      setTipoMensaje('warning');
-      agregarEvento('warning', `⚠️ ${lote.id} ya pasó por ${area.nombre}`, lote.id);
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      return;
-    }
+  // En lugar de bloquear, registramos el movimiento aunque ya haya pasado
+  const yaPaso = lote.historial.some(h => h.codigoArea === area.codigo);
+  
+  // Registrar si es un reingreso
+  const esReingreso = yaPaso;
+  
+  if (esReingreso) {
+    // Mostramos una advertencia pero permitimos el movimiento
+    setMensajeEscaner(`↩️ ${lote.id} REINGRESA a ${area.nombre}`);
+    setTipoMensaje('warning');
+    agregarEvento('warning', `↩️ ${lote.id} reingresa a ${area.nombre}`, lote.id);
+    if (navigator.vibrate) navigator.vibrate(100);
+  }
 
-    const nuevoHistorial = {
-      area: area.nombre,
-      codigoArea: area.codigo,
-      fecha: new Date().toLocaleString(),
-      operador: 'Operador Actual',
-      actual: true
-    };
+  // Contar cuántas veces ha pasado por esta área
+  const vecesPasadas = lote.historial.filter(h => h.codigoArea === area.codigo).length;
+  
+  const nuevoHistorial = {
+    area: area.nombre,
+    codigoArea: area.codigo,
+    fecha: new Date().toLocaleString(),
+    operador: 'Operador Actual',
+    actual: true,
+    reingreso: esReingreso,
+    numeroPaso: vecesPasadas + 1 // Indica si es la 1ra, 2da, etc. vez
+  };
 
-    setLotes(prevLotes => prevLotes.map(l => {
-      if (l.id === lote.id) {
-        const historialActualizado = l.historial.map(h => ({
-          ...h,
-          actual: false
-        }));
+  setLotes(prevLotes => prevLotes.map(l => {
+    if (l.id === lote.id) {
+      // Marcar todos los historiales anteriores como no actuales
+      const historialActualizado = l.historial.map(h => ({
+        ...h,
+        actual: false
+      }));
 
-        const nuevoEstado = area.id === 'AREA-011' ? 'completado' : 
-                           area.id === 'AREA-012' ? 'incompleto' : 
-                           area.id === 'AREA-008' ? 'calidad' : 'en_proceso';
+      // Determinar el estado basado en el área actual
+      const nuevoEstado = area.id === 'AREA-011' ? 'completado' : 
+                         area.id === 'AREA-012' ? 'incompleto' : 
+                         area.id === 'AREA-008' ? 'calidad' : 
+                         l.estado === 'completado' ? 'en_proceso' : // Si estaba completado y regresa
+                         'en_proceso';
 
-        return {
-          ...l,
-          areaActual: area.nombre,
-          estado: nuevoEstado,
-          progreso: Math.min(100, l.progreso + 8),
-          historial: [...historialActualizado, nuevoHistorial]
-        };
+      // Ajustar progreso (puede subir o bajar dependiendo del contexto)
+      let nuevoProgreso = l.progreso;
+      if (esReingreso) {
+        // Si reingresa, podría bajar el progreso o mantenerse
+        nuevoProgreso = Math.max(0, l.progreso - 5); // Baja 5% al reingresar
+      } else {
+        nuevoProgreso = Math.min(100, l.progreso + 8);
       }
-      return l;
-    }));
 
-    setLoteSeleccionado(prev => ({
+      return {
+        ...l,
+        areaActual: area.nombre,
+        estado: nuevoEstado,
+        progreso: nuevoProgreso,
+        historial: [...historialActualizado, nuevoHistorial]
+      };
+    }
+    return l;
+  }));
+
+  setLoteSeleccionado(prev => {
+    if (!prev || prev.id !== lote.id) return prev;
+    
+    return {
       ...prev,
       areaActual: area.nombre,
-      progreso: Math.min(100, prev.progreso + 8),
+      progreso: esReingreso ? Math.max(0, prev.progreso - 5) : Math.min(100, prev.progreso + 8),
       historial: [...prev.historial.map(h => ({ ...h, actual: false })), nuevoHistorial]
-    }));
+    };
+  });
 
-    setHistorialCompleto(prev => [nuevoHistorial, ...prev]);
+  setHistorialCompleto(prev => [nuevoHistorial, ...prev]);
 
+  if (!esReingreso) {
     setMensajeEscaner(`✅ ${lote.id} → ${area.nombre}`);
     setTipoMensaje('exito');
     agregarEvento('exito', `✅ ${lote.id} movido a ${area.nombre}`, lote.id);
-    
-    if (navigator.vibrate) navigator.vibrate(200);
+  }
+  
+  if (navigator.vibrate) navigator.vibrate(200);
 
-    setUltimoEscaneo({
-      lote: lote.id,
-      area: area.nombre,
-      fecha: new Date().toLocaleString()
-    });
+  setUltimoEscaneo({
+    lote: lote.id,
+    area: area.nombre,
+    fecha: new Date().toLocaleString(),
+    reingreso: esReingreso
+  });
 
-    if (area.id === 'AREA-011') {
-      agregarEvento('completado', `🎉 ¡Lote ${lote.id} COMPLETADO!`, lote.id);
-      enviarAlerta('completado', `Lote ${lote.id} completado`);
-    }
-  };
-
+  // Notificaciones especiales
+  if (area.id === 'AREA-011') {
+    agregarEvento('completado', `🎉 ¡Lote ${lote.id} COMPLETADO!`, lote.id);
+    enviarAlerta('completado', `Lote ${lote.id} completado`);
+  } else if (area.id === 'AREA-012') {
+    agregarEvento('warning', `⚠️ Lote ${lote.id} marcado como incompleto`, lote.id);
+  } else if (esReingreso) {
+    agregarEvento('warning', `↩️ Lote ${lote.id} reingresó a ${area.nombre}`, lote.id);
+  }
+};
   // ============================================
   // CREAR NUEVO LOTE
   // ============================================
@@ -1166,7 +1199,7 @@ const TrazabilidadLotes = () => {
                     <span className="alerta-lote">{lote.id}</span>
                     <span className="alerta-desc">
                       {lote.alertas?.includes('materiales') ? 'Faltan materiales' : 
-                       lote.alertas?.includes('retraso') ? 'Retraso en producción' : 
+                       lote.alertas?.includes('retraso') ? 'Retraso en Preparacion' : 
                        'Atención requerida'}
                     </span>
                   </div>

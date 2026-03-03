@@ -13,6 +13,33 @@ const ReporteRH = () => {
     busqueda: ''
   });
 
+  // NUEVO: Estado para edición por lote
+  const [loteEditMode, setLoteEditMode] = useState(false);
+  const [loteSeleccionados, setLoteSeleccionados] = useState([]);
+  const [loteEditField, setLoteEditField] = useState('');
+  const [loteEditValue, setLoteEditValue] = useState('');
+  const [notasLote, setNotasLote] = useState({}); // { id: "nota para este registro" }
+
+  // NUEVO: Estado para notificaciones
+  const [notificacion, setNotificacion] = useState({ mostrar: false, mensaje: '', tipo: '' });
+
+  // NUEVO: Estado para inventarios
+  const [inventarios, setInventarios] = useState({
+    totalInicial: 1250,
+    producido: 0,
+    enviado: 0,
+    enProceso: 0,
+    pendiente: 0,
+    porSport: {
+      Baseball: { inicial: 450, producido: 0, enviado: 0 },
+      Soccer: { inicial: 200, producido: 0, enviado: 0 },
+      Basketball: { inicial: 180, producido: 0, enviado: 0 },
+      Football: { inicial: 150, producido: 0, enviado: 0 },
+      Tennis: { inicial: 120, producido: 0, enviado: 0 },
+      Volleyball: { inicial: 150, producido: 0, enviado: 0 }
+    }
+  });
+
   const [reportes, setReportes] = useState([
     { id: 1, po: 'V108707', sport: 'Baseball', week: 7, pc: 15, sublimado: '11/26', maquina: 88, turno: 'A', status: 'OK', operador: 'Carlos López', horas: 6.5, eficiencia: 92 },
     { id: 2, po: 'V109133', sport: 'Baseball', week: 8, pc: 4, sublimado: '11/26', maquina: 88, turno: 'B', status: 'OK', operador: 'María González', horas: 4, eficiencia: 88 },
@@ -32,6 +59,15 @@ const ReporteRH = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
 
+  // NUEVO: Estado para el formulario de edición
+  const [editFormData, setEditFormData] = useState({
+    status: '',
+    operador: '',
+    horas: '',
+    eficiencia: '',
+    nota: ''
+  });
+
   // Opciones para filtros
   const semanas = ['todas', ...new Set(reportes.map(r => `Semana ${r.week}`))];
   const sports = ['todos', ...new Set(reportes.map(r => r.sport))];
@@ -44,6 +80,46 @@ const ReporteRH = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // NUEVO: Efecto para auto-ocultar notificaciones
+  useEffect(() => {
+    if (notificacion.mostrar) {
+      const timer = setTimeout(() => {
+        setNotificacion({ mostrar: false, mensaje: '', tipo: '' });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notificacion]);
+
+  // NUEVO: Efecto para actualizar inventarios basado en reportes
+  useEffect(() => {
+    const nuevosInventarios = { ...inventarios };
+    
+    // Resetear valores producidos
+    Object.keys(nuevosInventarios.porSport).forEach(sport => {
+      nuevosInventarios.porSport[sport].producido = 0;
+      nuevosInventarios.porSport[sport].enviado = 0;
+    });
+
+    // Calcular producción por sport
+    reportes.forEach(reporte => {
+      if (nuevosInventarios.porSport[reporte.sport]) {
+        if (reporte.status === 'OK' || reporte.status === 'Enviado') {
+          nuevosInventarios.porSport[reporte.sport].enviado += reporte.pc;
+        } else if (reporte.status === 'RH' || reporte.status === 'Pendiente' || reporte.status === 'Revisión') {
+          nuevosInventarios.porSport[reporte.sport].producido += reporte.pc;
+        }
+      }
+    });
+
+    // Calcular totales
+    nuevosInventarios.producido = Object.values(nuevosInventarios.porSport).reduce((sum, sport) => sum + sport.producido, 0);
+    nuevosInventarios.enviado = Object.values(nuevosInventarios.porSport).reduce((sum, sport) => sum + sport.enviado, 0);
+    nuevosInventarios.enProceso = nuevosInventarios.producido - nuevosInventarios.enviado;
+    nuevosInventarios.pendiente = nuevosInventarios.totalInicial - nuevosInventarios.producido;
+
+    setInventarios(nuevosInventarios);
+  }, [reportes]);
 
   const formatDate = (date) => {
     return date.toLocaleDateString('es-ES', {
@@ -119,21 +195,135 @@ const ReporteRH = () => {
     setShowModal(true);
   };
 
+  // NUEVO: Función mejorada para editar sin recargar
   const handleEditar = (reporte) => {
     setSelectedReporte(reporte);
+    setEditFormData({
+      status: reporte.status,
+      operador: reporte.operador,
+      horas: reporte.horas,
+      eficiencia: reporte.eficiencia,
+      nota: notasLote[reporte.id] || ''
+    });
     setModalType('editar');
     setShowModal(true);
+  };
+
+  // NUEVO: Función para guardar cambios sin recargar
+  const handleGuardarCambios = (e) => {
+    e.preventDefault(); // ¡Esto evita que se recargue la página!
+    
+    // Actualizar el reporte
+    setReportes(prev => prev.map(r => 
+      r.id === selectedReporte.id 
+        ? { 
+            ...r, 
+            status: editFormData.status,
+            operador: editFormData.operador,
+            horas: parseFloat(editFormData.horas),
+            eficiencia: parseInt(editFormData.eficiencia)
+          } 
+        : r
+    ));
+
+    // Actualizar nota si existe
+    if (editFormData.nota) {
+      setNotasLote(prev => ({
+        ...prev,
+        [selectedReporte.id]: editFormData.nota
+      }));
+    }
+
+    // Mostrar notificación de éxito
+    setNotificacion({
+      mostrar: true,
+      mensaje: '✅ Cambios guardados exitosamente',
+      tipo: 'exito'
+    });
+
+    // Cerrar modal
+    setShowModal(false);
+  };
+
+  // NUEVO: Función para cambios en el formulario
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleCambiarStatus = (id, nuevoStatus) => {
     setReportes(prev => prev.map(r => 
       r.id === id ? { ...r, status: nuevoStatus } : r
     ));
+
+    setNotificacion({
+      mostrar: true,
+      mensaje: `🔄 Status actualizado a ${nuevoStatus}`,
+      tipo: 'info'
+    });
+  };
+
+  // NUEVO: Funciones para edición por lote
+  const toggleSeleccionLote = (id) => {
+    setLoteSeleccionados(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSeleccionTodos = () => {
+    if (loteSeleccionados.length === reportesFiltrados.length) {
+      setLoteSeleccionados([]);
+    } else {
+      setLoteSeleccionados(reportesFiltrados.map(r => r.id));
+    }
+  };
+
+  const aplicarEdicionLote = () => {
+    if (!loteEditField || loteSeleccionados.length === 0) return;
+
+    setReportes(prev => prev.map(reporte => {
+      if (loteSeleccionados.includes(reporte.id)) {
+        if (loteEditField === 'nota') {
+          setNotasLote(prevNotas => ({
+            ...prevNotas,
+            [reporte.id]: loteEditValue
+          }));
+          return reporte;
+        } else {
+          return { ...reporte, [loteEditField]: loteEditValue };
+        }
+      }
+      return reporte;
+    }));
+
+    setNotificacion({
+      mostrar: true,
+      mensaje: `✅ Actualizados ${loteSeleccionados.length} registros`,
+      tipo: 'exito'
+    });
+
+    setLoteEditMode(false);
+    setLoteSeleccionados([]);
+    setLoteEditField('');
+    setLoteEditValue('');
+  };
+
+  const cancelarEdicionLote = () => {
+    setLoteEditMode(false);
+    setLoteSeleccionados([]);
+    setLoteEditField('');
+    setLoteEditValue('');
   };
 
   const handleExportar = (formato) => {
-    console.log(`Exportando en formato ${formato}...`);
-    // Aquí iría la lógica de exportación
+    setNotificacion({
+      mostrar: true,
+      mensaje: `📊 Exportando a ${formato.toUpperCase()}...`,
+      tipo: 'info'
+    });
   };
 
   const resetFiltros = () => {
@@ -144,11 +334,215 @@ const ReporteRH = () => {
       turno: 'todos',
       busqueda: ''
     });
+
+    setNotificacion({
+      mostrar: true,
+      mensaje: '🔄 Filtros restablecidos',
+      tipo: 'info'
+    });
   };
 
   return (
     <div className="reporterh-premium-container">
-      {/* Modal de Detalle/Edición */}
+      {/* NUEVO: Notificación flotante */}
+      {notificacion.mostrar && (
+        <div className={`notificacion-flotante ${notificacion.tipo}`}>
+          {notificacion.mensaje}
+        </div>
+      )}
+
+      {/* NUEVO: Panel de inventarios superior */}
+      <div className="inventarios-panel-premium">
+        <div className="inventarios-header">
+          <h3>
+            <span className="inventarios-icon">📦</span>
+            Control de Inventarios en Tiempo Real
+          </h3>
+          <div className="inventarios-update">
+            <span className="update-dot"></span>
+            Actualizado {formatTime(currentTime)}
+          </div>
+        </div>
+
+        <div className="inventarios-grid">
+          <div className="inventario-card total">
+            <div className="inventario-icon">🏭</div>
+            <div className="inventario-info">
+              <span className="inventario-label">Inventario Inicial</span>
+              <span className="inventario-valor">{inventarios.totalInicial} pz</span>
+            </div>
+          </div>
+
+          <div className="inventario-card producido">
+            <div className="inventario-icon">⚙️</div>
+            <div className="inventario-info">
+              <span className="inventario-label">Producido</span>
+              <span className="inventario-valor">{inventarios.producido} pz</span>
+            </div>
+            <div className="inventario-progreso">
+              <div 
+                className="progreso-barra" 
+                style={{width: `${(inventarios.producido / inventarios.totalInicial) * 100}%`}}
+              ></div>
+            </div>
+          </div>
+
+          <div className="inventario-card enviado">
+            <div className="inventario-icon">🚚</div>
+            <div className="inventario-info">
+              <span className="inventario-label">Enviado</span>
+              <span className="inventario-valor">{inventarios.enviado} pz</span>
+            </div>
+            <div className="inventario-progreso">
+              <div 
+                className="progreso-barra" 
+                style={{width: `${(inventarios.enviado / inventarios.totalInicial) * 100}%`}}
+              ></div>
+            </div>
+          </div>
+
+          <div className="inventario-card proceso">
+            <div className="inventario-icon">⏳</div>
+            <div className="inventario-info">
+              <span className="inventario-label">En Proceso</span>
+              <span className="inventario-valor">{inventarios.enProceso} pz</span>
+            </div>
+          </div>
+
+          <div className="inventario-card pendiente">
+            <div className="inventario-icon">📅</div>
+            <div className="inventario-info">
+              <span className="inventario-label">Pendiente</span>
+              <span className="inventario-valor">{inventarios.pendiente} pz</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="inventarios-por-sport">
+          <h4>Desglose por Deporte</h4>
+          <div className="sport-grid">
+            {Object.entries(inventarios.porSport).map(([sport, data]) => {
+              const totalSport = data.inicial;
+              const completado = ((data.enviado + data.producido) / totalSport) * 100;
+              
+              return (
+                <div key={sport} className="sport-item">
+                  <div className="sport-header">
+                    <span className="sport-nombre">{sport}</span>
+                    <span className="sport-stats">
+                      {data.enviado + data.producido} / {totalSport}
+                    </span>
+                  </div>
+                  <div className="sport-progreso">
+                    <div 
+                      className="sport-barra" 
+                      style={{width: `${completado}%`}}
+                    >
+                      <span className="sport-porcentaje">{Math.round(completado)}%</span>
+                    </div>
+                  </div>
+                  <div className="sport-detalle">
+                    <span className="detalle-enviado" title="Enviado">🚚 {data.enviado}</span>
+                    <span className="detalle-proceso" title="En Proceso">⚙️ {data.producido}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* NUEVO: Panel de edición por lote */}
+      {loteEditMode && (
+        <div className="lote-edit-panel-premium">
+          <div className="lote-edit-header">
+            <h3>
+              <span className="lote-icon">📝</span>
+              Edición por Lote ({loteSeleccionados.length} seleccionados)
+            </h3>
+            <button className="lote-close-btn" onClick={cancelarEdicionLote}>✕</button>
+          </div>
+          
+          <div className="lote-edit-body">
+            <div className="lote-edit-field">
+              <label>Campo a modificar:</label>
+              <select 
+                value={loteEditField} 
+                onChange={(e) => setLoteEditField(e.target.value)}
+                className="lote-select"
+              >
+                <option value="">Seleccionar campo...</option>
+                <option value="status">Status</option>
+                <option value="turno">Turno</option>
+                <option value="horas">Horas</option>
+                <option value="nota">Nota / Comentario</option>
+              </select>
+            </div>
+
+            {loteEditField && (
+              <div className="lote-edit-value">
+                <label>Nuevo valor:</label>
+                {loteEditField === 'status' ? (
+                  <select 
+                    value={loteEditValue} 
+                    onChange={(e) => setLoteEditValue(e.target.value)}
+                    className="lote-select"
+                  >
+                    <option value="">Seleccionar status...</option>
+                    <option value="OK">✅ OK</option>
+                    <option value="RH">⚠️ RH</option>
+                    <option value="Pendiente">⏳ Pendiente</option>
+                    <option value="Revisión">🔍 Revisión</option>
+                  </select>
+                ) : loteEditField === 'turno' ? (
+                  <select 
+                    value={loteEditValue} 
+                    onChange={(e) => setLoteEditValue(e.target.value)}
+                    className="lote-select"
+                  >
+                    <option value="">Seleccionar turno...</option>
+                    <option value="A">Turno A</option>
+                    <option value="B">Turno B</option>
+                    <option value="C">Turno C</option>
+                  </select>
+                ) : loteEditField === 'nota' ? (
+                  <textarea
+                    value={loteEditValue}
+                    onChange={(e) => setLoteEditValue(e.target.value)}
+                    placeholder="Escribe una nota para los lotes seleccionados..."
+                    className="lote-textarea"
+                    rows="3"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    value={loteEditValue}
+                    onChange={(e) => setLoteEditValue(e.target.value)}
+                    placeholder={`Nuevo valor para ${loteEditField}`}
+                    className="lote-input"
+                    step="0.5"
+                  />
+                )}
+              </div>
+            )}
+
+            <div className="lote-edit-actions">
+              <button 
+                className="lote-apply-btn"
+                onClick={aplicarEdicionLote}
+                disabled={!loteEditField || !loteEditValue || loteSeleccionados.length === 0}
+              >
+                Aplicar a {loteSeleccionados.length} registros
+              </button>
+              <button className="lote-cancel-btn" onClick={cancelarEdicionLote}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalle/Edición - MEJORADO */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -181,6 +575,14 @@ const ReporteRH = () => {
                     </p>
                     <p><strong>Horas:</strong> {selectedReporte.horas}</p>
                     <p><strong>Eficiencia:</strong> {selectedReporte.eficiencia}%</p>
+                    
+                    {/* Mostrar nota si existe */}
+                    {notasLote[selectedReporte.id] && (
+                      <div className="nota-container">
+                        <strong>Nota:</strong>
+                        <p className="nota-text">{notasLote[selectedReporte.id]}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="detalle-actions">
@@ -197,31 +599,78 @@ const ReporteRH = () => {
             {modalType === 'editar' && selectedReporte && (
               <div className="editar-modal">
                 <h2>Editar Orden {selectedReporte.po}</h2>
-                <form className="editar-form">
+                <form className="editar-form" onSubmit={handleGuardarCambios}>
                   <div className="form-group">
                     <label>Status</label>
-                    <select defaultValue={selectedReporte.status}>
-                      <option value="OK">OK</option>
-                      <option value="RH">RH</option>
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="Revisión">Revisión</option>
+                    <select 
+                      name="status"
+                      value={editFormData.status} 
+                      onChange={handleInputChange}
+                    >
+                      <option value="OK">✅ OK</option>
+                      <option value="RH">⚠️ RH</option>
+                      <option value="Pendiente">⏳ Pendiente</option>
+                      <option value="Revisión">🔍 Revisión</option>
                     </select>
                   </div>
+                  
                   <div className="form-group">
                     <label>Operador</label>
-                    <input type="text" defaultValue={selectedReporte.operador} />
+                    <input 
+                      type="text" 
+                      name="operador"
+                      value={editFormData.operador} 
+                      onChange={handleInputChange}
+                      placeholder="Nombre del operador"
+                    />
                   </div>
+                  
                   <div className="form-group">
                     <label>Horas</label>
-                    <input type="number" step="0.5" defaultValue={selectedReporte.horas} />
+                    <input 
+                      type="number" 
+                      name="horas"
+                      step="0.5" 
+                      value={editFormData.horas} 
+                      onChange={handleInputChange}
+                      placeholder="0.0"
+                    />
                   </div>
+                  
                   <div className="form-group">
                     <label>Eficiencia (%)</label>
-                    <input type="number" defaultValue={selectedReporte.eficiencia} />
+                    <input 
+                      type="number" 
+                      name="eficiencia"
+                      value={editFormData.eficiencia} 
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                    />
                   </div>
+                  
+                  <div className="form-group">
+                    <label>Nota / Comentario</label>
+                    <textarea 
+                      name="nota"
+                      value={editFormData.nota}
+                      onChange={handleInputChange}
+                      placeholder="Agregar nota para este registro..."
+                      rows="4"
+                    />
+                    <small className="form-hint">
+                      {editFormData.nota.length} caracteres
+                    </small>
+                  </div>
+                  
                   <div className="form-actions">
-                    <button type="submit" className="btn-guardar">Guardar Cambios</button>
-                    <button type="button" className="btn-cancelar" onClick={() => setShowModal(false)}>Cancelar</button>
+                    <button type="submit" className="btn-guardar">
+                      💾 Guardar Cambios
+                    </button>
+                    <button type="button" className="btn-cancelar" onClick={() => setShowModal(false)}>
+                      Cancelar
+                    </button>
                   </div>
                 </form>
               </div>
@@ -237,7 +686,7 @@ const ReporteRH = () => {
           <div className="header-left">
             <h1 className="title-gradient">
               <span className="title-icon">👥</span>
-              Reporte de Recursos Humanos
+              Reporte de RH
             </h1>
             <div className="date-badge-premium">
               <span className="date-icon">📅</span>
@@ -330,6 +779,14 @@ const ReporteRH = () => {
         </div>
 
         <div className="toolbar-right">
+          <button 
+            className={`lote-edit-btn ${loteSeleccionados.length > 0 ? 'active' : ''}`}
+            onClick={() => setLoteEditMode(true)}
+            disabled={loteSeleccionados.length === 0}
+          >
+            <span>📝</span> Editar Lote ({loteSeleccionados.length})
+          </button>
+          
           <button className="reset-filters-btn" onClick={resetFiltros}>
             <span>🔄</span> Resetear Filtros
           </button>
@@ -490,6 +947,14 @@ const ReporteRH = () => {
           <table className="reporterh-table-premium">
             <thead>
               <tr>
+                <th className="select-col">
+                  <input
+                    type="checkbox"
+                    checked={loteSeleccionados.length === reportesFiltrados.length && reportesFiltrados.length > 0}
+                    onChange={toggleSeleccionTodos}
+                    className="select-checkbox"
+                  />
+                </th>
                 <th>PO</th>
                 <th>Sport</th>
                 <th>Week</th>
@@ -501,12 +966,21 @@ const ReporteRH = () => {
                 <th>Horas</th>
                 <th>Eficiencia</th>
                 <th>Status</th>
+                <th>Nota</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {reportesFiltrados.map((reporte, index) => (
-                <tr key={index} className={`table-row ${reporte.status === 'RH' ? 'rh' : ''}`}>
+                <tr key={index} className={`table-row ${reporte.status === 'RH' ? 'rh' : ''} ${loteSeleccionados.includes(reporte.id) ? 'selected-row' : ''}`}>
+                  <td className="select-col">
+                    <input
+                      type="checkbox"
+                      checked={loteSeleccionados.includes(reporte.id)}
+                      onChange={() => toggleSeleccionLote(reporte.id)}
+                      className="select-checkbox"
+                    />
+                  </td>
                   <td className="po-cell">{reporte.po}</td>
                   <td>{reporte.sport}</td>
                   <td className="week-cell">{reporte.week}</td>
@@ -514,7 +988,7 @@ const ReporteRH = () => {
                   <td>{reporte.sublimado}</td>
                   <td>{reporte.maquina}</td>
                   <td>
-                    <span className="turno-badge turno-{reporte.turno}">
+                    <span className={`turno-badge turno-${reporte.turno}`}>
                       {reporte.turno}
                     </span>
                   </td>
@@ -533,6 +1007,33 @@ const ReporteRH = () => {
                     >
                       {getStatusIcon(reporte.status)} {reporte.status}
                     </span>
+                  </td>
+                  <td>
+                    <div className="nota-cell">
+                      {notasLote[reporte.id] ? (
+                        <div className="nota-preview" title={notasLote[reporte.id]}>
+                          <span className="nota-icon">📝</span>
+                          <span className="nota-text-preview">
+                            {notasLote[reporte.id].substring(0, 15)}
+                            {notasLote[reporte.id].length > 15 && '...'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="nota-placeholder">—</span>
+                      )}
+                      <button 
+                        className="nota-edit-btn"
+                        onClick={() => {
+                          setLoteSeleccionados([reporte.id]);
+                          setLoteEditField('nota');
+                          setLoteEditValue(notasLote[reporte.id] || '');
+                          setLoteEditMode(true);
+                        }}
+                        title="Agregar/editar nota"
+                      >
+                        ✏️
+                      </button>
+                    </div>
                   </td>
                   <td>
                     <div className="acciones-cell">
@@ -573,8 +1074,17 @@ const ReporteRH = () => {
       {vista === 'tarjetas' && (
         <div className="tarjetas-grid-premium">
           {reportesFiltrados.map(reporte => (
-            <div key={reporte.id} className={`reporte-card ${reporte.status}`}>
+            <div key={reporte.id} className={`reporte-card ${reporte.status} ${loteSeleccionados.includes(reporte.id) ? 'selected-card' : ''}`}>
               <div className="card-glow"></div>
+              
+              <div className="card-select">
+                <input
+                  type="checkbox"
+                  checked={loteSeleccionados.includes(reporte.id)}
+                  onChange={() => toggleSeleccionLote(reporte.id)}
+                  className="select-checkbox-card"
+                />
+              </div>
               
               <div className="card-header">
                 <div className="card-titulo">
@@ -614,6 +1124,16 @@ const ReporteRH = () => {
                   <span className="operador-nombre">{reporte.operador}</span>
                 </div>
 
+                {notasLote[reporte.id] && (
+                  <div className="card-nota" title={notasLote[reporte.id]}>
+                    <span className="nota-icon">📝</span>
+                    <span className="nota-text">
+                      {notasLote[reporte.id].substring(0, 30)}
+                      {notasLote[reporte.id].length > 30 && '...'}
+                    </span>
+                  </div>
+                )}
+
                 <div className="card-metricas">
                   <div className="metrica">
                     <span className="metrica-label">Horas</span>
@@ -638,6 +1158,18 @@ const ReporteRH = () => {
                 <div className="card-actions">
                   <button className="card-btn" onClick={() => handleVerDetalle(reporte)}>Ver</button>
                   <button className="card-btn" onClick={() => handleEditar(reporte)}>Editar</button>
+                  <button 
+                    className="card-btn nota-btn"
+                    onClick={() => {
+                      setLoteSeleccionados([reporte.id]);
+                      setLoteEditField('nota');
+                      setLoteEditValue(notasLote[reporte.id] || '');
+                      setLoteEditMode(true);
+                    }}
+                    title="Agregar nota"
+                  >
+                    📝
+                  </button>
                 </div>
               </div>
             </div>
@@ -885,6 +1417,8 @@ const ReporteRH = () => {
             <span>⚠️ {stats.totalRH} RH</span>
             <span className="stat-separator">•</span>
             <span>📦 {stats.totalPC} PC</span>
+            <span className="stat-separator">•</span>
+            <span>📝 {Object.keys(notasLote).length} notas</span>
           </div>
         </div>
       </div>
