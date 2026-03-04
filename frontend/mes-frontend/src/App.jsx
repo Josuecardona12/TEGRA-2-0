@@ -22,8 +22,8 @@ import ReporteRH from "./pages/ReporteRH";
 import MaquinasTiempoReal from "./pages/MaquinasTiempoReal";
 import TrazabilidadLotes from "./trazabilidad-dashboard/TrazabilidadLotes";
 import ScanInicio from './pages/ScanInicio';
-import FFTTquality from "./pages/FFTTquality"; // ✅ IMPORTACIÓN DE FFTT
-
+import FFTTquality from "./pages/FFTTquality";
+import PlotterLotes from "./pages/PlotterLotes"; // ✅ IMPORTACIÓN DE PLOTTER
 import "./App.css";
 
 function AppLayout() {
@@ -36,7 +36,7 @@ function AppLayout() {
   const hayAtrasosGraves = true;
   const location = useLocation();
 
-  // Datos del menú para búsqueda - INCLUYE FFTT
+  // Datos del menú para búsqueda - INCLUYE FFTT Y PLOTTER
   const menuItems = [
     { path: 'dashboard', nombre: 'Dashboard', icono: '📊', categoria: 'GENERAL' },
     { path: 'atrasos', nombre: 'Atrasos', icono: '⚠️', categoria: 'GENERAL' },
@@ -47,7 +47,8 @@ function AppLayout() {
     { path: 'reporte-rh', nombre: 'Reporte RH', icono: '👥', categoria: 'OPERACIONES' },
     { path: 'scan', nombre: 'Escaneo', icono: '📱', categoria: 'OPERACIONES' },
     { path: 'micelanios', nombre: 'Miceláneos', icono: '📦', categoria: 'OPERACIONES' },
-    { path: 'fftt-quality', nombre: 'FFTT Quality Control', icono: '🔬', categoria: 'OPERACIONES' }, // ✅ NUEVO
+    { path: 'fftt-quality', nombre: 'FFTT Quality Control', icono: '🔬', categoria: 'OPERACIONES' },
+    { path: 'plotter', nombre: 'Plotter 17 Máquinas', icono: '🖨️', categoria: 'OPERACIONES' }, // ✅ NUEVO PLOTTER
     { path: 'reportes', nombre: 'Reportes', icono: '📈', categoria: 'SISTEMA' },
     { path: 'configuracion', nombre: 'Configuración', icono: '⚙️', categoria: 'SISTEMA' },
   ];
@@ -57,9 +58,9 @@ function AppLayout() {
     const interval = setInterval(() => {
       if (Math.random() > 0.7) {
         const nuevasNotificaciones = [
-          { id: Date.now(), mensaje: "Nuevo lote FFTT escaneado", tipo: "info", tiempo: "ahora" },
-          { id: Date.now() + 1, mensaje: "Producción completada", tipo: "success", tiempo: "ahora" },
-          { id: Date.now() + 2, mensaje: "Alerta en calidad FFTT", tipo: "warning", tiempo: "ahora" }
+          { id: Date.now(), mensaje: "Plotter HP-02 terminó lote", tipo: "success", tiempo: "ahora" },
+          { id: Date.now() + 1, mensaje: "Alerta de tinta baja en Plotter-05", tipo: "warning", tiempo: "ahora" },
+          { id: Date.now() + 2, mensaje: "Nuevo lote escaneado en Plotter", tipo: "info", tiempo: "ahora" }
         ];
         setNotificaciones(prev => [nuevasNotificaciones[Math.floor(Math.random() * 3)], ...prev].slice(0, 4));
       }
@@ -101,7 +102,8 @@ function AppLayout() {
     if (path.includes('reporte-rh')) return 'Reportes de RH';
     if (path.includes('scan')) return 'Escaneo de Movimiento';
     if (path.includes('micelanios')) return 'Miceláneos';
-    if (path.includes('fftt-quality')) return 'FFTT Quality Control - First Time Through'; // ✅ NUEVO TÍTULO
+    if (path.includes('fftt-quality')) return 'FFTT Quality Control';
+    if (path.includes('plotter')) return 'Plotter - 17 Máquinas en Línea'; // ✅ TÍTULO PLOTTER
     if (path.includes('reportes')) return 'Reportes';
     if (path.includes('configuracion')) return 'Configuración del Sistema';
     return 'TEGRA ERP';
@@ -137,7 +139,7 @@ function AppLayout() {
         {sidebarAbierto ? '◀' : '▶'}
       </button>
 
-      {/* SIDEBAR CON NUEVA ENTRADA FFTT */}
+      {/* SIDEBAR CON NUEVA ENTRADA PLOTTER */}
       <div className={`sidebar ${sidebarAbierto ? 'abierto' : 'cerrado'}`}>
         <div className="sidebar-header">
           <div className="logo">
@@ -217,7 +219,7 @@ function AppLayout() {
             </Link>
           </div>
 
-          {/* OPERACIONES - CON FFTT INCLUIDO */}
+          {/* OPERACIONES - CON FFTT Y PLOTTER INCLUIDOS */}
           <div className="nav-section">
             <div className="section-title">
               <span className="section-icon">⚙️</span>
@@ -298,7 +300,7 @@ function AppLayout() {
               <span className="nav-tooltip">Productos varios</span>
             </Link>
 
-            {/* 🔬 NUEVO: FFTT Quality Control - DESTACADO */}
+            {/* 🔬 FFTT Quality Control */}
             <Link 
               to="fftt-quality" 
               className={`nav-link premium ${isActive('fftt-quality') ? 'active' : ''}`}
@@ -309,6 +311,22 @@ function AppLayout() {
               <span className="premium-glow"></span>
               {isActive('fftt-quality') && <span className="nav-indicator"></span>}
               <span className="nav-tooltip">Control de calidad FFTT</span>
+            </Link>
+
+            {/* 🖨️ NUEVO: PLOTTER 17 MÁQUINAS - DESTACADO */}
+            <Link 
+              to="plotter" 
+              className={`nav-link plotter-destacado ${isActive('plotter') ? 'active' : ''}`}
+            >
+              <span className="nav-icon">🖨️</span>
+              <span className="nav-text">Plotter 17 Máq</span>
+              <span className="nav-badge plotter">
+                <span className="badge-live"></span>
+                17
+              </span>
+              <span className="plotter-glow"></span>
+              {isActive('plotter') && <span className="nav-indicator"></span>}
+              <span className="nav-tooltip">Control de 17 plotters</span>
             </Link>
           </div>
 
@@ -443,8 +461,8 @@ function App() {
           <Route path="reporte-rh" element={<ReporteRH />} />
           <Route path="maquinas" element={<MaquinasTiempoReal />} />
           <Route path="trazabilidad" element={<TrazabilidadLotes />} />
-          {/* ✅ NUEVA RUTA PARA FFTT */}
           <Route path="fftt-quality" element={<FFTTquality />} />
+          <Route path="plotter" element={<PlotterLotes />} /> {/* ✅ NUEVA RUTA PLOTTER */}
           <Route path="*" element={<Navigate to="dashboard" />} />
         </Route>
       </Routes>
