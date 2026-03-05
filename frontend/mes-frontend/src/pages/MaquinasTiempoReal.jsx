@@ -60,7 +60,7 @@ const MaquinasTiempoReal = () => {
   const [maquinas, setMaquinas] = useState([
     {
       id: "plot-001",
-      nombre: "PLOTTER",
+      nombre: "Sublimado 3",
       icono: "🖨️",
       tipo: "Impresión",
       estado: "disponible",

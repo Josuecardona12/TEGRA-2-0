@@ -1,138 +1,218 @@
 // src/pages/PlotterLotes.jsx
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./PlotterLotes.css";
 
 const PlotterLotes = () => {
-  // ================ CONFIGURACIÓN DE 17 MÁQUINAS PLOTTER ================
+  // ================ MÁQUINAS ================
   const [maquinas, setMaquinas] = useState([
-    // PLOTTERS DE ALTA VELOCIDAD (1-6)
-    { id: "plt-001", nombre: "PLOTTER HP-01", icono: "🖨️", tipo: "HP Latex", velocidad: 2200, estado: "disponible", temperatura: 42, tinta: 87, loteActual: null, operador: "Carlos R.", eficiencia: 98, ultimoMantenimiento: "2026-02-20", produccionHoy: 1245, historial: [], color: "#4361ee" },
-    { id: "plt-002", nombre: "PLOTTER HP-02", icono: "🖨️", tipo: "HP Latex", velocidad: 2200, estado: "produciendo", temperatura: 45, tinta: 62, loteActual: "L2402-089", operador: "María G.", eficiencia: 95, ultimoMantenimiento: "2026-02-18", produccionHoy: 2134, historial: [], color: "#3a0ca3" },
-    { id: "plt-003", nombre: "PLOTTER HP-03", icono: "🖨️", tipo: "HP Latex", velocidad: 2200, estado: "disponible", temperatura: 38, tinta: 94, loteActual: null, operador: "Juan P.", eficiencia: 97, ultimoMantenimiento: "2026-02-22", produccionHoy: 1876, historial: [], color: "#4cc9f0" },
-    { id: "plt-004", nombre: "PLOTTER HP-04", icono: "🖨️", tipo: "HP Latex", velocidad: 2200, estado: "mantenimiento", temperatura: 0, tinta: 0, loteActual: null, operador: "Técnico", eficiencia: 0, ultimoMantenimiento: "2026-02-15", produccionHoy: 0, historial: [], color: "#f72585" },
-    { id: "plt-005", nombre: "PLOTTER HP-05", icono: "🖨️", tipo: "HP Latex", velocidad: 2200, estado: "produciendo", temperatura: 41, tinta: 45, loteActual: "L2402-092", operador: "Ana L.", eficiencia: 96, ultimoMantenimiento: "2026-02-19", produccionHoy: 1567, historial: [], color: "#4895ef" },
-    { id: "plt-006", nombre: "PLOTTER HP-06", icono: "🖨️", tipo: "HP Latex", velocidad: 2200, estado: "disponible", temperatura: 37, tinta: 78, loteActual: null, operador: "Pedro M.", eficiencia: 94, ultimoMantenimiento: "2026-02-21", produccionHoy: 987, historial: [], color: "#560bad" },
-    
-    // PLOTTERS DE CORTE (7-12)
-    { id: "plt-007", nombre: "CUTTER-01", icono: "✂️", tipo: "Corte", velocidad: 1800, estado: "produciendo", temperatura: 35, tinta: 0, loteActual: "L2402-095", operador: "Luisa F.", eficiencia: 92, ultimoMantenimiento: "2026-02-17", produccionHoy: 2341, historial: [], color: "#f94144" },
-    { id: "plt-008", nombre: "CUTTER-02", icono: "✂️", tipo: "Corte", velocidad: 1800, estado: "disponible", temperatura: 34, tinta: 0, loteActual: null, operador: "Roberto C.", eficiencia: 93, ultimoMantenimiento: "2026-02-23", produccionHoy: 1432, historial: [], color: "#f3722c" },
-    { id: "plt-009", nombre: "CUTTER-03", icono: "✂️", tipo: "Corte", velocidad: 1800, estado: "averiada", temperatura: 52, tinta: 0, loteActual: "L2402-078", operador: "Jorge N.", eficiencia: 0, ultimoMantenimiento: "2026-02-10", produccionHoy: 567, historial: [], color: "#f8961e" },
-    { id: "plt-010", nombre: "CUTTER-04", icono: "✂️", tipo: "Corte", velocidad: 1800, estado: "produciendo", temperatura: 36, tinta: 0, loteActual: "L2402-096", operador: "Sofia R.", eficiencia: 91, ultimoMantenimiento: "2026-02-20", produccionHoy: 1876, historial: [], color: "#f9844a" },
-    { id: "plt-011", nombre: "CUTTER-05", icono: "✂️", tipo: "Corte", velocidad: 1800, estado: "disponible", temperatura: 33, tinta: 0, loteActual: null, operador: "Diego S.", eficiencia: 95, ultimoMantenimiento: "2026-02-22", produccionHoy: 1098, historial: [], color: "#f9c74f" },
-    { id: "plt-012", nombre: "CUTTER-06", icono: "✂️", tipo: "Corte", velocidad: 1800, estado: "produciendo", temperatura: 37, tinta: 0, loteActual: "L2402-082", operador: "Elena T.", eficiencia: 90, ultimoMantenimiento: "2026-02-19", produccionHoy: 1654, historial: [], color: "#f9844a" },
-    
-    // PLOTTERS GRANDES FORMATOS (13-17)
-    { id: "plt-013", nombre: "GRAN FORMATO-01", icono: "🖼️", tipo: "Gran Formato", velocidad: 1500, estado: "produciendo", temperatura: 44, tinta: 56, loteActual: "L2402-091", operador: "Oscar M.", eficiencia: 89, ultimoMantenimiento: "2026-02-18", produccionHoy: 2345, historial: [], color: "#90be6d" },
-    { id: "plt-014", nombre: "GRAN FORMATO-02", icono: "🖼️", tipo: "Gran Formato", velocidad: 1500, estado: "disponible", temperatura: 39, tinta: 72, loteActual: null, operador: "Lucia G.", eficiencia: 92, ultimoMantenimiento: "2026-02-24", produccionHoy: 1432, historial: [], color: "#43aa8b" },
-    { id: "plt-015", nombre: "GRAN FORMATO-03", icono: "🖼️", tipo: "Gran Formato", velocidad: 1500, estado: "produciendo", temperatura: 42, tinta: 38, loteActual: "L2402-097", operador: "Marta P.", eficiencia: 88, ultimoMantenimiento: "2026-02-16", produccionHoy: 1765, historial: [], color: "#4d908e" },
-    { id: "plt-016", nombre: "GRAN FORMATO-04", icono: "🖼️", tipo: "Gran Formato", velocidad: 1500, estado: "mantenimiento", temperatura: 0, tinta: 0, loteActual: null, operador: "Técnico", eficiencia: 0, ultimoMantenimiento: "2026-02-12", produccionHoy: 0, historial: [], color: "#577590" },
-    { id: "plt-017", nombre: "GRAN FORMATO-05", icono: "🖼️", tipo: "Gran Formato", velocidad: 1500, estado: "disponible", temperatura: 38, tinta: 81, loteActual: null, operador: "Andres V.", eficiencia: 93, ultimoMantenimiento: "2026-02-21", produccionHoy: 1254, historial: [], color: "#277da1" },
+    { 
+      id: "plt-001", 
+      nombre: "HP LATEX 315", 
+      icono: "🖨️", 
+      estado: "disponible", 
+      temperatura: 42, 
+      tinta: 87, 
+      produccionHoy: 1245,
+      loteActual: null, 
+      operador: "Carlos R.",
+      velocidad: 1850,
+      eficiencia: 98,
+      alertas: [],
+      color: "#4361ee",
+      historial: []
+    },
+    { 
+      id: "plt-002", 
+      nombre: "HP LATEX 335", 
+      icono: "🖨️", 
+      estado: "produciendo", 
+      temperatura: 45, 
+      tinta: 62, 
+      produccionHoy: 2134,
+      loteActual: "NK-137", 
+      operador: "María G.",
+      velocidad: 2200,
+      eficiencia: 95,
+      alertas: ["⚠️ Tinta baja 62%"],
+      color: "#3a0ca3",
+      historial: []
+    },
+    { 
+      id: "plt-003", 
+      nombre: "HP LATEX 365", 
+      icono: "🖨️", 
+      estado: "disponible", 
+      temperatura: 38, 
+      tinta: 94, 
+      produccionHoy: 1876,
+      loteActual: null, 
+      operador: "Juan P.",
+      velocidad: 2000,
+      eficiencia: 97,
+      alertas: [],
+      color: "#4cc9f0",
+      historial: []
+    },
+    { 
+      id: "plt-004", 
+      nombre: "HP LATEX 570", 
+      icono: "🖨️", 
+      estado: "mantenimiento", 
+      temperatura: 0, 
+      tinta: 0, 
+      produccionHoy: 0,
+      loteActual: null, 
+      operador: "Técnico",
+      velocidad: 2400,
+      eficiencia: 0,
+      alertas: ["🔧 Mantenimiento"],
+      color: "#f72585",
+      historial: []
+    },
+    { 
+      id: "plt-005", 
+      nombre: "UV FLATBED 1", 
+      icono: "🖨️", 
+      estado: "disponible", 
+      temperatura: 35, 
+      tinta: 72, 
+      produccionHoy: 2341,
+      loteActual: null, 
+      operador: "Luisa F.",
+      velocidad: 1200,
+      eficiencia: 92,
+      alertas: [],
+      color: "#f94144",
+      historial: []
+    }
   ]);
 
-  // ================ LOTES PENDIENTES ================
-  const [lotesPendientes, setLotesPendientes] = useState([
-    { id: "L2402-089", codigo: "NK-2024-01", cliente: "NIKE", producto: "LONA IMPRESA 3x2m", cantidad: 450, prioridad: "ALTA", fecha: "2026-03-04", color: "#f94144" },
-    { id: "L2402-090", codigo: "AD-2024-05", cliente: "ADIDAS", producto: "VINILO TEXTIL 50m", cantidad: 280, prioridad: "MEDIA", fecha: "2026-03-04", color: "#f3722c" },
-    { id: "L2402-091", codigo: "NK-2024-12", cliente: "NIKE", producto: "PAPEL SUBLIMACIÓN", cantidad: 600, prioridad: "ALTA", fecha: "2026-03-03", color: "#f8961e" },
-    { id: "L2402-092", codigo: "PU-2024-03", cliente: "PUMA", producto: "LONA BACKLIT", cantidad: 320, prioridad: "BAJA", fecha: "2026-03-04", color: "#f9c74f" },
-    { id: "L2402-093", codigo: "NK-2024-18", cliente: "NIKE", producto: "VINILO ADHESIVO", cantidad: 550, prioridad: "MEDIA", fecha: "2026-03-03", color: "#90be6d" },
-    { id: "L2402-094", codigo: "UA-2024-02", cliente: "UNDER ARMOUR", producto: "BANNER 2x1m", cantidad: 200, prioridad: "ALTA", fecha: "2026-03-04", color: "#43aa8b" },
-    { id: "L2402-095", codigo: "NK-2024-22", cliente: "NIKE", producto: "LONA IMPRESA 5x3m", cantidad: 180, prioridad: "ALTA", fecha: "2026-03-04", color: "#577590" },
-    { id: "L2402-096", codigo: "AD-2024-09", cliente: "ADIDAS", producto: "VINILO REFLECTIVO", cantidad: 420, prioridad: "MEDIA", fecha: "2026-03-03", color: "#277da1" },
-    { id: "L2402-097", codigo: "NK-2024-31", cliente: "NIKE", producto: "PAPEL PHOTOLUMINISCENTE", cantidad: 150, prioridad: "BAJA", fecha: "2026-03-04", color: "#4cc9f0" },
-    { id: "L2402-098", codigo: "PU-2024-07", cliente: "PUMA", producto: "LONA IMPRESA 2x2m", cantidad: 390, prioridad: "MEDIA", fecha: "2026-03-04", color: "#4895ef" },
-  ]);
-
-  // ================ LOTES EN PRODUCCIÓN ================
-  const [lotesEnProduccion, setLotesEnProduccion] = useState([]);
-  
-  // ================ LOTES FINALIZADOS ================
-  const [lotesFinalizados, setLotesFinalizados] = useState([]);
-
-  // ================ ESTADOS DEL SISTEMA ================
-  const [codigoEscaneado, setCodigoEscaneado] = useState("");
-  const [loteSeleccionado, setLoteSeleccionado] = useState(null);
-  const [notificaciones, setNotificaciones] = useState([]);
-  const [filtroMaquinas, setFiltroMaquinas] = useState("todas");
-  const [vista, setVista] = useState("grid");
-  const [modoOscuro, setModoOscuro] = useState(false);
-  const [vistaCompacta, setVistaCompacta] = useState(false);
-  const [modalAsignar, setModalAsignar] = useState({ abierto: false, lote: null });
-  const [estadisticas, setEstadisticas] = useState({
-    lotesActivos: 0,
-    lotesCompletados: 0,
-    piezasProcesadas: 0,
-    eficienciaGlobal: 94,
-    tiempoReal: new Date().toLocaleTimeString(),
-    productividad: 87,
-    tintaPromedio: 64,
-    temperaturaPromedio: 38
+  // ================ LOTES ================
+  const [lotes, setLotes] = useState({
+    pendientes: [
+      { 
+        id: "NK-137", 
+        codigo: "NK-137", 
+        cliente: "NIKE", 
+        producto: "LONA IMPRESA 3x2m", 
+        cantidad: 450, 
+        prioridad: "ALTA",
+        fecha: "2026-03-05",
+        hora: "08:30",
+        material: "Lona Front",
+        acabado: "Mate",
+        colores: 4,
+        tiempoEstimado: "2.5h",
+        diseño: "nk_137_campaign.ai",
+        observaciones: "Urgente - Evento deportivo",
+        historia: []
+      },
+      { 
+        id: "AD-245", 
+        codigo: "AD-245", 
+        cliente: "ADIDAS", 
+        producto: "VINILO TEXTIL", 
+        cantidad: 280, 
+        prioridad: "MEDIA",
+        fecha: "2026-03-05",
+        hora: "09:15",
+        material: "Vinil textil",
+        acabado: "Brillante",
+        colores: 3,
+        tiempoEstimado: "1.8h",
+        diseño: "ad_245_running.eps",
+        observaciones: "Camisetas running",
+        historia: []
+      },
+      { 
+        id: "PM-389", 
+        codigo: "PM-389", 
+        cliente: "PUMA", 
+        producto: "PAPEL SUBLIMACIÓN", 
+        cantidad: 600, 
+        prioridad: "ALTA",
+        fecha: "2026-03-05",
+        hora: "10:20",
+        material: "Papel transfer",
+        acabado: "Premium",
+        colores: 6,
+        tiempoEstimado: "3.2h",
+        diseño: "pm_389_collection.pdf",
+        observaciones: "200°C temperatura",
+        historia: []
+      },
+      { 
+        id: "UA-456", 
+        codigo: "UA-456", 
+        cliente: "UNDER ARMOUR", 
+        producto: "BANNER 2x1m", 
+        cantidad: 200, 
+        prioridad: "ALTA",
+        fecha: "2026-03-05",
+        hora: "11:45",
+        material: "Banner mesh",
+        acabado: "Con ojillos",
+        colores: 2,
+        tiempoEstimado: "1.5h",
+        diseño: "ua_456_outdoor.cdr",
+        observaciones: "Resistente UV",
+        historia: []
+      }
+    ],
+    produccion: [],
+    finalizados: []
   });
 
-  const inputRef = useRef(null);
-  const intervalRef = useRef(null);
+  // ================ ESTADOS ================
+  const [codigoEscaneado, setCodigoEscaneado] = useState("");
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [modoOscuro, setModoOscuro] = useState(false);
+  const [modalAsignar, setModalAsignar] = useState({ abierto: false, lote: null });
+  const [modalDetalle, setModalDetalle] = useState({ abierto: false, tipo: null, item: null });
+  const [maquinaSeleccionada, setMaquinaSeleccionada] = useState(null);
+  const [tiempoReal, setTiempoReal] = useState(new Date());
+  const [vista, setVista] = useState("grid");
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroMaquinas, setFiltroMaquinas] = useState("todas");
 
-  // ================ ENFOCAR INPUT ================
+  const inputRef = useRef(null);
+
+  // ================ EFECTOS ================
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
+    
+    const interval = setInterval(() => {
+      setTiempoReal(new Date());
+      actualizarProduccion();
+    }, 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  // ================ ACTUALIZACIÓN EN TIEMPO REAL ================
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      actualizarProduccion();
-      actualizarEstadisticas();
-      setEstadisticas(prev => ({
-        ...prev,
-        tiempoReal: new Date().toLocaleTimeString()
-      }));
-    }, 500);
-
-    return () => clearInterval(intervalRef.current);
-  }, [lotesEnProduccion]);
-
   // ================ ACTUALIZAR PRODUCCIÓN ================
-  const actualizarProduccion = useCallback(() => {
-    setLotesEnProduccion(prev => 
-      prev.map(lote => {
+  const actualizarProduccion = () => {
+    setLotes(prev => ({
+      ...prev,
+      produccion: prev.produccion.map(lote => {
         if (lote.estado !== "produciendo") return lote;
         
-        const incremento = (lote.velocidad || 2) * (0.8 + Math.random() * 0.4);
+        const maquina = maquinas.find(m => m.id === lote.maquinaId);
+        const avance = (maquina?.velocidad || 1000) / 3600;
         const nuevaCantidad = Math.min(
-          lote.cantidadProcesada + incremento,
-          lote.cantidadTotal
+          (lote.cantidadProcesada || 0) + avance,
+          lote.cantidad
         );
-        
-        const progreso = (nuevaCantidad / lote.cantidadTotal) * 100;
         
         return {
           ...lote,
           cantidadProcesada: nuevaCantidad,
-          progreso: progreso.toFixed(1)
+          progreso: ((nuevaCantidad / lote.cantidad) * 100).toFixed(1)
         };
       })
-    );
-  }, []);
-
-  // ================ ACTUALIZAR ESTADÍSTICAS ================
-  const actualizarEstadisticas = useCallback(() => {
-    const totalPiezas = lotesEnProduccion.reduce((acc, l) => acc + l.cantidadProcesada, 0);
-    const tintaTotal = maquinas.filter(m => m.tinta > 0).reduce((acc, m) => acc + m.tinta, 0);
-    const maquinasTinta = maquinas.filter(m => m.tinta > 0).length;
-    const tempTotal = maquinas.filter(m => m.temperatura > 0).reduce((acc, m) => acc + m.temperatura, 0);
-    const maquinasTemp = maquinas.filter(m => m.temperatura > 0).length;
-    
-    setEstadisticas(prev => ({
-      ...prev,
-      lotesActivos: lotesEnProduccion.length,
-      lotesCompletados: lotesFinalizados.length,
-      piezasProcesadas: Math.round(totalPiezas),
-      tintaPromedio: maquinasTinta > 0 ? Math.round(tintaTotal / maquinasTinta) : 0,
-      temperaturaPromedio: maquinasTemp > 0 ? Math.round(tempTotal / maquinasTemp) : 0
     }));
-  }, [lotesEnProduccion, lotesFinalizados, maquinas]);
+  };
 
   // ================ PROCESAR ESCANEO ================
   const procesarEscaneo = (codigo) => {
@@ -142,30 +222,31 @@ const PlotterLotes = () => {
     }
 
     const codigoLimpio = codigo.trim().toUpperCase();
-
-    // Buscar en producción
-    const loteEnProduccion = lotesEnProduccion.find(l => l.codigo === codigoLimpio);
+    
+    // Buscar en producción (2do escaneo - finalizar)
+    const loteEnProduccion = lotes.produccion.find(l => l.codigo === codigoLimpio);
     if (loteEnProduccion) {
-      setLoteSeleccionado(loteEnProduccion);
-      mostrarNotificacion(`📋 Mostrando detalle de ${codigoLimpio}`, "info");
+      setModalDetalle({ 
+        abierto: true, 
+        tipo: "confirmarFinalizar", 
+        item: loteEnProduccion 
+      });
       setCodigoEscaneado("");
       return;
     }
 
-    // Buscar en pendientes
-    const lotePendiente = lotesPendientes.find(l => l.codigo === codigoLimpio);
+    // Buscar en pendientes (1er escaneo - iniciar)
+    const lotePendiente = lotes.pendientes.find(l => l.codigo === codigoLimpio);
     if (lotePendiente) {
       setModalAsignar({ abierto: true, lote: lotePendiente });
-      mostrarNotificacion(`✅ Lote ${codigoLimpio} listo para asignar`, "success");
       setCodigoEscaneado("");
       return;
     }
 
     // Buscar en finalizados
-    const loteFinalizado = lotesFinalizados.find(l => l.codigo === codigoLimpio);
+    const loteFinalizado = lotes.finalizados.find(l => l.codigo === codigoLimpio);
     if (loteFinalizado) {
-      setLoteSeleccionado(loteFinalizado);
-      mostrarNotificacion(`📋 Mostrando detalle de ${codigoLimpio} (finalizado)`, "info");
+      setModalDetalle({ abierto: true, tipo: "lote", item: loteFinalizado });
       setCodigoEscaneado("");
       return;
     }
@@ -174,90 +255,84 @@ const PlotterLotes = () => {
     setCodigoEscaneado("");
   };
 
-  // ================ ASIGNAR LOTE A MÁQUINA ================
-  const asignarLoteAMaquina = (lote, maquinaId) => {
-    const maquina = maquinas.find(m => m.id === maquinaId);
-    
-    if (!maquina || maquina.estado !== "disponible") {
-      mostrarNotificacion(`❌ Máquina no disponible`, "error");
+  // ================ ASIGNAR LOTE ================
+  const asignarLote = (lote, maquina) => {
+    if (!maquina) {
+      mostrarNotificacion("❌ Seleccione una máquina", "warning");
       return;
     }
 
-    const nuevoLoteProduccion = {
+    const nuevoLote = {
       ...lote,
       idProduccion: `PROD-${Date.now()}`,
-      maquinaId: maquinaId,
+      maquinaId: maquina.id,
       maquinaNombre: maquina.nombre,
-      horaInicio: new Date().toLocaleTimeString(),
+      horaInicio: tiempoReal.toLocaleTimeString(),
       cantidadProcesada: 0,
       progreso: "0",
       estado: "produciendo",
-      velocidad: maquina.velocidad / 1000,
-      color: maquina.color
+      operador: maquina.operador,
+      tiempoInicio: Date.now()
     };
 
-    setLotesEnProduccion(prev => [...prev, nuevoLoteProduccion]);
-    setLotesPendientes(prev => prev.filter(l => l.id !== lote.id));
-    
-    setMaquinas(prev =>
-      prev.map(m =>
-        m.id === maquinaId
-          ? { ...m, estado: "produciendo", loteActual: lote.id }
-          : m
-      )
-    );
+    setLotes(prev => ({
+      ...prev,
+      pendientes: prev.pendientes.filter(l => l.id !== lote.id),
+      produccion: [...prev.produccion, nuevoLote]
+    }));
+
+    setMaquinas(prev => prev.map(m => 
+      m.id === maquina.id 
+        ? { ...m, estado: "produciendo", loteActual: lote.codigo }
+        : m
+    ));
 
     setModalAsignar({ abierto: false, lote: null });
-    mostrarNotificacion(`🚀 Lote ${lote.codigo} asignado a ${maquina.nombre}`, "success");
+    setMaquinaSeleccionada(null);
+    mostrarNotificacion(`🚀 Lote ${lote.codigo} iniciado`, "success");
   };
 
   // ================ FINALIZAR LOTE ================
-  const finalizarLote = (loteId) => {
-    const lote = lotesEnProduccion.find(l => l.idProduccion === loteId);
-    if (!lote) return;
-
-    const eficiencia = ((lote.cantidadProcesada / lote.cantidadTotal) * 100).toFixed(1);
+  const finalizarLote = (lote) => {
+    const tiempoTotal = Math.round((Date.now() - lote.tiempoInicio) / 1000 / 60);
+    const eficiencia = lote.progreso;
 
     const loteFinalizado = {
       ...lote,
-      eficienciaFinal: eficiencia,
-      horaFin: new Date().toLocaleTimeString(),
-      estado: "finalizado"
+      horaFin: tiempoReal.toLocaleTimeString(),
+      fechaFin: tiempoReal.toISOString(),
+      estado: "finalizado",
+      eficiencia,
+      tiempoTotal: `${tiempoTotal} minutos`
     };
 
-    // Actualizar historial de máquina
-    setMaquinas(prev =>
-      prev.map(m => {
-        if (m.id === lote.maquinaId) {
-          const nuevoHistorial = [
-            ...m.historial,
-            {
-              lote: lote.codigo,
-              cliente: lote.cliente,
-              cantidad: Math.round(lote.cantidadProcesada),
-              total: lote.cantidadTotal,
-              eficiencia: eficiencia,
-              fecha: new Date().toLocaleString()
-            }
-          ];
-          return {
-            ...m,
-            estado: "disponible",
+    setMaquinas(prev => prev.map(m => 
+      m.id === lote.maquinaId 
+        ? { 
+            ...m, 
+            estado: "disponible", 
             loteActual: null,
-            produccionHoy: m.produccionHoy + Math.round(lote.cantidadProcesada),
-            historial: nuevoHistorial
-          };
-        }
-        return m;
-      })
-    );
+            produccionHoy: m.produccionHoy + Math.round(lote.cantidadProcesada || 0)
+          }
+        : m
+    ));
 
-    setLotesFinalizados(prev => [loteFinalizado, ...prev]);
-    setLotesEnProduccion(prev => prev.filter(l => l.idProduccion !== loteId));
-    mostrarNotificacion(`🎉 Lote ${lote.codigo} finalizado - ${eficiencia}%`, "success");
+    setLotes(prev => ({
+      ...prev,
+      produccion: prev.produccion.filter(l => l.idProduccion !== lote.idProduccion),
+      finalizados: [loteFinalizado, ...prev.finalizados]
+    }));
+
+    setModalDetalle({ abierto: false, tipo: null, item: null });
+    mostrarNotificacion(`✅ Lote ${lote.codigo} finalizado`, "success");
   };
 
-  // ================ MOSTRAR NOTIFICACIÓN ================
+  // ================ MOSTRAR DETALLE ================
+  const mostrarDetalle = (tipo, item) => {
+    setModalDetalle({ abierto: true, tipo, item });
+  };
+
+  // ================ NOTIFICACIONES ================
   const mostrarNotificacion = (mensaje, tipo) => {
     const id = Date.now();
     setNotificaciones(prev => [...prev, { id, mensaje, tipo }]);
@@ -266,286 +341,311 @@ const PlotterLotes = () => {
     }, 3000);
   };
 
-  // ================ REGISTRAR ENTRADA/SALIDA ================
-  const registrarEntrada = (maquinaId) => {
-    mostrarNotificacion(`📥 Entrada registrada en máquina ${maquinaId}`, "info");
-  };
+  // ================ GENERAR ALEATORIO ================
+  const generarAleatorio = () => {
+    const prefijos = ['NK', 'AD', 'PM', 'UA', 'NB', 'AS'];
+    const numeros = Math.floor(100 + Math.random() * 900);
+    const codigo = `${prefijos[Math.floor(Math.random() * prefijos.length)]}-${numeros}`;
+    
+    const nuevoLote = {
+      id: codigo,
+      codigo,
+      cliente: "NUEVO CLIENTE",
+      producto: "PRODUCTO GENÉRICO",
+      cantidad: Math.floor(100 + Math.random() * 900),
+      prioridad: ["ALTA", "MEDIA", "BAJA"][Math.floor(Math.random() * 3)],
+      fecha: tiempoReal.toISOString().split('T')[0],
+      hora: tiempoReal.toLocaleTimeString(),
+      material: "Estándar",
+      acabado: "Estándar",
+      colores: Math.floor(2 + Math.random() * 4),
+      tiempoEstimado: "2.0h",
+      historia: []
+    };
 
-  const registrarSalida = (maquinaId) => {
-    mostrarNotificacion(`📤 Salida registrada de máquina ${maquinaId}`, "info");
-  };
-
-  const registrarInOut = (maquinaId, tipo) => {
-    mostrarNotificacion(`🔄 ${tipo} registrado en máquina ${maquinaId}`, "success");
+    setLotes(prev => ({
+      ...prev,
+      pendientes: [nuevoLote, ...prev.pendientes]
+    }));
+    
+    mostrarNotificacion(`✅ Lote ${codigo} generado`, "success");
   };
 
   // ================ HANDLE KEY PRESS ================
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      procesarEscaneo(codigoEscaneado.trim());
+      procesarEscaneo(codigoEscaneado);
     }
   };
 
-  return (
-    <div className={`plotter-container ${modoOscuro ? 'dark-mode' : ''} ${vistaCompacta ? 'vista-compacta' : ''}`}>
-      
-      {/* Panel de Control */}
-      <div className="control-panel-plotter">
-        <button className={`control-btn ${modoOscuro ? 'active' : ''}`} onClick={() => setModoOscuro(!modoOscuro)}>
-          {modoOscuro ? '☀️' : '🌙'}
-        </button>
-        <button className={`control-btn ${vistaCompacta ? 'active' : ''}`} onClick={() => setVistaCompacta(!vistaCompacta)}>
-          {vistaCompacta ? '🔍' : '👁️'}
-        </button>
-        <button className="control-btn" onClick={() => setVista('grid')}>🔲</button>
-        <button className="control-btn" onClick={() => setVista('lista')}>📋</button>
-        <select 
-          className="filtro-select"
-          value={filtroMaquinas}
-          onChange={(e) => setFiltroMaquinas(e.target.value)}
-        >
-          <option value="todas">TODAS LAS MÁQUINAS</option>
-          <option value="disponible">✅ DISPONIBLES</option>
-          <option value="produciendo">⚡ EN PRODUCCIÓN</option>
-          <option value="mantenimiento">🔧 MANTENIMIENTO</option>
-          <option value="averiada">⚠️ AVERIADAS</option>
-        </select>
-      </div>
+  // ================ FILTRAR MÁQUINAS ================
+  const maquinasFiltradas = maquinas.filter(m => {
+    if (filtroMaquinas === "todas") return true;
+    if (filtroMaquinas === "disponibles") return m.estado === "disponible";
+    if (filtroMaquinas === "produciendo") return m.estado === "produciendo";
+    return true;
+  });
 
-      {/* Notificaciones */}
-      <div className="notificaciones-plotter">
+  return (
+    <div className={`plotter-container ${modoOscuro ? 'dark-mode' : ''}`}>
+      
+      {/* ===== HEADER ===== */}
+      <header className="plotter-header">
+        <div className="header-left">
+          <h1>🖨️ Plottler - 17 Máquinas en Línea</h1>
+          <span className="header-date">
+            {tiempoReal.toLocaleDateString('es-ES', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </span>
+        </div>
+        <div className="header-right">
+          <div className="header-time">
+            <span className="time">{tiempoReal.toLocaleTimeString()}</span>
+            <span className="date">{tiempoReal.toLocaleDateString()}</span>
+          </div>
+          <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)}>
+            {modoOscuro ? '☀️' : '🌙'}
+          </button>
+        </div>
+      </header>
+
+      {/* ===== NOTIFICACIONES ===== */}
+      <div className="notificaciones-container">
         {notificaciones.map(n => (
-          <div key={n.id} className={`notificacion-plotter ${n.tipo}`}>
-            <span>
+          <div key={n.id} className={`notificacion ${n.tipo}`}>
+            <span className="notificacion-icono">
               {n.tipo === 'success' && '✅'}
               {n.tipo === 'error' && '❌'}
               {n.tipo === 'warning' && '⚠️'}
-              {n.tipo === 'info' && 'ℹ️'}
             </span>
-            {n.mensaje}
+            <span className="notificacion-mensaje">{n.mensaje}</span>
           </div>
         ))}
       </div>
 
-      {/* Header con Escáner */}
-      <div className="header-plotter">
-        <div className="header-titulo">
-          <h1>🖨️ PLOTTER CONTROL - 17 MÁQUINAS</h1>
-          <div className="header-badges">
-            <span className="badge-online">🔴 EN VIVO</span>
-            <span className="badge-turno">{new Date().getHours() >= 6 && new Date().getHours() < 14 ? '🌅 MATUTINO' : new Date().getHours() >= 14 && new Date().getHours() < 22 ? '☀️ VESPERTINO' : '🌙 NOCTURNO'}</span>
-          </div>
-        </div>
+      {/* ===== SCANNER PRINCIPAL ===== */}
+      <div className="scanner-principal">
+        <h2>Sistema de Gestión de Impresión</h2>
         
-        <div className="scanner-plotter">
-          <div className="scanner-input-group">
-            <span className="scanner-icon">📷</span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={codigoEscaneado}
-              onChange={(e) => setCodigoEscaneado(e.target.value.toUpperCase())}
-              onKeyPress={handleKeyPress}
-              placeholder="ESCANEAR CÓDIGO DE LOTE"
-              className="scanner-input"
-            />
-            <button onClick={() => procesarEscaneo(codigoEscaneado)} className="scanner-btn">
-              PROCESAR
-            </button>
+        <div className="scanner-title">
+          <h3>ESCANEAR CÓDIGO DE LOTE</h3>
+          <span className="ejemplo">Ejemplo: NK-137</span>
+        </div>
+
+        <div className="scanner-input-container">
+          <input
+            ref={inputRef}
+            type="text"
+            value={codigoEscaneado}
+            onChange={(e) => setCodigoEscaneado(e.target.value.toUpperCase())}
+            onKeyPress={handleKeyPress}
+            placeholder="INGRESE CÓDIGO"
+            className="scanner-input"
+          />
+        </div>
+
+        <div className="scanner-instrucciones">
+          <div className="instruccion">
+            <span className="numero">1.</span>
+            <div className="texto">
+              <strong>PRIMER ESCANEO</strong>
+              <span>INICIAR PRODUCCIÓN</span>
+            </div>
           </div>
-          <div className="scanner-info">
-            <span>🔵 ESCANEAR PARA INICIAR</span>
-            <span>🟢 ESCANEAR EN PRODUCCIÓN = VER DETALLE</span>
+          <div className="instruccion">
+            <span className="numero">2.</span>
+            <div className="texto">
+              <strong>SEGUNDO ESCANEO</strong>
+              <span>FINALIZAR LOTE</span>
+            </div>
           </div>
+        </div>
+
+        <button className="btn-generar" onClick={generarAleatorio}>
+          3. GENERAR ALEATORIO
+        </button>
+
+        <div className="scanner-footer">
+          <span className="okc">OKC - NYK</span>
+          <span className="puntuacion">Puntuación del día: 98%</span>
         </div>
       </div>
 
-      {/* Estadísticas Rápidas */}
-      <div className="stats-plotter">
-        <div className="stat-card-plotter">
-          <span className="stat-valor">{maquinas.filter(m => m.estado === 'produciendo').length}</span>
-          <span className="stat-label">MÁQUINAS ACTIVAS</span>
-          <span className="stat-trend">⚡ {estadisticas.eficienciaGlobal}%</span>
+      {/* ===== FILTROS ===== */}
+      <div className="filtros-panel">
+        <div className="busqueda">
+          <input
+            type="text"
+            placeholder="🔍 Buscar máquina..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
         </div>
-        <div className="stat-card-plotter">
-          <span className="stat-valor">{lotesEnProduccion.length}</span>
-          <span className="stat-label">LOTES EN PRODUCCIÓN</span>
-          <span className="stat-trend">📊 {estadisticas.productividad}%</span>
-        </div>
-        <div className="stat-card-plotter">
-          <span className="stat-valor">{lotesPendientes.length}</span>
-          <span className="stat-label">LOTES PENDIENTES</span>
-          <span className="stat-trend">⏳ {Math.round(lotesPendientes.reduce((acc, l) => acc + l.cantidad, 0) / 1000)}K pz</span>
-        </div>
-        <div className="stat-card-plotter">
-          <span className="stat-valor">{estadisticas.piezasProcesadas}</span>
-          <span className="stat-label">PIEZAS HOY</span>
-          <span className="stat-trend">📈 +12%</span>
-        </div>
-        <div className="stat-card-plotter">
-          <span className="stat-valor">{estadisticas.tintaPromedio}%</span>
-          <span className="stat-label">TINTA PROMEDIO</span>
-          <span className="stat-trend">🖨️ {maquinas.filter(m => m.tinta < 20).length} críticas</span>
-        </div>
-        <div className="stat-card-plotter">
-          <span className="stat-valor">{estadisticas.temperaturaPromedio}°C</span>
-          <span className="stat-label">TEMP PROMEDIO</span>
-          <span className="stat-trend">🌡️ Óptima</span>
+        <select value={filtroMaquinas} onChange={(e) => setFiltroMaquinas(e.target.value)}>
+          <option value="todas">Todas las máquinas</option>
+          <option value="disponibles">✅ Disponibles</option>
+          <option value="produciendo">⚡ En producción</option>
+        </select>
+        <div className="vista-toggle">
+          <button 
+            className={vista === 'grid' ? 'active' : ''} 
+            onClick={() => setVista('grid')}
+          >
+            🔲 Grid
+          </button>
+          <button 
+            className={vista === 'lista' ? 'active' : ''} 
+            onClick={() => setVista('lista')}
+          >
+            📋 Lista
+          </button>
         </div>
       </div>
 
-      {/* Grid de 17 Máquinas Plotter */}
-      <div className={`maquinas-grid-plotter ${vista}`}>
-        {maquinas
-          .filter(m => filtroMaquinas === 'todas' || m.estado === filtroMaquinas)
-          .map(maquina => (
+      {/* ===== MÁQUINAS ===== */}
+      <div className="maquinas-section">
+        <h3>🖨️ MÁQUINAS DE IMPRESIÓN</h3>
+        <div className={`maquinas-grid ${vista}`}>
+          {maquinasFiltradas
+            .filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+            .map(maquina => (
             <div 
               key={maquina.id} 
-              className={`maquina-card-plotter ${maquina.estado}`}
-              style={{ borderTop: `4px solid ${maquina.color}` }}
+              className={`maquina-card ${maquina.estado}`}
+              onClick={() => mostrarDetalle('maquina', maquina)}
             >
-              <div className="maquina-header-plotter">
-                <div className="maquina-titulo">
-                  <span className="maquina-icono">{maquina.icono}</span>
-                  <span className="maquina-nombre">{maquina.nombre}</span>
-                </div>
-                <span className={`maquina-estado-badge ${maquina.estado}`}>
+              <div className="maquina-header" style={{ backgroundColor: maquina.color + '20' }}>
+                <span className="maquina-icono">{maquina.icono}</span>
+                <span className="maquina-nombre">{maquina.nombre}</span>
+                <span className={`estado-badge ${maquina.estado}`}>
                   {maquina.estado === 'produciendo' && '⚡'}
                   {maquina.estado === 'disponible' && '✅'}
                   {maquina.estado === 'mantenimiento' && '🔧'}
-                  {maquina.estado === 'averiada' && '⚠️'}
-                  {maquina.estado.toUpperCase()}
                 </span>
               </div>
 
-              <div className="maquina-body-plotter">
-                <div className="maquina-tipo">{maquina.tipo}</div>
-                
-                <div className="maquina-metricas">
-                  <div className="metrica">
-                    <span>⚡ Vel</span>
-                    <span className="metrica-valor">{maquina.velocidad} pz/h</span>
+              <div className="maquina-body">
+                <div className="info-row">
+                  <span>👤 Operador:</span>
+                  <strong>{maquina.operador}</strong>
+                </div>
+                <div className="info-row">
+                  <span>⚡ Velocidad:</span>
+                  <strong>{maquina.velocidad} pz/h</strong>
+                </div>
+                <div className="info-row">
+                  <span>🌡️ Temperatura:</span>
+                  <strong className={maquina.temperatura > 45 ? 'alerta' : ''}>
+                    {maquina.temperatura}°C
+                  </strong>
+                </div>
+                <div className="info-row">
+                  <span>🖨️ Tinta:</span>
+                  <div className="tinta-bar">
+                    <div 
+                      className={`tinta-nivel ${maquina.tinta < 20 ? 'critico' : ''}`}
+                      style={{ width: `${maquina.tinta}%` }}
+                    />
+                    <span className="tinta-porcentaje">{maquina.tinta}%</span>
                   </div>
-                  {maquina.tinta > 0 && (
-                    <div className="metrica">
-                      <span>🖨️ Tinta</span>
-                      <div className="progress-bar-mini">
-                        <div 
-                          className={`progress-fill ${maquina.tinta < 20 ? 'critico' : ''}`}
-                          style={{ width: `${maquina.tinta}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-                  {maquina.temperatura > 0 && (
-                    <div className="metrica">
-                      <span>🌡️ Temp</span>
-                      <span className={`metrica-valor ${maquina.temperatura > 45 ? 'critico' : ''}`}>
-                        {maquina.temperatura}°C
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {maquina.loteActual && (
-                  <div className="maquina-lote-activo">
-                    <span className="lote-indicador">🔵 Lote:</span>
-                    <span className="lote-codigo">
-                      {lotesEnProduccion.find(l => l.id === maquina.loteActual)?.codigo || maquina.loteActual}
-                    </span>
+                  <div className="lote-actual">
+                    <span className="label">Lote actual:</span>
+                    <span className="codigo">{maquina.loteActual}</span>
                   </div>
                 )}
 
-                <div className="maquina-footer">
-                  <span className="maquina-operador">👤 {maquina.operador}</span>
-                  <span className="maquina-produccion">📦 {maquina.produccionHoy} hoy</span>
-                </div>
-
-                <div className="maquina-acciones">
-                  <button 
-                    className="accion-btn in"
-                    onClick={() => registrarInOut(maquina.id, 'IN')}
-                    title="Registrar ENTRADA"
-                  >
-                    📥 IN
-                  </button>
-                  <button 
-                    className="accion-btn out"
-                    onClick={() => registrarInOut(maquina.id, 'OUT')}
-                    title="Registrar SALIDA"
-                  >
-                    📤 OUT
-                  </button>
-                  <button 
-                    className="accion-btn on"
-                    onClick={() => registrarInOut(maquina.id, 'ON')}
-                    title="Encender máquina"
-                  >
-                    ⚡ ON
-                  </button>
-                  <button 
-                    className="accion-btn off"
-                    onClick={() => registrarInOut(maquina.id, 'OFF')}
-                    title="Apagar máquina"
-                  >
-                    ⭕ OFF
-                  </button>
-                </div>
+                {maquina.alertas.map((alerta, idx) => (
+                  <div key={idx} className="alerta">{alerta}</div>
+                ))}
               </div>
 
-              <div className="maquina-historial-mini">
-                {maquina.historial.length > 0 ? (
-                  <span>📋 {maquina.historial.length} lotes hoy</span>
-                ) : (
-                  <span>🆕 Sin historial hoy</span>
-                )}
+              <div className="maquina-footer">
+                <span>📊 {maquina.eficiencia}% eficiencia</span>
+                <span>📦 {maquina.produccionHoy} hoy</span>
               </div>
             </div>
           ))}
+        </div>
       </div>
 
-      {/* Sección de Producción Actual */}
-      {lotesEnProduccion.length > 0 && (
-        <div className="produccion-actual">
-          <h2>⚡ PRODUCCIÓN EN TIEMPO REAL</h2>
-          <div className="lotes-produccion-grid">
-            {lotesEnProduccion.map(lote => (
+      {/* ===== LOTES PENDIENTES ===== */}
+      {lotes.pendientes.length > 0 && (
+        <div className="lotes-section">
+          <h3>📦 LOTES PENDIENTES</h3>
+          <div className="lotes-grid">
+            {lotes.pendientes.map(lote => (
               <div 
-                key={lote.idProduccion} 
-                className="lote-produccion-card"
-                style={{ borderLeft: `4px solid ${lote.color}` }}
+                key={lote.id} 
+                className="lote-card"
+                onClick={() => mostrarDetalle('lote', lote)}
               >
-                <div className="lote-produccion-header">
-                  <span className="lote-produccion-codigo">{lote.codigo}</span>
-                  <span className={`lote-produccion-prioridad ${lote.prioridad.toLowerCase()}`}>
+                <div className="lote-header">
+                  <span className="lote-codigo">{lote.codigo}</span>
+                  <span className={`prioridad ${lote.prioridad.toLowerCase()}`}>
                     {lote.prioridad}
                   </span>
                 </div>
+                <div className="lote-cliente">{lote.cliente}</div>
+                <div className="lote-producto">{lote.producto}</div>
+                <div className="lote-footer">
+                  <span>📦 {lote.cantidad} pz</span>
+                  <span>⏱️ {lote.tiempoEstimado}</span>
+                </div>
+                <button 
+                  className="btn-asignar"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModalAsignar({ abierto: true, lote });
+                  }}
+                >
+                  ASIGNAR
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ===== PRODUCCIÓN ACTUAL ===== */}
+      {lotes.produccion.length > 0 && (
+        <div className="produccion-section">
+          <h3>⚡ PRODUCCIÓN ACTUAL</h3>
+          <div className="produccion-grid">
+            {lotes.produccion.map(lote => (
+              <div 
+                key={lote.idProduccion} 
+                className="produccion-card"
+                onClick={() => mostrarDetalle('produccion', lote)}
+              >
+                <div className="produccion-header">
+                  <span className="codigo">{lote.codigo}</span>
+                  <span className={`prioridad ${lote.prioridad.toLowerCase()}`}>
+                    {lote.prioridad}
+                  </span>
+                </div>
+                <div className="cliente">{lote.cliente}</div>
+                <div className="maquina">🖨️ {lote.maquinaNombre}</div>
                 
-                <div className="lote-produccion-cliente">{lote.cliente}</div>
-                <div className="lote-produccion-maquina">🖨️ {lote.maquinaNombre}</div>
-                
-                <div className="progreso-plotter">
+                <div className="progreso">
                   <div className="progreso-header">
-                    <span>PROGRESO</span>
-                    <span>{lote.progreso}%</span>
+                    <span>Progreso</span>
+                    <span className="porcentaje">{lote.progreso}%</span>
                   </div>
-                  <div className="progreso-barra-plotter">
-                    <div 
-                      className="progreso-fill-plotter" 
-                      style={{ width: `${lote.progreso}%` }}
-                    ></div>
+                  <div className="progreso-barra">
+                    <div className="progreso-fill" style={{ width: `${lote.progreso}%` }} />
                   </div>
                 </div>
 
-                <div className="lote-produccion-footer">
-                  <span>{Math.round(lote.cantidadProcesada)}/{lote.cantidadTotal}</span>
-                  <button 
-                    className="btn-finalizar"
-                    onClick={() => finalizarLote(lote.idProduccion)}
-                  >
-                    ✅ FINALIZAR
-                  </button>
+                <div className="cantidades">
+                  <span>Procesado: {Math.round(lote.cantidadProcesada || 0)}</span>
+                  <span>Total: {lote.cantidad}</span>
                 </div>
               </div>
             ))}
@@ -553,102 +653,297 @@ const PlotterLotes = () => {
         </div>
       )}
 
-      {/* Modal de Asignación */}
+      {/* ===== MODAL ASIGNAR ===== */}
       {modalAsignar.abierto && modalAsignar.lote && (
-        <div className="modal-plotter" onClick={() => setModalAsignar({ abierto: false, lote: null })}>
-          <div className="modal-contenido-plotter" onClick={e => e.stopPropagation()}>
-            <h2>📦 ASIGNAR LOTE A MÁQUINA</h2>
+        <div className="modal-overlay" onClick={() => {
+          setModalAsignar({ abierto: false, lote: null });
+          setMaquinaSeleccionada(null);
+        }}>
+          <div className="modal-contenido" onClick={e => e.stopPropagation()}>
+            <h3>📦 ASIGNAR LOTE A MÁQUINA</h3>
             
             <div className="modal-lote-info">
-              <p><strong>Código:</strong> {modalAsignar.lote.codigo}</p>
+              <p><strong>Lote:</strong> {modalAsignar.lote.codigo}</p>
               <p><strong>Cliente:</strong> {modalAsignar.lote.cliente}</p>
               <p><strong>Producto:</strong> {modalAsignar.lote.producto}</p>
               <p><strong>Cantidad:</strong> {modalAsignar.lote.cantidad}</p>
               <p><strong>Prioridad:</strong> {modalAsignar.lote.prioridad}</p>
             </div>
 
-            <h3>MÁQUINAS DISPONIBLES</h3>
-            <div className="modal-maquinas-grid">
+            <h4>Máquinas Disponibles</h4>
+            <div className="modal-maquinas">
               {maquinas
                 .filter(m => m.estado === "disponible")
-                .map(maquina => (
-                  <div 
-                    key={maquina.id} 
-                    className="modal-maquina-item"
-                    onClick={() => asignarLoteAMaquina(modalAsignar.lote, maquina.id)}
+                .map(m => (
+                  <div
+                    key={m.id}
+                    className={`modal-maquina ${maquinaSeleccionada?.id === m.id ? 'seleccionada' : ''}`}
+                    onClick={() => setMaquinaSeleccionada(m)}
                   >
-                    <span>{maquina.icono} {maquina.nombre}</span>
-                    <span>⚡ {maquina.velocidad} pz/h</span>
-                    <span>🖨️ Tinta {maquina.tinta}%</span>
+                    <span>{m.icono} {m.nombre}</span>
+                    <span>⚡ {m.velocidad} pz/h</span>
+                    <span>👤 {m.operador}</span>
                   </div>
                 ))}
             </div>
 
-            {maquinas.filter(m => m.estado === "disponible").length === 0 && (
-              <p className="modal-error">❌ No hay máquinas disponibles</p>
-            )}
-
-            <button 
-              className="modal-cerrar"
-              onClick={() => setModalAsignar({ abierto: false, lote: null })}
-            >
-              CERRAR
-            </button>
+            <div className="modal-acciones">
+              <button className="btn-cancelar" onClick={() => {
+                setModalAsignar({ abierto: false, lote: null });
+                setMaquinaSeleccionada(null);
+              }}>
+                CANCELAR
+              </button>
+              <button 
+                className={`btn-asignar ${!maquinaSeleccionada ? 'disabled' : ''}`}
+                onClick={() => asignarLote(modalAsignar.lote, maquinaSeleccionada)}
+                disabled={!maquinaSeleccionada}
+              >
+                ASIGNAR
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Modal de Detalle de Lote */}
-      {loteSeleccionado && (
-        <div className="modal-plotter" onClick={() => setLoteSeleccionado(null)}>
-          <div className="modal-contenido-plotter" onClick={e => e.stopPropagation()}>
-            <h2>📋 DETALLE DE LOTE</h2>
+      {/* ===== MODAL DETALLE ===== */}
+      {modalDetalle.abierto && (
+        <div className="modal-overlay" onClick={() => setModalDetalle({ abierto: false, tipo: null, item: null })}>
+          <div className="modal-contenido modal-detalle" onClick={e => e.stopPropagation()}>
             
-            <div className="detalle-lote-grid">
-              <div className="detalle-info">
-                <p><strong>Código:</strong> {loteSeleccionado.codigo}</p>
-                <p><strong>Cliente:</strong> {loteSeleccionado.cliente}</p>
-                <p><strong>Producto:</strong> {loteSeleccionado.producto}</p>
-                <p><strong>Cantidad:</strong> {loteSeleccionado.cantidadTotal || loteSeleccionado.cantidad}</p>
-                <p><strong>Prioridad:</strong> {loteSeleccionado.prioridad}</p>
-              </div>
-
-              {loteSeleccionado.estado === 'produciendo' && (
-                <div className="detalle-progreso-grande">
-                  <div className="progreso-circular">
-                    <svg viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="45" fill="none" stroke="#e0e0e0" strokeWidth="8"/>
-                      <circle 
-                        cx="50" cy="50" r="45" 
-                        fill="none" 
-                        stroke="#4361ee" 
-                        strokeWidth="8"
-                        strokeDasharray={`${parseFloat(loteSeleccionado.progreso) * 2.83}, 283`}
-                        transform="rotate(-90 50 50)"
-                      />
-                    </svg>
-                    <span className="progreso-porcentaje">{loteSeleccionado.progreso}%</span>
+            {/* Detalle de Máquina */}
+            {modalDetalle.tipo === 'maquina' && modalDetalle.item && (
+              <>
+                <h3>🖨️ DETALLE DE MÁQUINA</h3>
+                <div className="detalle-maquina">
+                  <div className="detalle-header" style={{ backgroundColor: modalDetalle.item.color + '20' }}>
+                    <span className="icono">{modalDetalle.item.icono}</span>
+                    <span className="nombre">{modalDetalle.item.nombre}</span>
+                    <span className={`estado ${modalDetalle.item.estado}`}>
+                      {modalDetalle.item.estado.toUpperCase()}
+                    </span>
                   </div>
-                  <p>Procesado: {Math.round(loteSeleccionado.cantidadProcesada)}/{loteSeleccionado.cantidadTotal}</p>
-                  <p>Máquina: {loteSeleccionado.maquinaNombre}</p>
-                  <p>Hora inicio: {loteSeleccionado.horaInicio}</p>
-                </div>
-              )}
 
-              {loteSeleccionado.estado === 'finalizado' && (
-                <div className="detalle-finalizado">
-                  <p className="eficiencia-grande">✅ {loteSeleccionado.eficienciaFinal}%</p>
-                  <p>Finalizado: {loteSeleccionado.horaFin}</p>
-                  <p>Procesado: {Math.round(loteSeleccionado.cantidadProcesada)}/{loteSeleccionado.cantidadTotal}</p>
+                  <div className="detalle-body">
+                    <div className="detalle-grid">
+                      <div className="detalle-item">
+                        <label>Operador:</label>
+                        <span>👤 {modalDetalle.item.operador}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Velocidad:</label>
+                        <span>⚡ {modalDetalle.item.velocidad} pz/h</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Temperatura:</label>
+                        <span className={modalDetalle.item.temperatura > 45 ? 'alerta' : ''}>
+                          🌡️ {modalDetalle.item.temperatura}°C
+                        </span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Tinta:</label>
+                        <div className="tinta-detalle">
+                          <div className="tinta-barra-grande">
+                            <div 
+                              className={`tinta-nivel ${modalDetalle.item.tinta < 20 ? 'critico' : ''}`}
+                              style={{ width: `${modalDetalle.item.tinta}%` }}
+                            />
+                          </div>
+                          <span>{modalDetalle.item.tinta}%</span>
+                        </div>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Eficiencia:</label>
+                        <span>📊 {modalDetalle.item.eficiencia}%</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Producción hoy:</label>
+                        <span>📦 {modalDetalle.item.produccionHoy} pz</span>
+                      </div>
+                    </div>
+
+                    {modalDetalle.item.loteActual && (
+                      <div className="lote-actual-detalle">
+                        <h4>Lote en producción:</h4>
+                        <p>{modalDetalle.item.loteActual}</p>
+                      </div>
+                    )}
+
+                    {modalDetalle.item.alertas.length > 0 && (
+                      <div className="alertas-detalle">
+                        <h4>Alertas:</h4>
+                        {modalDetalle.item.alertas.map((a, i) => (
+                          <div key={i} className="alerta-item">{a}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
+
+            {/* Detalle de Lote */}
+            {modalDetalle.tipo === 'lote' && modalDetalle.item && (
+              <>
+                <h3>📦 DETALLE DE LOTE</h3>
+                <div className="detalle-lote">
+                  <div className="detalle-header">
+                    <span className="codigo">{modalDetalle.item.codigo}</span>
+                    <span className={`prioridad ${modalDetalle.item.prioridad.toLowerCase()}`}>
+                      {modalDetalle.item.prioridad}
+                    </span>
+                  </div>
+
+                  <div className="detalle-body">
+                    <div className="detalle-grid">
+                      <div className="detalle-item">
+                        <label>Cliente:</label>
+                        <span>{modalDetalle.item.cliente}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Producto:</label>
+                        <span>{modalDetalle.item.producto}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Cantidad:</label>
+                        <span>📦 {modalDetalle.item.cantidad}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Material:</label>
+                        <span>{modalDetalle.item.material}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Acabado:</label>
+                        <span>{modalDetalle.item.acabado}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Colores:</label>
+                        <span>🎨 {modalDetalle.item.colores}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Fecha:</label>
+                        <span>📅 {modalDetalle.item.fecha}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Hora:</label>
+                        <span>⏰ {modalDetalle.item.hora}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Tiempo estimado:</label>
+                        <span>⏱️ {modalDetalle.item.tiempoEstimado}</span>
+                      </div>
+                    </div>
+
+                    <div className="detalle-extra">
+                      <p><strong>Diseño:</strong> {modalDetalle.item.diseño}</p>
+                      <p><strong>Observaciones:</strong> {modalDetalle.item.observaciones}</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Detalle de Producción */}
+            {modalDetalle.tipo === 'produccion' && modalDetalle.item && (
+              <>
+                <h3>⚡ DETALLE DE PRODUCCIÓN</h3>
+                <div className="detalle-produccion">
+                  <div className="detalle-header">
+                    <span className="codigo">{modalDetalle.item.codigo}</span>
+                    <span className={`prioridad ${modalDetalle.item.prioridad.toLowerCase()}`}>
+                      {modalDetalle.item.prioridad}
+                    </span>
+                  </div>
+
+                  <div className="detalle-body">
+                    <div className="detalle-grid">
+                      <div className="detalle-item">
+                        <label>Cliente:</label>
+                        <span>{modalDetalle.item.cliente}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Máquina:</label>
+                        <span>🖨️ {modalDetalle.item.maquinaNombre}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Operador:</label>
+                        <span>👤 {modalDetalle.item.operador}</span>
+                      </div>
+                      <div className="detalle-item">
+                        <label>Hora inicio:</label>
+                        <span>⏰ {modalDetalle.item.horaInicio}</span>
+                      </div>
+                    </div>
+
+                    <div className="progreso-detalle">
+                      <h4>Progreso</h4>
+                      <div className="progreso-barra-grande">
+                        <div 
+                          className="progreso-fill" 
+                          style={{ width: `${modalDetalle.item.progreso}%` }}
+                        />
+                      </div>
+                      <div className="cantidades-detalle">
+                        <span>Procesado: {Math.round(modalDetalle.item.cantidadProcesada)}</span>
+                        <span>Total: {modalDetalle.item.cantidad}</span>
+                        <span>{modalDetalle.item.progreso}%</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      className="btn-finalizar-modal"
+                      onClick={() => {
+                        setModalDetalle({ abierto: false, tipo: null, item: null });
+                        setModalDetalle({ 
+                          abierto: true, 
+                          tipo: "confirmarFinalizar", 
+                          item: modalDetalle.item 
+                        });
+                      }}
+                    >
+                      ✅ FINALIZAR LOTE
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Confirmar Finalizar */}
+            {modalDetalle.tipo === 'confirmarFinalizar' && modalDetalle.item && (
+              <>
+                <h3>✅ CONFIRMAR FINALIZACIÓN</h3>
+                <div className="confirmar-finalizar">
+                  <p>¿Está seguro de finalizar el lote <strong>{modalDetalle.item.codigo}</strong>?</p>
+                  
+                  <div className="resumen">
+                    <p>Cliente: {modalDetalle.item.cliente}</p>
+                    <p>Progreso: {modalDetalle.item.progreso}%</p>
+                    <p>Procesado: {Math.round(modalDetalle.item.cantidadProcesada)}/{modalDetalle.item.cantidad}</p>
+                  </div>
+
+                  <div className="modal-acciones">
+                    <button 
+                      className="btn-cancelar"
+                      onClick={() => setModalDetalle({ abierto: false, tipo: null, item: null })}
+                    >
+                      NO, CANCELAR
+                    </button>
+                    <button 
+                      className="btn-confirmar"
+                      onClick={() => finalizarLote(modalDetalle.item)}
+                    >
+                      SÍ, FINALIZAR
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
 
             <button 
               className="modal-cerrar"
-              onClick={() => setLoteSeleccionado(null)}
+              onClick={() => setModalDetalle({ abierto: false, tipo: null, item: null })}
             >
-              CERRAR
+              ✕
             </button>
           </div>
         </div>

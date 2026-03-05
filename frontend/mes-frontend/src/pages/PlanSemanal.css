@@ -1318,3 +1318,237 @@ body {
   color: var(--gray-500);
   font-weight: normal;
 }
+/* Estilos para importación Excel */
+.import-btn {
+  position: fixed;
+  top: 20px;
+  right: 80px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+
+.import-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.import-modal {
+  max-width: 800px !important;
+  width: 90%;
+}
+
+.import-actions {
+  display: flex;
+  gap: 20px;
+  margin: 20px 0;
+  justify-content: center;
+}
+
+.template-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.upload-label {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.template-btn:hover,
+.upload-label:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.import-preview {
+  margin-top: 30px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 20px;
+}
+
+.import-preview h4 {
+  color: #1e293b;
+  font-size: 16px;
+  margin-bottom: 15px;
+}
+
+.preview-table-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.preview-table th {
+  background: #f8fafc;
+  padding: 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.preview-table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.preview-table tr:hover {
+  background: #f1f5f9;
+}
+
+.preview-more {
+  text-align: center;
+  padding: 10px;
+  color: #64748b;
+  font-size: 12px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.import-summary {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  margin: 20px 0;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.summary-item span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.summary-item strong {
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.summary-item .critical {
+  color: #ef4444;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.cancel-btn {
+  background: #e2e8f0;
+  color: #475569;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background: #cbd5e1;
+}
+
+.apply-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.apply-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+/* Dark mode styles */
+.dark-mode .import-btn {
+  background: linear-gradient(135deg, #818cf8 0%, #8b5cf6 100%);
+}
+
+.dark-mode .preview-table th {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .preview-table td {
+  border-bottom-color: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .preview-table tr:hover {
+  background: #1e293b;
+}
+
+.dark-mode .import-summary {
+  background: #1e293b;
+}
+
+.dark-mode .summary-item strong {
+  color: #f1f5f9;
+}
+
+.dark-mode .preview-more {
+  background: #1e293b;
+  color: #94a3b8;
+  border-top-color: #334155;
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import * as XLSX from "xlsx";
 import "./PlanSemanal.css";
 
 const PlanSemanal = () => {
@@ -13,6 +14,9 @@ const PlanSemanal = () => {
   const [busquedaLote, setBusquedaLote] = useState("");
   const [selectedLote, setSelectedLote] = useState(null);
   const [modoOscuro, setModoOscuro] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState(null);
+  const [importPreview, setImportPreview] = useState([]);
 
   // Estados para Producción
   const [fechaInicio, setFechaInicio] = useState("");
@@ -24,12 +28,12 @@ const PlanSemanal = () => {
   const [produccionData, setProduccionData] = useState({
     total: 15185,
     totalSublimado: 16264,
-    entregadas: 14140, // Cambiado de entregado a entregadas (piezas)
+    entregadas: 14140,
     adherencia: 107.1,
     tendencias: {
       total: "+12%",
       sublimado: "+8%",
-      entregadas: "-3%", // Cambiado
+      entregadas: "-3%",
       adherencia: "+5%"
     }
   });
@@ -40,7 +44,7 @@ const PlanSemanal = () => {
       total: 14140, 
       tipo: "green", 
       meta: 15000, 
-      entregadas: 14140, // Cambiado
+      entregadas: 14140,
       cumplimiento: 94.3,
       variacion: -5.7,
       tendencia: "▼",
@@ -51,7 +55,7 @@ const PlanSemanal = () => {
       total: 204, 
       tipo: "red", 
       meta: 250, 
-      entregadas: 204, // Cambiado
+      entregadas: 204,
       cumplimiento: 81.6,
       variacion: +36,
       tendencia: "▲",
@@ -62,7 +66,7 @@ const PlanSemanal = () => {
       total: 571, 
       tipo: "yellow", 
       meta: 500, 
-      entregadas: 571, // Cambiado
+      entregadas: 571,
       cumplimiento: 114.2,
       variacion: +14.2,
       tendencia: "▲",
@@ -73,19 +77,13 @@ const PlanSemanal = () => {
       total: 270, 
       tipo: "gray", 
       meta: 200, 
-      entregadas: 270, // Cambiado
+      entregadas: 270,
       cumplimiento: 135,
       variacion: +35,
       tendencia: "▲",
       color: "#6b7280"
     }
   ];
-
-  const totalGeneral = dataProduccion.reduce((acc, item) => acc + item.total, 0);
-  const totalSublimado = produccionData.totalSublimado;
-  const entregadas = dataProduccion[0].entregadas; // Cambiado
-  const porcentajeEntregadas = ((entregadas / totalGeneral) * 100).toFixed(1); // Cambiado
-  const adherencia = produccionData.adherencia;
 
   const [lotes, setLotes] = useState([
     {
@@ -155,7 +153,7 @@ const PlanSemanal = () => {
       setProduccionData(prev => ({
         ...prev,
         total: prev.total + Math.floor(Math.random() * 10),
-        entregadas: prev.entregadas + Math.floor(Math.random() * 5) // Cambiado
+        entregadas: prev.entregadas + Math.floor(Math.random() * 5)
       }));
 
       if (Math.random() > 0.7) {
@@ -186,6 +184,136 @@ const PlanSemanal = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // ================ FUNCIONES PARA IMPORTAR EXCEL ================
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const data = new Uint8Array(event.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      // Procesar los datos del Excel
+      const headers = jsonData[0];
+      const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== null && cell !== ""));
+      
+      // Mapear los datos al formato de lotes
+      const importedLotes = rows.map(row => {
+        const loteObj = {};
+        headers.forEach((header, index) => {
+          // Mapear según las columnas esperadas
+          const value = row[index] || "";
+          
+          switch(header?.toLowerCase()) {
+            case 'lote':
+            case 'lote id':
+              loteObj.lote = `NK-${value}`.replace('NK-NK-', 'NK-');
+              break;
+            case 'area':
+            case 'área':
+              loteObj.area = value;
+              break;
+            case 'piezas':
+            case 'cantidad':
+              loteObj.piezas = parseInt(value) || 0;
+              break;
+            case 'fecha':
+            case 'fecha entrega':
+              loteObj.fecha = value instanceof Date ? value.toLocaleString() : value;
+              break;
+            case 'dias':
+            case 'días':
+              loteObj.dias = parseInt(value) || 0;
+              break;
+            case 'horas':
+              loteObj.horas = parseInt(value) || 0;
+              break;
+            case 'estado':
+              loteObj.estado = value;
+              break;
+            case 'prioridad':
+              loteObj.prioridad = value;
+              break;
+            case 'cliente':
+              loteObj.cliente = value;
+              break;
+            case 'progreso':
+            case '% progreso':
+              loteObj.progreso = parseFloat(value) || 0;
+              break;
+            case 'eficiencia':
+            case '% eficiencia':
+              loteObj.eficiencia = parseFloat(value) || 0;
+              break;
+            default:
+              break;
+          }
+        });
+
+        // Asegurar valores por defecto
+        return {
+          lote: loteObj.lote || `NK-${Math.floor(Math.random() * 1000)}`,
+          area: loteObj.area || "Sin área",
+          piezas: loteObj.piezas || 0,
+          fecha: loteObj.fecha || new Date().toLocaleString(),
+          dias: loteObj.dias || 0,
+          horas: loteObj.horas || 0,
+          estado: loteObj.estado || "Medio",
+          prioridad: loteObj.prioridad || "Media",
+          cliente: loteObj.cliente || "Nike",
+          progreso: loteObj.progreso || 0,
+          eficiencia: loteObj.eficiencia || 85
+        };
+      });
+
+      setImportPreview(importedLotes);
+      setImportData(importedLotes);
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  const applyImportedData = () => {
+    if (importData && importData.length > 0) {
+      // Actualizar los lotes con los datos importados
+      setLotes(importData);
+      
+      // Actualizar KPIs basados en los datos importados
+      const totalPiezas = importData.reduce((sum, lote) => sum + lote.piezas, 0);
+      setBacklog(Math.floor(totalPiezas * 0.2)); // Aproximadamente 20% como backlog
+      setPlan(totalPiezas);
+      setPull(Math.floor(totalPiezas * 0.3)); // Aproximadamente 30% como pull
+      
+      setShowImportModal(false);
+      setImportPreview([]);
+      
+      // Mostrar notificación (puedes usar una librería de toast)
+      alert(`✅ Plan importado exitosamente: ${importData.length} lotes cargados`);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      ['Lote', 'Área', 'Piezas', 'Fecha', 'Días', 'Horas', 'Estado', 'Prioridad', 'Cliente', 'Progreso', 'Eficiencia'],
+      ['137', 'Sublimado', '1342', '2/15/2026 6:00 AM', '4', '4', 'Atraso Grave', 'Alta', 'Nike Sportswear', '89.5', '92'],
+      ['79', 'Costura', '572', '2/15/2026 6:00 AM', '7', '3', 'Medio', 'Media', 'Nike Running', '95.3', '88']
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(template);
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+    XLSX.writeFile(wb, "plantilla_plan_semanal.xlsx");
+  };
+
+  const totalGeneral = dataProduccion.reduce((acc, item) => acc + item.total, 0);
+  const totalSublimado = produccionData.totalSublimado;
+  const entregadas = dataProduccion[0].entregadas;
+  const porcentajeEntregadas = ((entregadas / totalGeneral) * 100).toFixed(1);
+  const adherencia = produccionData.adherencia;
+
   const lotesFiltrados = lotes
     .filter(l => filtroArea === "todas" || l.area === filtroArea)
     .filter(l => l.lote.toLowerCase().includes(busquedaLote.toLowerCase()))
@@ -209,6 +337,108 @@ const PlanSemanal = () => {
       <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)}>
         {modoOscuro ? '☀️' : '🌙'}
       </button>
+
+      {/* BOTÓN DE IMPORTAR */}
+      <button className="import-btn" onClick={() => setShowImportModal(true)}>
+        📥 Importar Plan desde Excel
+      </button>
+
+      {/* MODAL DE IMPORTACIÓN */}
+      {showImportModal && (
+        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
+          <div className="modal-content import-modal" onClick={e => e.stopPropagation()}>
+            <h3>Importar Plan desde Excel</h3>
+            
+            <div className="import-actions">
+              <button className="template-btn" onClick={downloadTemplate}>
+                📄 Descargar Plantilla
+              </button>
+              
+              <div className="file-upload">
+                <label htmlFor="excel-upload" className="upload-label">
+                  📁 Seleccionar Archivo Excel
+                </label>
+                <input
+                  type="file"
+                  id="excel-upload"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            </div>
+
+            {importPreview.length > 0 && (
+              <div className="import-preview">
+                <h4>Vista Previa ({importPreview.length} lotes)</h4>
+                <div className="preview-table-container">
+                  <table className="preview-table">
+                    <thead>
+                      <tr>
+                        <th>Lote</th>
+                        <th>Área</th>
+                        <th>Piezas</th>
+                        <th>Días</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.slice(0, 5).map((lote, index) => (
+                        <tr key={index}>
+                          <td>{lote.lote}</td>
+                          <td>{lote.area}</td>
+                          <td>{lote.piezas.toLocaleString()}</td>
+                          <td>{lote.dias}</td>
+                          <td>
+                            <span className={`badge ${lote.estado === 'Atraso Grave' ? 'grave' : 'medio'}`}>
+                              {lote.estado}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`priority-${lote.prioridad.toLowerCase()}`}>
+                              {lote.prioridad}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {importPreview.length > 5 && (
+                    <p className="preview-more">... y {importPreview.length - 5} lotes más</p>
+                  )}
+                </div>
+
+                <div className="import-summary">
+                  <div className="summary-item">
+                    <span>Total lotes:</span>
+                    <strong>{importPreview.length}</strong>
+                  </div>
+                  <div className="summary-item">
+                    <span>Total piezas:</span>
+                    <strong>{importPreview.reduce((sum, l) => sum + l.piezas, 0).toLocaleString()}</strong>
+                  </div>
+                  <div className="summary-item">
+                    <span>Lotes críticos:</span>
+                    <strong className="critical">
+                      {importPreview.filter(l => l.estado === 'Atraso Grave').length}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button className="cancel-btn" onClick={() => setShowImportModal(false)}>
+                    Cancelar
+                  </button>
+                  <button className="apply-btn" onClick={applyImportedData}>
+                    Aplicar Importación
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* SECCIÓN 1: PRODUCCIÓN - META VS REAL */}
       <div className="produccion-section">

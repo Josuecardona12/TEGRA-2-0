@@ -3,7 +3,7 @@ import './ReporteRH.css';
 
 const ReporteRH = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [vista, setVista] = useState('tabla'); // tabla, tarjetas, graficos, detalle
+  const [vista, setVista] = useState('tabla'); // tabla, tarjetas, graficos, analisis, escaner
   const [periodo, setPeriodo] = useState('semana');
   const [filtros, setFiltros] = useState({
     semana: 'todas',
@@ -13,17 +13,24 @@ const ReporteRH = () => {
     busqueda: ''
   });
 
-  // NUEVO: Estado para edición por lote
+  // NUEVO: Estado para escáner mejorado
+  const [codigoEscaneado, setCodigoEscaneado] = useState('');
+  const [loteActual, setLoteActual] = useState(null);
+  const [colaEspera, setColaEspera] = useState([]);
+  const [historialSalidas, setHistorialSalidas] = useState([]);
+  const [modoEscaneo, setModoEscaneo] = useState('entrada'); // entrada, salida
+
+  // Estado para edición por lote
   const [loteEditMode, setLoteEditMode] = useState(false);
   const [loteSeleccionados, setLoteSeleccionados] = useState([]);
   const [loteEditField, setLoteEditField] = useState('');
   const [loteEditValue, setLoteEditValue] = useState('');
-  const [notasLote, setNotasLote] = useState({}); // { id: "nota para este registro" }
+  const [notasLote, setNotasLote] = useState({});
 
-  // NUEVO: Estado para notificaciones
+  // Estado para notificaciones
   const [notificacion, setNotificacion] = useState({ mostrar: false, mensaje: '', tipo: '' });
 
-  // NUEVO: Estado para inventarios
+  // Estado para inventarios
   const [inventarios, setInventarios] = useState({
     totalInicial: 1250,
     producido: 0,
@@ -41,25 +48,19 @@ const ReporteRH = () => {
   });
 
   const [reportes, setReportes] = useState([
-    { id: 1, po: 'V108707', sport: 'Baseball', week: 7, pc: 15, sublimado: '11/26', maquina: 88, turno: 'A', status: 'OK', operador: 'Carlos López', horas: 6.5, eficiencia: 92 },
-    { id: 2, po: 'V109133', sport: 'Baseball', week: 8, pc: 4, sublimado: '11/26', maquina: 88, turno: 'B', status: 'OK', operador: 'María González', horas: 4, eficiencia: 88 },
-    { id: 3, po: 'V108994', sport: 'Baseball', week: 2, pc: 10, sublimado: '11/27', maquina: 18, turno: 'A', status: 'OK', operador: 'Pedro Ramírez', horas: 5, eficiencia: 95 },
-    { id: 4, po: 'V109217', sport: 'Baseball', week: 4, pc: 20, sublimado: '12/2', maquina: 88, turno: 'B', status: 'OK', operador: 'Ana Martínez', horas: 7, eficiencia: 89 },
-    { id: 5, po: 'V108251', sport: 'Baseball', week: 8, pc: 50, sublimado: '12/3', maquina: '3A', turno: 'A', status: 'RH', operador: 'Roberto Díaz', horas: 8, eficiencia: 76 },
-    { id: 6, po: 'V109459', sport: 'Baseball', week: 2, pc: 10, sublimado: '12/4', maquina: '5A', turno: 'A', status: 'OK', operador: 'Laura Torres', horas: 5.5, eficiencia: 94 },
-    { id: 7, po: 'V109460', sport: 'Soccer', week: 3, pc: 25, sublimado: '12/5', maquina: 12, turno: 'A', status: 'OK', operador: 'Carlos López', horas: 6, eficiencia: 91 },
-    { id: 8, po: 'V109461', sport: 'Basketball', week: 5, pc: 30, sublimado: '12/6', maquina: 7, turno: 'B', status: 'RH', operador: 'María González', horas: 7.5, eficiencia: 72 },
-    { id: 9, po: 'V109462', sport: 'Football', week: 6, pc: 12, sublimado: '12/7', maquina: 15, turno: 'A', status: 'OK', operador: 'Pedro Ramírez', horas: 5, eficiencia: 93 },
-    { id: 10, po: 'V109463', sport: 'Tennis', week: 4, pc: 18, sublimado: '12/8', maquina: 22, turno: 'C', status: 'Pendiente', operador: 'Ana Martínez', horas: 4.5, eficiencia: 0 },
-    { id: 11, po: 'V109464', sport: 'Volleyball', week: 7, pc: 22, sublimado: '12/9', maquina: 31, turno: 'A', status: 'OK', operador: 'Roberto Díaz', horas: 6, eficiencia: 96 },
-    { id: 12, po: 'V109465', sport: 'Baseball', week: 1, pc: 8, sublimado: '12/10', maquina: 45, turno: 'B', status: 'Revisión', operador: 'Laura Torres', horas: 3, eficiencia: 0 },
+    { id: 1, po: 'V108707', sport: 'Baseball', week: 7, pc: 15, sublimado: '11/26', maquina: 88, turno: 'A', status: 'OK', operador: 'Carlos López', horas: 6.5, eficiencia: 92, escaneado: false },
+    { id: 2, po: 'V109133', sport: 'Baseball', week: 8, pc: 4, sublimado: '11/26', maquina: 88, turno: 'B', status: 'OK', operador: 'María González', horas: 4, eficiencia: 88, escaneado: false },
+    { id: 3, po: 'V108994', sport: 'Baseball', week: 2, pc: 10, sublimado: '11/27', maquina: 18, turno: 'A', status: 'OK', operador: 'Pedro Ramírez', horas: 5, eficiencia: 95, escaneado: false },
+    { id: 4, po: 'V109217', sport: 'Baseball', week: 4, pc: 20, sublimado: '12/2', maquina: 88, turno: 'B', status: 'OK', operador: 'Ana Martínez', horas: 7, eficiencia: 89, escaneado: false },
+    { id: 5, po: 'V108251', sport: 'Baseball', week: 8, pc: 50, sublimado: '12/3', maquina: '3A', turno: 'A', status: 'RH', operador: 'Roberto Díaz', horas: 8, eficiencia: 76, escaneado: false },
+    { id: 6, po: 'V109459', sport: 'Baseball', week: 2, pc: 10, sublimado: '12/4', maquina: '5A', turno: 'A', status: 'OK', operador: 'Laura Torres', horas: 5.5, eficiencia: 94, escaneado: false },
   ]);
 
   const [selectedReporte, setSelectedReporte] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
 
-  // NUEVO: Estado para el formulario de edición
+  // Estado para el formulario de edición
   const [editFormData, setEditFormData] = useState({
     status: '',
     operador: '',
@@ -81,7 +82,7 @@ const ReporteRH = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // NUEVO: Efecto para auto-ocultar notificaciones
+  // Efecto para auto-ocultar notificaciones
   useEffect(() => {
     if (notificacion.mostrar) {
       const timer = setTimeout(() => {
@@ -91,17 +92,15 @@ const ReporteRH = () => {
     }
   }, [notificacion]);
 
-  // NUEVO: Efecto para actualizar inventarios basado en reportes
+  // Efecto para actualizar inventarios
   useEffect(() => {
     const nuevosInventarios = { ...inventarios };
     
-    // Resetear valores producidos
     Object.keys(nuevosInventarios.porSport).forEach(sport => {
       nuevosInventarios.porSport[sport].producido = 0;
       nuevosInventarios.porSport[sport].enviado = 0;
     });
 
-    // Calcular producción por sport
     reportes.forEach(reporte => {
       if (nuevosInventarios.porSport[reporte.sport]) {
         if (reporte.status === 'OK' || reporte.status === 'Enviado') {
@@ -112,7 +111,6 @@ const ReporteRH = () => {
       }
     });
 
-    // Calcular totales
     nuevosInventarios.producido = Object.values(nuevosInventarios.porSport).reduce((sum, sport) => sum + sport.producido, 0);
     nuevosInventarios.enviado = Object.values(nuevosInventarios.porSport).reduce((sum, sport) => sum + sport.enviado, 0);
     nuevosInventarios.enProceso = nuevosInventarios.producido - nuevosInventarios.enviado;
@@ -163,7 +161,6 @@ const ReporteRH = () => {
     porTurno: { A: 0, B: 0, C: 0 }
   };
 
-  // Calcular estadísticas por deporte
   reportesFiltrados.forEach(r => {
     stats.porSport[r.sport] = (stats.porSport[r.sport] || 0) + r.pc;
     stats.porTurno[r.turno] = (stats.porTurno[r.turno] || 0) + 1;
@@ -195,7 +192,6 @@ const ReporteRH = () => {
     setShowModal(true);
   };
 
-  // NUEVO: Función mejorada para editar sin recargar
   const handleEditar = (reporte) => {
     setSelectedReporte(reporte);
     setEditFormData({
@@ -209,11 +205,9 @@ const ReporteRH = () => {
     setShowModal(true);
   };
 
-  // NUEVO: Función para guardar cambios sin recargar
   const handleGuardarCambios = (e) => {
-    e.preventDefault(); // ¡Esto evita que se recargue la página!
+    e.preventDefault();
     
-    // Actualizar el reporte
     setReportes(prev => prev.map(r => 
       r.id === selectedReporte.id 
         ? { 
@@ -226,7 +220,6 @@ const ReporteRH = () => {
         : r
     ));
 
-    // Actualizar nota si existe
     if (editFormData.nota) {
       setNotasLote(prev => ({
         ...prev,
@@ -234,18 +227,15 @@ const ReporteRH = () => {
       }));
     }
 
-    // Mostrar notificación de éxito
     setNotificacion({
       mostrar: true,
       mensaje: '✅ Cambios guardados exitosamente',
       tipo: 'exito'
     });
 
-    // Cerrar modal
     setShowModal(false);
   };
 
-  // NUEVO: Función para cambios en el formulario
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({
@@ -266,7 +256,87 @@ const ReporteRH = () => {
     });
   };
 
-  // NUEVO: Funciones para edición por lote
+  // NUEVA FUNCIÓN: Escanear código
+  const handleEscanearCodigo = (codigo) => {
+    // Buscar el lote en los reportes
+    const loteEncontrado = reportes.find(r => r.po === codigo);
+    
+    if (loteEncontrado) {
+      // Verificar si ya está en cola de espera
+      const existeEnCola = colaEspera.some(item => item.po === codigo);
+      
+      if (!existeEnCola && modoEscaneo === 'entrada') {
+        // Agregar a cola de espera
+        setColaEspera(prev => [...prev, { ...loteEncontrado, horaEntrada: new Date().toISOString() }]);
+        setLoteActual(loteEncontrado);
+        
+        setNotificacion({
+          mostrar: true,
+          mensaje: `📦 Lote ${codigo} agregado a cola de espera`,
+          tipo: 'exito'
+        });
+      } else if (modoEscaneo === 'salida') {
+        // Modo salida - buscar en cola de espera
+        const loteEnCola = colaEspera.find(item => item.po === codigo);
+        
+        if (loteEnCola) {
+          // Registrar salida
+          const nuevaSalida = {
+            ...loteEnCola,
+            horaSalida: new Date().toISOString(),
+            tiempoEspera: calcularTiempoEspera(loteEnCola.horaEntrada)
+          };
+          
+          setHistorialSalidas(prev => [nuevaSalida, ...prev]);
+          setColaEspera(prev => prev.filter(item => item.po !== codigo));
+          
+          setNotificacion({
+            mostrar: true,
+            mensaje: `🚚 Lote ${codigo} marcado como salida`,
+            tipo: 'exito'
+          });
+        } else {
+          setNotificacion({
+            mostrar: true,
+            mensaje: `❌ Lote ${codigo} no está en cola de espera`,
+            tipo: 'error'
+          });
+        }
+      }
+      
+      setCodigoEscaneado('');
+    } else {
+      setNotificacion({
+        mostrar: true,
+        mensaje: `❌ Lote ${codigo} no encontrado`,
+        tipo: 'error'
+      });
+    }
+  };
+
+  const calcularTiempoEspera = (horaEntrada) => {
+    const entrada = new Date(horaEntrada);
+    const salida = new Date();
+    const diffMs = salida - entrada;
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return `${hours}h ${mins}m`;
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && codigoEscaneado) {
+      handleEscanearCodigo(codigoEscaneado);
+    }
+  };
+
+  const toggleModoEscaneo = (modo) => {
+    setModoEscaneo(modo);
+    setCodigoEscaneado('');
+    setLoteActual(null);
+  };
+
+  // Funciones de edición por lote
   const toggleSeleccionLote = (id) => {
     setLoteSeleccionados(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -344,14 +414,14 @@ const ReporteRH = () => {
 
   return (
     <div className="reporterh-premium-container">
-      {/* NUEVO: Notificación flotante */}
+      {/* Notificación flotante */}
       {notificacion.mostrar && (
         <div className={`notificacion-flotante ${notificacion.tipo}`}>
           {notificacion.mensaje}
         </div>
       )}
 
-      {/* NUEVO: Panel de inventarios superior */}
+      {/* Panel de inventarios */}
       <div className="inventarios-panel-premium">
         <div className="inventarios-header">
           <h3>
@@ -379,12 +449,6 @@ const ReporteRH = () => {
               <span className="inventario-label">Producido</span>
               <span className="inventario-valor">{inventarios.producido} pz</span>
             </div>
-            <div className="inventario-progreso">
-              <div 
-                className="progreso-barra" 
-                style={{width: `${(inventarios.producido / inventarios.totalInicial) * 100}%`}}
-              ></div>
-            </div>
           </div>
 
           <div className="inventario-card enviado">
@@ -392,12 +456,6 @@ const ReporteRH = () => {
             <div className="inventario-info">
               <span className="inventario-label">Enviado</span>
               <span className="inventario-valor">{inventarios.enviado} pz</span>
-            </div>
-            <div className="inventario-progreso">
-              <div 
-                className="progreso-barra" 
-                style={{width: `${(inventarios.enviado / inventarios.totalInicial) * 100}%`}}
-              ></div>
             </div>
           </div>
 
@@ -417,42 +475,9 @@ const ReporteRH = () => {
             </div>
           </div>
         </div>
-
-        <div className="inventarios-por-sport">
-          <h4>Desglose por Deporte</h4>
-          <div className="sport-grid">
-            {Object.entries(inventarios.porSport).map(([sport, data]) => {
-              const totalSport = data.inicial;
-              const completado = ((data.enviado + data.producido) / totalSport) * 100;
-              
-              return (
-                <div key={sport} className="sport-item">
-                  <div className="sport-header">
-                    <span className="sport-nombre">{sport}</span>
-                    <span className="sport-stats">
-                      {data.enviado + data.producido} / {totalSport}
-                    </span>
-                  </div>
-                  <div className="sport-progreso">
-                    <div 
-                      className="sport-barra" 
-                      style={{width: `${completado}%`}}
-                    >
-                      <span className="sport-porcentaje">{Math.round(completado)}%</span>
-                    </div>
-                  </div>
-                  <div className="sport-detalle">
-                    <span className="detalle-enviado" title="Enviado">🚚 {data.enviado}</span>
-                    <span className="detalle-proceso" title="En Proceso">⚙️ {data.producido}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
-      {/* NUEVO: Panel de edición por lote */}
+      {/* Panel de edición por lote */}
       {loteEditMode && (
         <div className="lote-edit-panel-premium">
           <div className="lote-edit-header">
@@ -509,7 +534,7 @@ const ReporteRH = () => {
                   <textarea
                     value={loteEditValue}
                     onChange={(e) => setLoteEditValue(e.target.value)}
-                    placeholder="Escribe una nota para los lotes seleccionados..."
+                    placeholder="Escribe una nota..."
                     className="lote-textarea"
                     rows="3"
                   />
@@ -518,7 +543,7 @@ const ReporteRH = () => {
                     type="number"
                     value={loteEditValue}
                     onChange={(e) => setLoteEditValue(e.target.value)}
-                    placeholder={`Nuevo valor para ${loteEditField}`}
+                    placeholder={`Nuevo valor`}
                     className="lote-input"
                     step="0.5"
                   />
@@ -542,7 +567,7 @@ const ReporteRH = () => {
         </div>
       )}
 
-      {/* Modal de Detalle/Edición - MEJORADO */}
+      {/* Modal de Detalle/Edición */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -576,7 +601,6 @@ const ReporteRH = () => {
                     <p><strong>Horas:</strong> {selectedReporte.horas}</p>
                     <p><strong>Eficiencia:</strong> {selectedReporte.eficiencia}%</p>
                     
-                    {/* Mostrar nota si existe */}
                     {notasLote[selectedReporte.id] && (
                       <div className="nota-container">
                         <strong>Nota:</strong>
@@ -656,12 +680,9 @@ const ReporteRH = () => {
                       name="nota"
                       value={editFormData.nota}
                       onChange={handleInputChange}
-                      placeholder="Agregar nota para este registro..."
+                      placeholder="Agregar nota..."
                       rows="4"
                     />
-                    <small className="form-hint">
-                      {editFormData.nota.length} caracteres
-                    </small>
                   </div>
                   
                   <div className="form-actions">
@@ -679,7 +700,7 @@ const ReporteRH = () => {
         </div>
       )}
 
-      {/* Header Premium */}
+      {/* Header */}
       <div className="reporterh-header-premium">
         <div className="header-glow"></div>
         <div className="header-content">
@@ -729,6 +750,13 @@ const ReporteRH = () => {
               >
                 <span className="btn-icon">📈</span>
                 <span className="btn-text">Análisis</span>
+              </button>
+              <button 
+                className={`action-btn ${vista === 'escaner' ? 'active' : ''}`}
+                onClick={() => setVista('escaner')}
+              >
+                <span className="btn-icon">📱</span>
+                <span className="btn-text">Escáner RH</span>
               </button>
             </div>
           </div>
@@ -793,7 +821,7 @@ const ReporteRH = () => {
         </div>
       </div>
 
-      {/* Filtros Premium */}
+      {/* Filtros */}
       <div className="filtros-premium">
         <div className="filtros-grid">
           <div className="filtro-item">
@@ -866,7 +894,7 @@ const ReporteRH = () => {
         </div>
       </div>
 
-      {/* KPI Cards Premium */}
+      {/* KPI Cards */}
       <div className="kpi-grid-premium">
         <div className="kpi-card-premium total">
           <div className="kpi-glow"></div>
@@ -940,6 +968,199 @@ const ReporteRH = () => {
           <div className="kpi-trend">{stats.eficienciaPromedio > 85 ? 'Excelente' : 'Mejorable'}</div>
         </div>
       </div>
+
+      {/* VISTA DE ESCÁNER MEJORADA - ESTILO TERCERA IMAGEN */}
+      {vista === 'escaner' && (
+        <div className="scanner-mejorado-container">
+          {/* Selector de modo */}
+          <div className="scanner-modo-selector">
+            <button 
+              className={`modo-btn ${modoEscaneo === 'entrada' ? 'active' : ''}`}
+              onClick={() => toggleModoEscaneo('entrada')}
+            >
+              📥 ENTRADA
+            </button>
+            <button 
+              className={`modo-btn ${modoEscaneo === 'salida' ? 'active' : ''}`}
+              onClick={() => toggleModoEscaneo('salida')}
+            >
+              📤 SALIDA
+            </button>
+          </div>
+
+          {/* Escáner de Códigos */}
+          <div className="scanner-codigo-section">
+            <h2>
+              <span className="scanner-icon">📷</span>
+              Escáner de Códigos
+            </h2>
+            
+            <div className="codigo-input-container">
+              <input
+                type="text"
+                value={codigoEscaneado}
+                onChange={(e) => setCodigoEscaneado(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Escanear código de lote..."
+                className="codigo-input"
+                autoFocus
+              />
+              <button 
+                className="escanear-btn"
+                onClick={() => handleEscanearCodigo(codigoEscaneado)}
+              >
+                Escanear
+              </button>
+            </div>
+          </div>
+
+          {loteActual && modoEscaneo === 'entrada' && (
+            /* Código Transversal - Información Detallada del Lote */
+            <div className="codigo-transversal-section">
+              <h3>
+                <span className="transversal-icon">🔲</span>
+                Código Transversal
+              </h3>
+              
+              <div className="informacion-lote-detallada">
+                <h4>Información del Lote</h4>
+                
+                <div className="lote-detalle-grid">
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">NÚMERO DE PLANTILLAS</span>
+                    <span className="detalle-valor">T1-PARTNER</span>
+                  </div>
+                  
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">SALDO</span>
+                    <div className="saldo-info">
+                      <span className="saldo-dividido">DIVIDIDO: {loteActual.pc}</span>
+                      <span className="saldo-continua">CONTINUA: V</span>
+                    </div>
+                  </div>
+                  
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">NOMBRE DE PLANTILLA</span>
+                    <span className="detalle-valor">{loteActual.sport} - {loteActual.po}</span>
+                  </div>
+                  
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">CONTENIDO</span>
+                    <div className="contenido-info">
+                      <span>CONSTRUCCIONES: {loteActual.maquina}</span>
+                      <span>VARIOS PLANTA: {loteActual.operador}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">TURNO</span>
+                    <span className="detalle-valor">Turno {loteActual.turno}</span>
+                  </div>
+                  
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">EFICIENCIA</span>
+                    <span className="detalle-valor">{loteActual.eficiencia}%</span>
+                  </div>
+                  
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">STATUS</span>
+                    <span className="status-badge" style={{backgroundColor: getStatusColor(loteActual.status)}}>
+                      {loteActual.status}
+                    </span>
+                  </div>
+                  
+                  <div className="lote-detalle-item">
+                    <span className="detalle-label">HORA ENTRADA</span>
+                    <span className="detalle-valor">{new Date().toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cola de Espera */}
+          <div className="cola-espera-section">
+            <h3>
+              <span className="cola-icon">⏳</span>
+              COLA DE ESPERA ({colaEspera.length})
+            </h3>
+            
+            <div className="cola-lista">
+              {colaEspera.length === 0 ? (
+                <div className="cola-vacia">
+                  No hay lotes en espera
+                </div>
+              ) : (
+                colaEspera.map(lote => (
+                  <div key={lote.id} className="cola-item">
+                    <div className="cola-item-header">
+                      <span className="cola-po">{lote.po}</span>
+                      <span className="cola-status" style={{backgroundColor: getStatusColor(lote.status)}}>
+                        {lote.status}
+                      </span>
+                    </div>
+                    <div className="cola-item-body">
+                      <span>{lote.sport} - PC: {lote.pc}</span>
+                      <span>Operador: {lote.operador}</span>
+                      <span>Entrada: {new Date(lote.horaEntrada).toLocaleTimeString()}</span>
+                    </div>
+                    <button 
+                      className="cola-salida-btn"
+                      onClick={() => {
+                        setModoEscaneo('salida');
+                        handleEscanearCodigo(lote.po);
+                      }}
+                    >
+                      Marcar Salida
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Historial de Salidas */}
+          <div className="historial-salidas-section">
+            <h3>
+              <span className="historial-icon">📋</span>
+              HISTORIAL DE SALIDAS
+            </h3>
+            
+            <div className="salidas-lista">
+              {historialSalidas.length === 0 ? (
+                <div className="salidas-vacia">
+                  No hay salidas registradas
+                </div>
+              ) : (
+                historialSalidas.map((salida, index) => (
+                  <div key={index} className="salida-item">
+                    <div className="salida-header">
+                      <span className="salida-po">{salida.po}</span>
+                      <span className="salida-tiempo">{salida.tiempoEspera}</span>
+                    </div>
+                    <div className="salida-body">
+                      <span>Entrada: {new Date(salida.horaEntrada).toLocaleTimeString()}</span>
+                      <span>Salida: {new Date(salida.horaSalida).toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Botón de salida */}
+          <div className="menu-inicial-container">
+            <button className="menu-inicial-btn">
+              <span>🏠</span>
+              MENÚ INICIAL
+            </button>
+            <button className="salida-btn">
+              <span>🚪</span>
+              Salida
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Vista de Tabla */}
       {vista === 'tabla' && (
@@ -1021,18 +1242,6 @@ const ReporteRH = () => {
                       ) : (
                         <span className="nota-placeholder">—</span>
                       )}
-                      <button 
-                        className="nota-edit-btn"
-                        onClick={() => {
-                          setLoteSeleccionados([reporte.id]);
-                          setLoteEditField('nota');
-                          setLoteEditValue(notasLote[reporte.id] || '');
-                          setLoteEditMode(true);
-                        }}
-                        title="Agregar/editar nota"
-                      >
-                        ✏️
-                      </button>
                     </div>
                   </td>
                   <td>
@@ -1051,16 +1260,6 @@ const ReporteRH = () => {
                       >
                         ✏️
                       </button>
-                      <select 
-                        className="status-selector"
-                        onChange={(e) => handleCambiarStatus(reporte.id, e.target.value)}
-                        value={reporte.status}
-                      >
-                        <option value="OK">✅ OK</option>
-                        <option value="RH">⚠️ RH</option>
-                        <option value="Pendiente">⏳ Pendiente</option>
-                        <option value="Revisión">🔍 Revisión</option>
-                      </select>
                     </div>
                   </td>
                 </tr>
@@ -1158,18 +1357,6 @@ const ReporteRH = () => {
                 <div className="card-actions">
                   <button className="card-btn" onClick={() => handleVerDetalle(reporte)}>Ver</button>
                   <button className="card-btn" onClick={() => handleEditar(reporte)}>Editar</button>
-                  <button 
-                    className="card-btn nota-btn"
-                    onClick={() => {
-                      setLoteSeleccionados([reporte.id]);
-                      setLoteEditField('nota');
-                      setLoteEditValue(notasLote[reporte.id] || '');
-                      setLoteEditMode(true);
-                    }}
-                    title="Agregar nota"
-                  >
-                    📝
-                  </button>
                 </div>
               </div>
             </div>
@@ -1177,230 +1364,7 @@ const ReporteRH = () => {
         </div>
       )}
 
-      {/* Vista de Gráficos */}
-      {vista === 'graficos' && (
-        <div className="graficos-premium-container">
-          <div className="graficos-grid">
-            <div className="grafico-card">
-              <h3>Distribución por Status</h3>
-              <div className="grafico-pie-container">
-                <div className="pie-chart">
-                  {['OK', 'RH', 'Pendiente', 'Revisión'].map(status => {
-                    const count = reportesFiltrados.filter(r => r.status === status).length;
-                    const percentage = Math.round((count / stats.totalRegistros) * 100);
-                    if (count === 0) return null;
-                    return (
-                      <div key={status} className="pie-segment" style={{
-                        backgroundColor: getStatusColor(status),
-                        width: `${percentage}%`
-                      }}>
-                        <span className="segment-label">{status} {percentage}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="pie-legend">
-                  {['OK', 'RH', 'Pendiente', 'Revisión'].map(status => {
-                    const count = reportesFiltrados.filter(r => r.status === status).length;
-                    if (count === 0) return null;
-                    return (
-                      <div key={status} className="legend-item">
-                        <span className="legend-color" style={{backgroundColor: getStatusColor(status)}}></span>
-                        <span className="legend-label">{status}</span>
-                        <span className="legend-value">{count} ({Math.round((count/stats.totalRegistros)*100)}%)</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="grafico-card">
-              <h3>Producción por Sport</h3>
-              <div className="barras-container">
-                {Object.entries(stats.porSport).map(([sport, pc]) => (
-                  <div key={sport} className="barra-item">
-                    <span className="barra-label">{sport}</span>
-                    <div className="barra-wrapper">
-                      <div 
-                        className="barra-fill"
-                        style={{
-                          width: `${(pc / Math.max(...Object.values(stats.porSport))) * 100}%`,
-                          background: 'linear-gradient(90deg, #6366f1, #8b5cf6)'
-                        }}
-                      ></div>
-                      <span className="barra-value">{pc} PC</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grafico-card">
-              <h3>Distribución por Turno</h3>
-              <div className="donut-container">
-                <div className="donut-chart">
-                  {Object.entries(stats.porTurno).map(([turno, count], index) => {
-                    const percentage = (count / stats.totalRegistros) * 100;
-                    const colors = ['#3b82f6', '#10b981', '#f59e0b'];
-                    return (
-                      <div key={turno} className="donut-segment" style={{
-                        transform: `rotate(${index * 120}deg)`,
-                        background: `conic-gradient(${colors[index]} 0deg ${percentage * 3.6}deg, transparent ${percentage * 3.6}deg 360deg)`
-                      }}>
-                        <span className="segment-text">{turno}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="donut-legend">
-                  {Object.entries(stats.porTurno).map(([turno, count], index) => {
-                    const colors = ['#3b82f6', '#10b981', '#f59e0b'];
-                    return (
-                      <div key={turno} className="legend-item">
-                        <span className="legend-color" style={{backgroundColor: colors[index]}}></span>
-                        <span className="legend-label">Turno {turno}</span>
-                        <span className="legend-value">{count} ({Math.round((count/stats.totalRegistros)*100)}%)</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="grafico-card">
-              <h3>Eficiencia por Operador</h3>
-              <div className="operadores-lista">
-                {[...new Set(reportesFiltrados.map(r => r.operador))].map(operador => {
-                  const reportesOp = reportesFiltrados.filter(r => r.operador === operador);
-                  const eficienciaOp = Math.round(reportesOp.reduce((sum, r) => sum + r.eficiencia, 0) / reportesOp.length);
-                  const color = eficienciaOp > 85 ? '#10b981' : eficienciaOp > 70 ? '#f59e0b' : '#ef4444';
-                  
-                  return (
-                    <div key={operador} className="operador-item">
-                      <span className="operador-name">{operador}</span>
-                      <div className="operador-bar-container">
-                        <div 
-                          className="operador-bar"
-                          style={{
-                            width: `${eficienciaOp}%`,
-                            backgroundColor: color
-                          }}
-                        ></div>
-                        <span className="operador-eficiencia">{eficienciaOp}%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Vista de Análisis */}
-      {vista === 'analisis' && (
-        <div className="analisis-premium-container">
-          <div className="analisis-grid">
-            <div className="analisis-card">
-              <h3>Resumen Ejecutivo</h3>
-              <div className="resumen-stats">
-                <div className="stat-item">
-                  <span className="stat-label">Total Órdenes</span>
-                  <span className="stat-number">{stats.totalRegistros}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Tasa de Aprobación</span>
-                  <span className="stat-number">{Math.round((stats.totalOK/stats.totalRegistros)*100)}%</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Horas Promedio</span>
-                  <span className="stat-number">{Math.round(stats.totalHoras/stats.totalRegistros)}h</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">PC por Hora</span>
-                  <span className="stat-number">{Math.round(stats.totalPC/stats.totalHoras)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="analisis-card">
-              <h3>Recomendaciones</h3>
-              <ul className="recomendaciones-lista">
-                {stats.totalRH > 0 && (
-                  <li className="recomendacion-item alerta">
-                    ⚠️ {stats.totalRH} órdenes requieren atención de RH
-                  </li>
-                )}
-                {stats.eficienciaPromedio < 85 && (
-                  <li className="recomendacion-item advertencia">
-                    📉 Eficiencia por debajo del objetivo (85%)
-                  </li>
-                )}
-                {stats.porTurno.B > stats.porTurno.A && (
-                  <li className="recomendacion-item info">
-                    ℹ️ Turno B tiene mayor productividad
-                  </li>
-                )}
-                <li className="recomendacion-item exito">
-                  ✅ {stats.totalOK} órdenes completadas exitosamente
-                </li>
-              </ul>
-            </div>
-
-            <div className="analisis-card">
-              <h3>Tendencias</h3>
-              <div className="tendencias">
-                <div className="tendencia-item positiva">
-                  <span className="tendencia-icon">📈</span>
-                  <div className="tendencia-info">
-                    <span className="tendencia-label">Producción</span>
-                    <span className="tendencia-value">+12% vs ayer</span>
-                  </div>
-                </div>
-                <div className="tendencia-item negativa">
-                  <span className="tendencia-icon">📉</span>
-                  <div className="tendencia-info">
-                    <span className="tendencia-label">Eficiencia</span>
-                    <span className="tendencia-value">-3% vs ayer</span>
-                  </div>
-                </div>
-                <div className="tendencia-item estable">
-                  <span className="tendencia-icon">📊</span>
-                  <div className="tendencia-info">
-                    <span className="tendencia-label">Horas Hombre</span>
-                    <span className="tendencia-value">Estable</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="analisis-card">
-              <h3>Próximos Pasos</h3>
-              <div className="proximos-pasos">
-                <div className="paso-item">
-                  <input type="checkbox" id="paso1" />
-                  <label htmlFor="paso1">Revisar órdenes con status RH</label>
-                </div>
-                <div className="paso-item">
-                  <input type="checkbox" id="paso2" />
-                  <label htmlFor="paso2">Optimizar turno con menor producción</label>
-                </div>
-                <div className="paso-item">
-                  <input type="checkbox" id="paso3" />
-                  <label htmlFor="paso3">Capacitación para operadores</label>
-                </div>
-                <div className="paso-item">
-                  <input type="checkbox" id="paso4" />
-                  <label htmlFor="paso4">Actualizar reporte semanal</label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Footer Premium */}
+      {/* Footer */}
       <div className="reporterh-footer-premium">
         <div className="footer-left">
           <div className="sync-status-premium">
@@ -1417,8 +1381,6 @@ const ReporteRH = () => {
             <span>⚠️ {stats.totalRH} RH</span>
             <span className="stat-separator">•</span>
             <span>📦 {stats.totalPC} PC</span>
-            <span className="stat-separator">•</span>
-            <span>📝 {Object.keys(notasLote).length} notas</span>
           </div>
         </div>
       </div>
