@@ -1921,16 +1921,21 @@ const FFTTquality = () => {
                     </div>
 
                     <div className="form-group">
-                      <label>🏷️ Tipo de Producto</label>
+                      <label>🏷️ Tipo de Tallas</label>
                       <select
                         value={scannerData.tipoProducto}
                         onChange={(e) => setScannerData({...scannerData, tipoProducto: e.target.value})}
                       >
                         <option value="">Seleccionar...</option>
-                        <option value="Baseball">⚾ Baseball</option>
-                        <option value="Soccer">⚽ Soccer</option>
-                        <option value="Basketball">🏀 Basketball</option>
-                        <option value="Football">🏈 Football</option>
+                        <option value="LGT"> LGT</option>
+                        <option value="MED"> MED</option>
+                        <option value="XL"> XL</option>
+                        <option value="3XL"> 3XL</option>
+                        <option value="LRG"> LRG</option>
+                        <option value="XLT"> XLT</option>
+                        <option value="XSM"> XSM</option>
+                        <option value="3LT"> 3LT</option>
+
                       </select>
                     </div>
 
@@ -2477,4 +2482,4 @@ const FFTTquality = () => {
   );
 };
 
-export default FFTTquality;
+export default FFTTquality; t

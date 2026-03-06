@@ -1,8 +1,8 @@
-/* FFTTquality.css - Ultra Premium Edition */
+/* FFTQuality.css - Versión Completa con Header Fijo y Tema Claro */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* ================ VARIABLES CSS AVANZADAS ================ */
+/* ================ VARIABLES CSS - TEMA CLARO PREMIUM ================ */
 :root {
   /* Paleta de colores principal - Tono Púrpura/Azul Premium */
   --primary-50: #eef2ff;
@@ -55,18 +55,45 @@
   --danger-800: #991b1b;
   --danger-900: #7f1d1d;
   
-  /* Grises con matices */
-  --gray-50: #fafafa;
-  --gray-100: #f4f4f5;
-  --gray-200: #e4e4e7;
-  --gray-300: #d4d4d8;
-  --gray-400: #a1a1aa;
-  --gray-500: #71717a;
-  --gray-600: #52525b;
-  --gray-700: #3f3f46;
-  --gray-800: #27272a;
-  --gray-900: #18181b;
-  --gray-950: #09090b;
+  /* Grises con matices - CLAROS */
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --gray-950: #030712;
+  
+  /* TEMA CLARO - Colores de fondo y texto */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-elevated: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-hover: #ffffff;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+  --text-muted: #94a3b8;
+  
+  --border-light: rgba(0, 0, 0, 0.05);
+  --border-medium: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  
+  --glow-primary: 0 0 30px rgba(99, 102, 241, 0.15);
+  --glow-secondary: 0 0 30px rgba(139, 92, 246, 0.15);
+  
+  --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --gradient-2: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --gradient-3: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+  
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --blur-bg: rgba(255, 255, 255, 0.95);
   
   /* Sombras premium */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -107,64 +134,6 @@
   /* Alturas */
   --header-height: 80px;
   --header-height-mobile: 120px;
-}
-
-/* Tema Oscuro Ultra Premium */
-.theme-dark {
-  --bg-primary: #030014;
-  --bg-secondary: #0a0a0f;
-  --bg-tertiary: #14141f;
-  --bg-elevated: #1c1c2c;
-  --bg-card: rgba(20, 20, 31, 0.95);
-  --bg-card-hover: rgba(28, 28, 44, 0.98);
-  
-  --text-primary: #ffffff;
-  --text-secondary: #e0e0ff;
-  --text-tertiary: #a0a0c0;
-  --text-muted: #707090;
-  
-  --border-light: rgba(255, 255, 255, 0.05);
-  --border-medium: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.15);
-  
-  --glow-primary: 0 0 30px rgba(99, 102, 241, 0.3);
-  --glow-secondary: 0 0 30px rgba(139, 92, 246, 0.3);
-  
-  --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --gradient-2: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  --gradient-3: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
-  
-  --blur-bg: rgba(3, 0, 20, 0.95);
-  --header-bg: rgba(10, 10, 15, 0.95);
-}
-
-/* Tema Claro Ultra Premium */
-.theme-light {
-  --bg-primary: #f8faff;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f0f3ff;
-  --bg-elevated: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.95);
-  --bg-card-hover: #ffffff;
-  
-  --text-primary: #0a0a0f;
-  --text-secondary: #2d2d3a;
-  --text-tertiary: #52525b;
-  --text-muted: #71717a;
-  
-  --border-light: rgba(0, 0, 0, 0.05);
-  --border-medium: rgba(0, 0, 0, 0.1);
-  --border-strong: rgba(0, 0, 0, 0.15);
-  
-  --glow-primary: 0 0 30px rgba(99, 102, 241, 0.15);
-  --glow-secondary: 0 0 30px rgba(139, 92, 246, 0.15);
-  
-  --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --gradient-2: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  --gradient-3: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
-  
-  --blur-bg: rgba(255, 255, 255, 0.95);
-  --header-bg: rgba(255, 255, 255, 0.95);
 }
 
 /* ================ RESET Y BASE ================ */
@@ -380,7 +349,7 @@ body::before {
 }
 
 .nav-btn:hover {
-  color: var(--primary-400);
+  color: var(--primary-500);
   border-color: var(--border-medium);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
@@ -427,7 +396,7 @@ body::before {
 .header-time {
   text-align: right;
   padding: 0.5rem 1rem;
-  background: var(--bg-elevated);
+  background: var(--bg-tertiary);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-md);
@@ -463,7 +432,7 @@ body::before {
   width: 44px;
   height: 44px;
   border: none;
-  background: var(--bg-elevated);
+  background: var(--bg-tertiary);
   color: var(--text-secondary);
   border-radius: var(--radius-xl);
   cursor: pointer;
@@ -815,35 +784,35 @@ body::before {
 }
 
 .kpi-trend.positivo {
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success-600);
+  border-color: rgba(34, 197, 94, 0.2);
 }
 
 .kpi-trend.negativo {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-600);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 .kpi-trend.estable {
-  background: rgba(107, 114, 128, 0.2);
+  background: rgba(107, 114, 128, 0.1);
   color: var(--text-secondary);
 }
 
 .kpi-trend.alerta {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-600);
+  border-color: rgba(245, 158, 11, 0.2);
   animation: pulseGlow 2s infinite;
 }
 
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
   }
   50% {
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
   }
 }
 
@@ -966,7 +935,7 @@ body::before {
 }
 
 .resumen-card.total {
-  background: linear-gradient(135deg, var(--primary-600), var(--primary-800));
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
 }
 
 .resumen-card.operativas {
@@ -1087,21 +1056,21 @@ body::before {
 }
 
 .maquina-estado-badge.operativa {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success-600);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .maquina-estado-badge.mantenimiento {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-600);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .maquina-estado-badge.reparacion {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-600);
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .maquina-tipo {
@@ -1204,14 +1173,14 @@ body::before {
 .maquina-alertas {
   margin-bottom: 1.25rem;
   padding: 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.1);
   border-radius: var(--radius-lg);
 }
 
 .alerta-text {
   font-size: 0.8rem;
-  color: #f87171;
+  color: var(--danger-600);
   display: block;
 }
 
@@ -1236,21 +1205,21 @@ body::before {
 }
 
 .maquina-btn.detener {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-600);
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .maquina-btn.iniciar {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success-600);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .maquina-btn.reparar {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-600);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .maquina-btn.config {
@@ -1635,45 +1604,45 @@ body::before {
 }
 
 .estado-badge.nuevo {
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--primary-400);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-500);
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .estado-badge.en_proceso {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-600);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .estado-badge.completado {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success-600);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .estado-badge.revision {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-600);
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .estado-badge.operativa {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success-600);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .estado-badge.mantenimiento {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-600);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .estado-badge.reparacion {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-600);
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .acciones-cell {
@@ -1744,13 +1713,13 @@ body::before {
 }
 
 .status-indicator.activo {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success-600);
+  border-color: rgba(34, 197, 94, 0.2);
 }
 
 .status-indicator.inactivo {
-  background: rgba(107, 114, 128, 0.15);
+  background: rgba(107, 114, 128, 0.1);
   color: var(--text-secondary);
 }
 
@@ -1826,7 +1795,7 @@ body::before {
   padding: 1.5rem;
   font-family: 'JetBrains Mono', monospace;
   font-size: 1.25rem;
-  color: var(--primary-400);
+  color: var(--primary-500);
   text-align: center;
   min-height: 100px;
   display: flex;
@@ -1864,7 +1833,7 @@ body::before {
 }
 
 .typing-text {
-  color: var(--primary-400);
+  color: var(--primary-500);
   font-size: 0.9rem;
   font-family: 'JetBrains Mono', monospace;
 }
@@ -1941,7 +1910,7 @@ body::before {
 
 .btn-scan.stop:hover {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: var(--shadow-2xl), 0 0 30px rgba(239, 68, 68, 0.5);
+  box-shadow: var(--shadow-2xl), 0 0 30px rgba(239, 68, 68, 0.3);
 }
 
 .btn-scan.secondary {
@@ -2224,7 +2193,7 @@ body::before {
 
 .item-time .time {
   font-weight: 600;
-  color: var(--primary-400);
+  color: var(--primary-500);
   font-size: 0.8rem;
   font-family: 'JetBrains Mono', monospace;
 }
@@ -2277,7 +2246,7 @@ body::before {
 .code-section .code {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
-  color: var(--primary-400);
+  color: var(--primary-500);
   letter-spacing: 0.5px;
   word-break: break-all;
 }
@@ -2434,7 +2403,7 @@ body::before {
 }
 
 .chart-btn:hover {
-  color: var(--primary-400);
+  color: var(--primary-500);
 }
 
 .chart-btn.active {
@@ -2841,7 +2810,7 @@ body::before {
 }
 
 .hint-item:hover {
-  color: var(--primary-400);
+  color: var(--primary-500);
 }
 
 /* ================ MODAL ================ */
@@ -2851,7 +2820,7 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -3075,15 +3044,19 @@ body::before {
   .fftt-header {
     height: var(--header-height-mobile);
     padding: 0.5rem 1rem;
+    flex-wrap: wrap;
   }
   
   .header-left {
     gap: 1rem;
+    flex-wrap: wrap;
   }
   
   .main-nav {
     overflow-x: auto;
     padding-bottom: 0.25rem;
+    width: 100%;
+    order: 3;
   }
   
   .main-nav::-webkit-scrollbar {

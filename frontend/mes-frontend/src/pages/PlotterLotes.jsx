@@ -7,7 +7,7 @@ const PlotterLotes = () => {
   const [maquinas, setMaquinas] = useState([
     { 
       id: "plt-001", 
-      nombre: "HP LATEX 315", 
+      nombre: "MAQUINA 1", 
       icono: "🖨️", 
       estado: "disponible", 
       temperatura: 42, 
@@ -23,7 +23,7 @@ const PlotterLotes = () => {
     },
     { 
       id: "plt-002", 
-      nombre: "HP LATEX 335", 
+      nombre: "MAQUINA 6", 
       icono: "🖨️", 
       estado: "produciendo", 
       temperatura: 45, 
@@ -39,7 +39,7 @@ const PlotterLotes = () => {
     },
     { 
       id: "plt-003", 
-      nombre: "HP LATEX 365", 
+      nombre: "MAQUINA 4", 
       icono: "🖨️", 
       estado: "disponible", 
       temperatura: 38, 
@@ -55,7 +55,7 @@ const PlotterLotes = () => {
     },
     { 
       id: "plt-004", 
-      nombre: "HP LATEX 570", 
+      nombre: "MAQUINA 2", 
       icono: "🖨️", 
       estado: "mantenimiento", 
       temperatura: 0, 
@@ -71,7 +71,7 @@ const PlotterLotes = () => {
     },
     { 
       id: "plt-005", 
-      nombre: "UV FLATBED 1", 
+      nombre: "MAQUINA 3", 
       icono: "🖨️", 
       estado: "disponible", 
       temperatura: 35, 
@@ -126,8 +126,8 @@ const PlotterLotes = () => {
       },
       { 
         id: "PM-389", 
-        codigo: "PM-389", 
-        cliente: "PUMA", 
+        codigo: "RN-389", 
+        cliente: "Run", 
         producto: "PAPEL SUBLIMACIÓN", 
         cantidad: 600, 
         prioridad: "ALTA",
@@ -143,8 +143,8 @@ const PlotterLotes = () => {
       },
       { 
         id: "UA-456", 
-        codigo: "UA-456", 
-        cliente: "UNDER ARMOUR", 
+        codigo: "NBA-456", 
+        cliente: "NBA", 
         producto: "BANNER 2x1m", 
         cantidad: 200, 
         prioridad: "ALTA",

@@ -55,7 +55,7 @@ const Ordenes = () => {
     { 
       id: 'ORD-003', 
       producto: 'Uniforme NFL Patriots', 
-      cliente: 'Puma',
+      cliente: 'run',
       cantidad: 200, 
       area: 'Logística', 
       turno: 'Mañana', 
