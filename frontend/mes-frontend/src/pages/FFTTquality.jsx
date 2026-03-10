@@ -2482,4 +2482,4 @@ const FFTTquality = () => {
   );
 };
 
-export default FFTTquality; t
+export default FFTTquality; 
