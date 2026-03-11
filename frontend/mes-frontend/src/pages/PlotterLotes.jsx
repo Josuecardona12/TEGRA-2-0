@@ -2,7 +2,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./PlotterLotes.css";
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
 const PlotterLotes = () => {
+  // ================ ESTADOS DE CONEXIÓN ================
+  const [conectado, setConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
+  const wsRef = useRef(null);
+
   // ================ MÁQUINAS ================
   const [maquinas, setMaquinas] = useState([
     { 
@@ -97,7 +108,7 @@ const PlotterLotes = () => {
         producto: "LONA IMPRESA 3x2m", 
         cantidad: 450, 
         prioridad: "ALTA",
-        fecha: "2026-03-05",
+        fecha: "2026-03-11",
         hora: "08:30",
         material: "Lona Front",
         acabado: "Mate",
@@ -114,7 +125,7 @@ const PlotterLotes = () => {
         producto: "VINILO TEXTIL", 
         cantidad: 280, 
         prioridad: "MEDIA",
-        fecha: "2026-03-05",
+        fecha: "2026-03-11",
         hora: "09:15",
         material: "Vinil textil",
         acabado: "Brillante",
@@ -131,7 +142,7 @@ const PlotterLotes = () => {
         producto: "PAPEL SUBLIMACIÓN", 
         cantidad: 600, 
         prioridad: "ALTA",
-        fecha: "2026-03-05",
+        fecha: "2026-03-11",
         hora: "10:20",
         material: "Papel transfer",
         acabado: "Premium",
@@ -148,7 +159,7 @@ const PlotterLotes = () => {
         producto: "BANNER 2x1m", 
         cantidad: 200, 
         prioridad: "ALTA",
-        fecha: "2026-03-05",
+        fecha: "2026-03-11",
         hora: "11:45",
         material: "Banner mesh",
         acabado: "Con ojillos",
@@ -176,6 +187,89 @@ const PlotterLotes = () => {
   const [filtroMaquinas, setFiltroMaquinas] = useState("todas");
 
   const inputRef = useRef(null);
+
+  // ================ CONEXIÓN WEBSOCKET ================
+  useEffect(() => {
+    console.log('🔌 PlotterLotes conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ PlotterLotes conectado');
+      setConectado(true);
+      setUsandoServidor(true);
+      mostrarNotificacion('✅ Conectado al servidor - Tiempo Real', 'success');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 PlotterLotes recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+            mostrarNotificacion(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
+          }
+          
+          if (lotesData.length > 0) {
+            // Actualizar lotes pendientes con datos del servidor
+            const nuevosPendientes = lotesData
+              .filter(l => l.estado === 'pendiente' || l.estado === 'nuevo')
+              .map(l => ({
+                id: l.codigo,
+                codigo: l.codigo,
+                cliente: l.cliente || 'Pendiente',
+                producto: l.producto || 'Producto',
+                cantidad: l.cantidad || 0,
+                prioridad: l.prioridad || 'MEDIA',
+                fecha: new Date().toLocaleDateString(),
+                hora: new Date().toLocaleTimeString(),
+                material: "Estándar",
+                acabado: "Estándar",
+                colores: 4,
+                tiempoEstimado: "2.0h",
+                diseño: "pendiente.ai",
+                observaciones: "",
+                historia: []
+              }));
+            
+            setLotes(prev => ({
+              ...prev,
+              pendientes: [...nuevosPendientes, ...prev.pendientes].slice(0, 10)
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      setUsandoServidor(false);
+      mostrarNotificacion('❌ Usando modo local - Demo', 'info');
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ PlotterLotes desconectado');
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    return () => ws.close();
+  }, []);
+
+  // ================ ENVIAR AL SERVIDOR ================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+    }
+  };
 
   // ================ EFECTOS ================
   useEffect(() => {
@@ -231,6 +325,10 @@ const PlotterLotes = () => {
         tipo: "confirmarFinalizar", 
         item: loteEnProduccion 
       });
+      
+      // Enviar al servidor
+      enviarAlServidor('ESCANEO', { codigo: codigoLimpio, tipo: 'finalizar', area: 'Plotter' });
+      
       setCodigoEscaneado("");
       return;
     }
@@ -239,6 +337,10 @@ const PlotterLotes = () => {
     const lotePendiente = lotes.pendientes.find(l => l.codigo === codigoLimpio);
     if (lotePendiente) {
       setModalAsignar({ abierto: true, lote: lotePendiente });
+      
+      // Enviar al servidor
+      enviarAlServidor('ESCANEO', { codigo: codigoLimpio, tipo: 'iniciar', area: 'Plotter' });
+      
       setCodigoEscaneado("");
       return;
     }
@@ -247,6 +349,10 @@ const PlotterLotes = () => {
     const loteFinalizado = lotes.finalizados.find(l => l.codigo === codigoLimpio);
     if (loteFinalizado) {
       setModalDetalle({ abierto: true, tipo: "lote", item: loteFinalizado });
+      
+      // Enviar al servidor
+      enviarAlServidor('ESCANEO', { codigo: codigoLimpio, tipo: 'detalle', area: 'Plotter' });
+      
       setCodigoEscaneado("");
       return;
     }
@@ -287,9 +393,18 @@ const PlotterLotes = () => {
         : m
     ));
 
+    // Enviar al servidor
+    enviarAlServidor('MOVIMIENTO', {
+      loteId: lote.codigo,
+      area: 'Plotter',
+      maquinaId: maquina.id,
+      maquinaNombre: maquina.nombre,
+      estado: 'iniciado'
+    });
+
     setModalAsignar({ abierto: false, lote: null });
     setMaquinaSeleccionada(null);
-    mostrarNotificacion(`🚀 Lote ${lote.codigo} iniciado`, "success");
+    mostrarNotificacion(`🚀 Lote ${lote.codigo} iniciado en ${maquina.nombre}`, "success");
   };
 
   // ================ FINALIZAR LOTE ================
@@ -322,6 +437,15 @@ const PlotterLotes = () => {
       produccion: prev.produccion.filter(l => l.idProduccion !== lote.idProduccion),
       finalizados: [loteFinalizado, ...prev.finalizados]
     }));
+
+    // Enviar al servidor
+    enviarAlServidor('MOVIMIENTO', {
+      loteId: lote.codigo,
+      area: 'Finalizado',
+      maquinaId: lote.maquinaId,
+      estado: 'completado',
+      eficiencia: eficiencia
+    });
 
     setModalDetalle({ abierto: false, tipo: null, item: null });
     mostrarNotificacion(`✅ Lote ${lote.codigo} finalizado`, "success");
@@ -368,6 +492,9 @@ const PlotterLotes = () => {
       pendientes: [nuevoLote, ...prev.pendientes]
     }));
     
+    // Enviar al servidor
+    enviarAlServidor('NUEVO_LOTE', nuevoLote);
+    
     mostrarNotificacion(`✅ Lote ${codigo} generado`, "success");
   };
 
@@ -389,6 +516,19 @@ const PlotterLotes = () => {
   return (
     <div className={`plotter-container ${modoOscuro ? 'dark-mode' : ''}`}>
       
+      {/* ===== INDICADOR DE CONEXIÓN ===== */}
+      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+        <span className="status-dot"></span>
+        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+      </div>
+
+      {/* ===== NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO ===== */}
+      {ultimoMovimiento && (
+        <div className="movimiento-notificacion">
+          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+        </div>
+      )}
+
       {/* ===== HEADER ===== */}
       <header className="plotter-header">
         <div className="header-left">
@@ -421,6 +561,7 @@ const PlotterLotes = () => {
               {n.tipo === 'success' && '✅'}
               {n.tipo === 'error' && '❌'}
               {n.tipo === 'warning' && '⚠️'}
+              {n.tipo === 'info' && 'ℹ️'}
             </span>
             <span className="notificacion-mensaje">{n.mensaje}</span>
           </div>
@@ -471,7 +612,7 @@ const PlotterLotes = () => {
 
         <div className="scanner-footer">
           <span className="okc">OKC - NYK</span>
-          <span className="puntuacion">Puntuación del día: 98%</span>
+          <span className="puntuacion">{conectado ? '🟢 EN VIVO' : '🟡 MODO LOCAL'}</span>
         </div>
       </div>
 
@@ -948,6 +1089,74 @@ const PlotterLotes = () => {
           </div>
         </div>
       )}
+
+      {/* ===== ESTILOS PARA INDICADOR DE CONEXIÓN ===== */}
+      <style>{`
+        .connection-status {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          backdrop-filter: blur(10px);
+        }
+        
+        .connection-status.connected {
+          background: #10b981;
+          color: white;
+        }
+        
+        .connection-status.disconnected {
+          background: #f59e0b;
+          color: white;
+        }
+        
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 10px white;
+          animation: pulse 2s infinite;
+        }
+
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10000;
+          animation: slideUp 0.3s ease;
+          font-weight: 500;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   );
 };

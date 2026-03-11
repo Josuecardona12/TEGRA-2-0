@@ -1,7 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './ReporteRH.css';
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
 const ReporteRH = () => {
+  // ================ ESTADOS DE CONEXIÓN ================
+  const [conectado, setConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
+  const wsRef = useRef(null);
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [vista, setVista] = useState('tabla'); // tabla, tarjetas, graficos, analisis, escaner
   const [periodo, setPeriodo] = useState('semana');
@@ -29,6 +40,66 @@ const ReporteRH = () => {
 
   // Estado para notificaciones
   const [notificacion, setNotificacion] = useState({ mostrar: false, mensaje: '', tipo: '' });
+
+  // ================ CONEXIÓN WEBSOCKET ================
+  useEffect(() => {
+    console.log('🔌 ReporteRH conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ ReporteRH conectado');
+      setConectado(true);
+      setUsandoServidor(true);
+      mostrarNotificacion('✅ Conectado al servidor - Tiempo Real', 'exito');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 ReporteRH recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+            mostrarNotificacion(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
+          }
+          
+          if (lotesData.length > 0) {
+            // Aquí podríamos actualizar los reportes con datos del servidor si es necesario
+            console.log(`📊 ${lotesData.length} lotes en el sistema`);
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      setUsandoServidor(false);
+      mostrarNotificacion('❌ Usando modo local - Demo', 'info');
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ ReporteRH desconectado');
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    return () => ws.close();
+  }, []);
+
+  // ================ ENVIAR AL SERVIDOR ================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+    }
+  };
 
   // Estado para inventarios
   const [inventarios, setInventarios] = useState({
@@ -136,6 +207,14 @@ const ReporteRH = () => {
     });
   };
 
+  const mostrarNotificacion = (mensaje, tipo) => {
+    setNotificacion({
+      mostrar: true,
+      mensaje,
+      tipo
+    });
+  };
+
   // Filtrar reportes
   const reportesFiltrados = reportes.filter(reporte => {
     if (filtros.semana !== 'todas' && `Semana ${reporte.week}` !== filtros.semana) return false;
@@ -227,6 +306,13 @@ const ReporteRH = () => {
       }));
     }
 
+    // Enviar al servidor
+    enviarAlServidor('ACTUALIZACION_REPORTE', {
+      id: selectedReporte.id,
+      po: selectedReporte.po,
+      cambios: editFormData
+    });
+
     setNotificacion({
       mostrar: true,
       mensaje: '✅ Cambios guardados exitosamente',
@@ -249,6 +335,12 @@ const ReporteRH = () => {
       r.id === id ? { ...r, status: nuevoStatus } : r
     ));
 
+    // Enviar al servidor
+    enviarAlServidor('CAMBIO_STATUS', {
+      id,
+      nuevoStatus
+    });
+
     setNotificacion({
       mostrar: true,
       mensaje: `🔄 Status actualizado a ${nuevoStatus}`,
@@ -270,6 +362,12 @@ const ReporteRH = () => {
         setColaEspera(prev => [...prev, { ...loteEncontrado, horaEntrada: new Date().toISOString() }]);
         setLoteActual(loteEncontrado);
         
+        // Enviar al servidor
+        enviarAlServidor('ESCANEO_ENTRADA', {
+          po: codigo,
+          timestamp: new Date().toISOString()
+        });
+        
         setNotificacion({
           mostrar: true,
           mensaje: `📦 Lote ${codigo} agregado a cola de espera`,
@@ -289,6 +387,14 @@ const ReporteRH = () => {
           
           setHistorialSalidas(prev => [nuevaSalida, ...prev]);
           setColaEspera(prev => prev.filter(item => item.po !== codigo));
+          setLoteActual(null);
+          
+          // Enviar al servidor
+          enviarAlServidor('ESCANEO_SALIDA', {
+            po: codigo,
+            timestamp: new Date().toISOString(),
+            tiempoEspera: nuevaSalida.tiempoEspera
+          });
           
           setNotificacion({
             mostrar: true,
@@ -369,6 +475,13 @@ const ReporteRH = () => {
       return reporte;
     }));
 
+    // Enviar al servidor
+    enviarAlServidor('EDICION_LOTE', {
+      ids: loteSeleccionados,
+      campo: loteEditField,
+      valor: loteEditValue
+    });
+
     setNotificacion({
       mostrar: true,
       mensaje: `✅ Actualizados ${loteSeleccionados.length} registros`,
@@ -414,6 +527,19 @@ const ReporteRH = () => {
 
   return (
     <div className="reporterh-premium-container">
+      {/* Indicador de conexión */}
+      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+        <span className="status-dot"></span>
+        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+      </div>
+
+      {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+      {ultimoMovimiento && (
+        <div className="movimiento-notificacion">
+          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+        </div>
+      )}
+
       {/* Notificación flotante */}
       {notificacion.mostrar && (
         <div className={`notificacion-flotante ${notificacion.tipo}`}>
@@ -718,7 +844,7 @@ const ReporteRH = () => {
           <div className="header-right">
             <div className="live-indicator-premium">
               <span className="live-pulse"></span>
-              <span className="live-text">ACTUALIZADO</span>
+              <span className="live-text">{conectado ? 'EN VIVO' : 'MODO DEMO'}</span>
               <span className="live-time">{formatTime(currentTime)}</span>
             </div>
             
@@ -1369,7 +1495,7 @@ const ReporteRH = () => {
         <div className="footer-left">
           <div className="sync-status-premium">
             <span className="sync-dot-premium"></span>
-            <span>Sincronizado {formatTime(currentTime)}</span>
+            <span>{conectado ? 'Conectado' : 'Modo demo'} • {formatTime(currentTime)}</span>
           </div>
         </div>
         <div className="footer-right">
@@ -1384,8 +1510,76 @@ const ReporteRH = () => {
           </div>
         </div>
       </div>
+
+      {/* Estilos para el indicador de conexión */}
+      <style>{`
+        .connection-status {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          backdrop-filter: blur(10px);
+        }
+        
+        .connection-status.connected {
+          background: #10b981;
+          color: white;
+        }
+        
+        .connection-status.disconnected {
+          background: #f59e0b;
+          color: white;
+        }
+        
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 10px white;
+          animation: pulse 2s infinite;
+        }
+
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10000;
+          animation: slideUp 0.3s ease;
+          font-weight: 500;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   );
 };
 
-export default ReporteRH;   
+export default ReporteRH;

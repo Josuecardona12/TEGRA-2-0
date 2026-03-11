@@ -1,11 +1,100 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import "./PlanSemanal.css";
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
 const PlanSemanal = () => {
-  // Estados para Plan Semanal - NIKE
-  const [backlog, setBacklog] = useState(224);
-  const [plan, setPlan] = useState(7955);
+  // ================ ESTADOS DE CONEXIÓN PARA TIEMPO REAL ================
+  const [conectado, setConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
+  const wsRef = useRef(null);
+
+  // ================ CONEXIÓN WEBSOCKET PARA TIEMPO REAL ================
+  useEffect(() => {
+    console.log('🔌 PlanSemanal conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ PlanSemanal conectado');
+      setConectado(true);
+      setUsandoServidor(true);
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 PlanSemanal recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+          }
+          
+          if (lotesData.length > 0) {
+            // Convertir lotes del servidor al formato de PlanSemanal
+            const nuevosLotes = lotesData.map((lote, index) => ({
+              lote: lote.codigo || `NK-${Math.floor(Math.random() * 9000 + 1000)}`,
+              area: lote.areaActual || "Sublimado",
+              piezas: lote.cantidad || 0,
+              fecha: lote.fechaEntrega || new Date().toLocaleString(),
+              dias: Math.floor(Math.random() * 10) + 1,
+              horas: Math.floor(Math.random() * 5),
+              estado: lote.progreso < 30 ? "Atraso Grave" : "Medio",
+              prioridad: lote.prioridad || "Media",
+              cliente: lote.cliente || "Nike",
+              progreso: lote.progreso || 0,
+              eficiencia: lote.eficiencia || Math.floor(Math.random() * 20) + 80,
+              backlog: Math.floor(Math.random() * 50),
+              pull: 0
+            }));
+            
+            setLotes(nuevosLotes);
+            
+            // Actualizar KPIs basados en los lotes
+            const totalPiezas = nuevosLotes.reduce((sum, l) => sum + l.piezas, 0);
+            setBacklog(Math.floor(totalPiezas * 0.15));
+            setPlan(totalPiezas);
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ PlanSemanal desconectado');
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    return () => ws.close();
+  }, []);
+
+  // ================ ENVIAR AL SERVIDOR ================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+    }
+  };
+
+  // Estados para Plan Semanal - NIKE (INICIALIZADOS EN 0)
+  const [backlog, setBacklog] = useState(0);
+  const [plan, setPlan] = useState(0);
   const [pull, setPull] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [vistaNike, setVistaNike] = useState("tabla");
@@ -17,7 +106,7 @@ const PlanSemanal = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState(null);
   const [importPreview, setImportPreview] = useState([]);
-  const [fechaActual] = useState("Viernes, 6 de Marzo de 2026");
+  const [fechaActual] = useState("Viernes, 11 de Marzo de 2026");
   const [semana] = useState("WK-10");
   const [estadoPlan] = useState("DRAFT");
 
@@ -27,233 +116,142 @@ const PlanSemanal = () => {
   const [vistaProduccion, setVistaProduccion] = useState("tabla");
   const [ordenProduccion, setOrdenProduccion] = useState("area");
   
-  // ================ DATOS DE PRODUCCIÓN ESTILO META VS REAL ================
+  // ================ DATOS DE PRODUCCIÓN EN 0 ================
   const [produccionData, setProduccionData] = useState({
-    make: 16828,
-    makeOnTime: 16604,
-    makeBacklog: 224,
+    make: 0,
+    makeOnTime: 0,
+    makeBacklog: 0,
     makePull: 0,
-    makePending: 37.95,
-    makeCompleted: 62.05,
+    makePending: 0,
+    makeCompleted: 0,
     
-    in: 15854,
-    inOnTime: 15630,
-    inBacklog: 224,
+    in: 0,
+    inOnTime: 0,
+    inBacklog: 0,
     inPull: 0,
-    inPending: 94.21,
-    inCompleted: 5.79,
+    inPending: 0,
+    inCompleted: 0,
     
-    on: 14747,
-    onOnTime: 14558,
-    onBacklog: 189,
+    on: 0,
+    onOnTime: 0,
+    onBacklog: 0,
     onPull: 0,
-    onPending: 87.63,
-    onCompleted: 12.37,
+    onPending: 0,
+    onCompleted: 0,
     
-    schd: 14731,
-    schdOnTime: 14542,
-    schdBacklog: 189,
+    schd: 0,
+    schdOnTime: 0,
+    schdBacklog: 0,
     schdPull: 0,
-    schdPending: 87.54,
-    schdCompleted: 12.46,
+    schdPending: 0,
+    schdCompleted: 0,
     
-    out: 13460,
-    outOnTime: 13375,
-    outBacklog: 85,
+    out: 0,
+    outOnTime: 0,
+    outBacklog: 0,
     outPull: 0,
-    outPending: 79.99,
-    outCompleted: 20.01,
+    outPending: 0,
+    outCompleted: 0,
     
-    total: 15185,
-    totalSublimado: 16264,
-    entregadas: 14140,
-    adherencia: 100, // Cambiado a 100 máximo
-    metaTotal: 15000,
-    metaSublimado: 15000,
-    metaEntregadas: 14500,
+    total: 0,
+    totalSublimado: 0,
+    entregadas: 0,
+    adherencia: 0,
+    metaTotal: 0,
+    metaSublimado: 0,
+    metaEntregadas: 0,
     metaAdherencia: 100
   });
 
-  const dataProduccion = [
+  // DATOS DE PRODUCCIÓN EN 0
+  const [dataProduccion, setDataProduccion] = useState([
     { 
       area: "Entregas a Logística", 
-      total: 14140, 
+      total: 0, 
       tipo: "green", 
-      meta: 15000, 
-      entregadas: 14140,
-      cumplimiento: 94.3,
-      variacion: -5.7,
-      tendencia: "▼",
+      meta: 0, 
+      entregadas: 0,
+      cumplimiento: 0,
+      variacion: 0,
+      tendencia: "▶",
       color: "#10b981",
-      backlog: 224,
-      onTime: 15630,
-      pending: 94.21,
-      completed: 5.79
+      backlog: 0,
+      onTime: 0,
+      pending: 0,
+      completed: 0
     },
     { 
       area: "Reformulación RH", 
-      total: 15180, 
+      total: 0, 
       tipo: "blue", 
-      meta: 15000, 
-      entregadas: 14140,
-      cumplimiento: 100, // Ajustado a máximo 100
+      meta: 0, 
+      entregadas: 0,
+      cumplimiento: 0,
       variacion: 0,
       tendencia: "▶",
       color: "#3b82f6",
-      backlog: 204,
-      onTime: 14558,
-      pending: 87.63,
-      completed: 12.37
+      backlog: 0,
+      onTime: 0,
+      pending: 0,
+      completed: 0
     },
     { 
       area: "En Preparación", 
-      total: 15185, 
+      total: 0, 
       tipo: "yellow", 
-      meta: 15000, 
-      entregadas: 14140,
-      cumplimiento: 100, // Ajustado a máximo 100
+      meta: 0, 
+      entregadas: 0,
+      cumplimiento: 0,
       variacion: 0,
       tendencia: "▶",
       color: "#f59e0b",
-      backlog: 189,
-      onTime: 14542,
-      pending: 87.54,
-      completed: 12.46
+      backlog: 0,
+      onTime: 0,
+      pending: 0,
+      completed: 0
     },
     { 
       area: "Plotter (Pendiente Impresión)", 
-      total: 15185, 
+      total: 0, 
       tipo: "gray", 
-      meta: 15000, 
-      entregadas: 14140,
-      cumplimiento: 100, // Ajustado a máximo 100
+      meta: 0, 
+      entregadas: 0,
+      cumplimiento: 0,
       variacion: 0,
       tendencia: "▶",
       color: "#6b7280",
-      backlog: 85,
-      onTime: 13375,
-      pending: 79.99,
-      completed: 20.01
+      backlog: 0,
+      onTime: 0,
+      pending: 0,
+      completed: 0
     }
-  ];
-
-  const [lotes, setLotes] = useState([
-    {
-      lote: "NK-137",
-      area: "Sublimado",
-      piezas: 1342,
-      fecha: "2/15/2026 6:00 AM",
-      dias: 4,
-      horas: 4,
-      estado: "Atraso Grave",
-      prioridad: "Alta",
-      cliente: "Nike Sportswear",
-      progreso: 89.5,
-      eficiencia: 92,
-      backlog: 45,
-      pull: 0
-    },
-    {
-      lote: "NK-79",
-      area: "Costura",
-      piezas: 572,
-      fecha: "2/15/2026 6:00 AM",
-      dias: 7,
-      horas: 3,
-      estado: "Medio",
-      prioridad: "Media",
-      cliente: "Nike Running",
-      progreso: 95.3,
-      eficiencia: 88,
-      backlog: 32,
-      pull: 0
-    },
-    {
-      lote: "NK-6",
-      area: "Sublimado",
-      piezas: 1249,
-      fecha: "2/15/2026 6:00 AM",
-      dias: 8,
-      horas: 3,
-      estado: "Atraso Grave",
-      prioridad: "Alta",
-      cliente: "Nike SB",
-      progreso: 83.3,
-      eficiencia: 78,
-      backlog: 78,
-      pull: 0
-    },
-    {
-      lote: "NK-73",
-      area: "Empaque",
-      piezas: 280,
-      fecha: "2/15/2026 6:00 AM",
-      dias: 5,
-      horas: 1,
-      estado: "Medio",
-      prioridad: "Baja",
-      cliente: "Nike ACG",
-      progreso: 93.3,
-      eficiencia: 95,
-      backlog: 12,
-      pull: 0
-    },
   ]);
 
-  // 🔥 TIEMPO REAL MEJORADO
+  // LOTES VACÍOS PARA EMPEZAR
+  const [lotes, setLotes] = useState([]);
+
+  // 🔥 TIEMPO REAL DESACTIVADO PARA DEMO (solo actualiza cada 10 segundos con valores pequeños)
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimate(true);
 
-      setBacklog((prev) => Math.max(0, prev + (Math.random() > 0.5 ? 5 : -3)));
-      setPlan((prev) => prev + Math.floor(Math.random() * 10));
-      setPull((prev) => prev + Math.floor(Math.random() * 5));
+      // Actualizaciones muy pequeñas para demo
+      setBacklog((prev) => prev + (Math.random() > 0.7 ? 1 : 0));
+      setPlan((prev) => prev + (Math.random() > 0.8 ? 1 : 0));
+      setPull((prev) => prev + (Math.random() > 0.9 ? 1 : 0));
 
-      // Actualizar producción en tiempo real (manteniendo adherencia <= 100)
+      // Actualizar producción con incrementos mínimos
       setProduccionData(prev => {
-        const newTotal = prev.total + Math.floor(Math.random() * 5);
-        const newEntregadas = prev.entregadas + Math.floor(Math.random() * 3);
-        const newAdherencia = Math.min(100, prev.adherencia + (Math.random() > 0.7 ? 0.5 : -0.3));
-        
         return {
           ...prev,
-          total: newTotal,
-          entregadas: newEntregadas,
-          adherencia: parseFloat(newAdherencia.toFixed(1)),
-          make: prev.make + Math.floor(Math.random() * 8),
-          in: prev.in + Math.floor(Math.random() * 6),
-          on: prev.on + Math.floor(Math.random() * 4),
-          schd: prev.schd + Math.floor(Math.random() * 4),
-          out: prev.out + Math.floor(Math.random() * 3)
+          total: prev.total + (Math.random() > 0.9 ? 1 : 0),
+          entregadas: prev.entregadas + (Math.random() > 0.95 ? 1 : 0),
+          adherencia: Math.min(100, prev.adherencia + (Math.random() > 0.98 ? 0.1 : 0)),
         };
       });
 
-      if (Math.random() > 0.7) {
-        const areas = ["Sublimado", "Costura", "Empaque", "Corte", "Bordado"];
-        const nuevosLotes = Array.from({ length: Math.floor(Math.random() * 2) + 1 }, () => ({
-          lote: `NK-${Math.floor(Math.random() * 500)}`,
-          area: areas[Math.floor(Math.random() * areas.length)],
-          piezas: Math.floor(Math.random() * 1500) + 100,
-          fecha: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toLocaleString(),
-          dias: Math.floor(Math.random() * 10),
-          horas: Math.floor(Math.random() * 5),
-          estado: Math.random() > 0.6 ? "Atraso Grave" : "Medio",
-          prioridad: ["Alta", "Media", "Baja"][Math.floor(Math.random() * 3)],
-          cliente: ["Nike Sportswear", "Nike Running", "Nike SB", "Nike ACG"][Math.floor(Math.random() * 4)],
-          progreso: Math.floor(Math.random() * 100),
-          eficiencia: Math.floor(Math.random() * 30) + 70,
-          backlog: Math.floor(Math.random() * 50),
-          pull: 0
-        }));
-
-        setLotes((prev) => {
-          const nuevos = [...nuevosLotes, ...prev];
-          return nuevos.slice(0, 8);
-        });
-      }
-
       setTimeout(() => setAnimate(false), 600);
-    }, 4000);
+    }, 10000); // Cada 10 segundos
 
     return () => clearInterval(interval);
   }, []);
@@ -278,7 +276,6 @@ const PlanSemanal = () => {
       const importedLotes = rows.map(row => {
         const loteObj = {};
         headers.forEach((header, index) => {
-          // Mapear según las columnas esperadas
           const value = row[index] || "";
           
           switch(header?.toLowerCase()) {
@@ -327,7 +324,6 @@ const PlanSemanal = () => {
           }
         });
 
-        // Asegurar valores por defecto
         return {
           lote: loteObj.lote || `NK-${Math.floor(Math.random() * 1000)}`,
           area: loteObj.area || "Sin área",
@@ -339,8 +335,8 @@ const PlanSemanal = () => {
           prioridad: loteObj.prioridad || "Media",
           cliente: loteObj.cliente || "Nike",
           progreso: loteObj.progreso || 0,
-          eficiencia: loteObj.eficiencia || 85,
-          backlog: Math.floor(Math.random() * 50),
+          eficiencia: loteObj.eficiencia || 0,
+          backlog: 0,
           pull: 0
         };
       });
@@ -354,19 +350,23 @@ const PlanSemanal = () => {
 
   const applyImportedData = () => {
     if (importData && importData.length > 0) {
-      // Actualizar los lotes con los datos importados
       setLotes(importData);
       
-      // Actualizar KPIs basados en los datos importados
       const totalPiezas = importData.reduce((sum, lote) => sum + lote.piezas, 0);
-      setBacklog(Math.floor(totalPiezas * 0.15)); // Aproximadamente 15% como backlog
+      setBacklog(Math.floor(totalPiezas * 0.15));
       setPlan(totalPiezas);
       setPull(0);
+      
+      // Enviar al servidor
+      enviarAlServidor('PLAN_IMPORTADO', { 
+        lotes: importData,
+        totalPiezas,
+        fecha: new Date().toISOString()
+      });
       
       setShowImportModal(false);
       setImportPreview([]);
       
-      // Mostrar notificación
       alert(`✅ Plan importado exitosamente: ${importData.length} lotes cargados`);
     }
   };
@@ -374,8 +374,8 @@ const PlanSemanal = () => {
   const downloadTemplate = () => {
     const template = [
       ['Lote', 'Área', 'Piezas', 'Fecha', 'Días', 'Horas', 'Estado', 'Prioridad', 'Cliente', 'Progreso', 'Eficiencia'],
-      ['137', 'Sublimado', '1342', '2/15/2026 6:00 AM', '4', '4', 'Atraso Grave', 'Alta', 'Nike Sportswear', '89.5', '92'],
-      ['79', 'Costura', '572', '2/15/2026 6:00 AM', '7', '3', 'Medio', 'Media', 'Nike Running', '95.3', '88']
+      ['137', 'Sublimado', '1342', '3/11/2026 6:00 AM', '4', '4', 'Atraso Grave', 'Alta', 'Nike Sportswear', '89.5', '92'],
+      ['79', 'Costura', '572', '3/11/2026 6:00 AM', '7', '3', 'Medio', 'Media', 'Nike Running', '95.3', '88']
     ];
 
     const wb = XLSX.utils.book_new();
@@ -387,7 +387,7 @@ const PlanSemanal = () => {
   const totalGeneral = dataProduccion.reduce((acc, item) => acc + item.total, 0);
   const totalSublimado = produccionData.totalSublimado;
   const entregadas = dataProduccion[0].entregadas;
-  const porcentajeEntregadas = ((entregadas / totalGeneral) * 100).toFixed(1);
+  const porcentajeEntregadas = totalGeneral > 0 ? ((entregadas / totalGeneral) * 100).toFixed(1) : 0;
   const adherencia = produccionData.adherencia;
 
   const lotesFiltrados = lotes
@@ -409,6 +409,19 @@ const PlanSemanal = () => {
 
   return (
     <div className={`plan-container ${modoOscuro ? 'dark-mode' : 'light-mode'}`}>
+      {/* Indicador de conexión */}
+      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+        <span className="status-dot"></span>
+        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+      </div>
+
+      {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+      {ultimoMovimiento && (
+        <div className="movimiento-notificacion">
+          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+        </div>
+      )}
+
       {/* TOGGLE MODO OSCURO */}
       <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)}>
         {modoOscuro ? '☀️' : '🌙'}
@@ -621,7 +634,7 @@ const PlanSemanal = () => {
           </div>
         </div>
 
-        {/* CARDS DE PROCESOS - ESTILO SUPPLY CHAIN APP */}
+        {/* CARDS DE PROCESOS - TODOS EN 0 */}
         <div className="process-cards-grid">
           <div className="process-card make-card">
             <div className="process-header">
@@ -799,12 +812,12 @@ const PlanSemanal = () => {
           </div>
         </div>
 
-        {/* CARDS DE MÉTRICAS CLAVE - ESTILO ORIGINAL MEJORADO */}
+        {/* CARDS DE MÉTRICAS CLAVE - TODOS EN 0 */}
         <div className="cards-grid meta-real-grid">
           <div className="card premium-card meta-real-card">
             <div className="card-header-meta">
               <span className="card-icon">📦</span>
-              <span className="card-trend positive">+12%</span>
+              <span className="card-trend positive">0%</span>
             </div>
             <div className="card-content-meta">
               <div className="meta-real-valor">
@@ -814,10 +827,10 @@ const PlanSemanal = () => {
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaTotal.toLocaleString()}</span>
-                  <span>{Math.round((produccionData.total/produccionData.metaTotal)*100)}%</span>
+                  <span>0%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `${Math.min((produccionData.total/produccionData.metaTotal)*100, 100)}%`}}></div>
+                  <div className="barra-llenado" style={{width: `0%`}}></div>
                 </div>
               </div>
             </div>
@@ -826,7 +839,7 @@ const PlanSemanal = () => {
           <div className="card premium-card meta-real-card">
             <div className="card-header-meta">
               <span className="card-icon">🖨️</span>
-              <span className="card-trend positive">+8%</span>
+              <span className="card-trend positive">0%</span>
             </div>
             <div className="card-content-meta">
               <div className="meta-real-valor">
@@ -836,10 +849,10 @@ const PlanSemanal = () => {
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaSublimado.toLocaleString()}</span>
-                  <span>{Math.min(Math.round((produccionData.totalSublimado/produccionData.metaSublimado)*100), 100)}%</span>
+                  <span>0%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `${Math.min((produccionData.totalSublimado/produccionData.metaSublimado)*100, 100)}%`}}></div>
+                  <div className="barra-llenado" style={{width: `0%`}}></div>
                 </div>
               </div>
             </div>
@@ -848,7 +861,7 @@ const PlanSemanal = () => {
           <div className="card premium-card meta-real-card">
             <div className="card-header-meta">
               <span className="card-icon">✅</span>
-              <span className="card-trend negative">-3%</span>
+              <span className="card-trend negative">0%</span>
             </div>
             <div className="card-content-meta">
               <div className="meta-real-valor">
@@ -858,10 +871,10 @@ const PlanSemanal = () => {
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaEntregadas.toLocaleString()}</span>
-                  <span>{Math.min(Math.round((produccionData.entregadas/produccionData.metaEntregadas)*100), 100)}%</span>
+                  <span>0%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `${Math.min((produccionData.entregadas/produccionData.metaEntregadas)*100, 100)}%`, background: produccionData.entregadas > 14000 ? '#10b981' : '#f59e0b'}}></div>
+                  <div className="barra-llenado" style={{width: `0%`}}></div>
                 </div>
               </div>
             </div>
@@ -870,7 +883,7 @@ const PlanSemanal = () => {
           <div className="card premium-card meta-real-card">
             <div className="card-header-meta">
               <span className="card-icon">📊</span>
-              <span className="card-trend positive">+5%</span>
+              <span className="card-trend positive">0%</span>
             </div>
             <div className="card-content-meta">
               <div className="meta-real-valor">
@@ -880,17 +893,17 @@ const PlanSemanal = () => {
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaAdherencia}%</span>
-                  <span>{produccionData.adherencia}%</span>
+                  <span>0%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `${produccionData.adherencia}%`, background: produccionData.adherencia >= 100 ? '#10b981' : '#f59e0b'}}></div>
+                  <div className="barra-llenado" style={{width: `0%`}}></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* TABLA DE ÁREAS - ESTILO ORIGINAL */}
+        {/* TABLA DE ÁREAS - TODOS EN 0 */}
         <div className="dynamic-view">
           {vistaProduccion === 'tabla' && (
             <div className="table-container">
@@ -935,15 +948,15 @@ const PlanSemanal = () => {
                   })}
                   <tr className="total-row">
                     <td><strong>Total / Promedio</strong></td>
-                    <td><strong>{(dataProduccion.reduce((acc, item) => acc + item.meta, 0)).toLocaleString()}</strong></td>
-                    <td><strong>{totalGeneral.toLocaleString()}</strong></td>
-                    <td><strong>{dataProduccion.reduce((acc, item) => acc + item.entregadas, 0).toLocaleString()} pz</strong></td>
-                    <td><strong>{dataProduccion.reduce((acc, item) => acc + item.backlog, 0)}</strong></td>
-                    <td><strong>{(dataProduccion.reduce((acc, item) => acc + (item.onTime || 0), 0)).toLocaleString()}</strong></td>
-                    <td><strong>{(dataProduccion.reduce((acc, item) => acc + (item.pending || 0), 0) / dataProduccion.length).toFixed(2)}%</strong></td>
-                    <td><strong>{(dataProduccion.reduce((acc, item) => acc + (item.completed || 0), 0) / dataProduccion.length).toFixed(2)}%</strong></td>
+                    <td><strong>0</strong></td>
+                    <td><strong>0</strong></td>
+                    <td><strong>0 pz</strong></td>
+                    <td><strong>0</strong></td>
+                    <td><strong>0</strong></td>
+                    <td><strong>0%</strong></td>
+                    <td><strong>0%</strong></td>
                     <td colSpan="1">
-                      <strong>Cumplimiento Promedio: {(dataProduccion.reduce((acc, item) => acc + item.cumplimiento, 0) / dataProduccion.length).toFixed(1)}%</strong>
+                      <strong>Cumplimiento Promedio: 0%</strong>
                     </td>
                   </tr>
                 </tbody>
@@ -959,47 +972,47 @@ const PlanSemanal = () => {
                   <div className="meta-real-comparacion">
                     <div className="comparacion-item">
                       <span className="comparacion-label">Meta</span>
-                      <span className="comparacion-valor meta">{item.meta.toLocaleString()}</span>
+                      <span className="comparacion-valor meta">0</span>
                     </div>
                     <div className="comparacion-item">
                       <span className="comparacion-label">Real</span>
-                      <span className="comparacion-valor real">{item.total.toLocaleString()}</span>
+                      <span className="comparacion-valor real">0</span>
                     </div>
                     <div className="comparacion-item">
                       <span className="comparacion-label">Entregadas</span>
-                      <span className="comparacion-valor entregadas">{item.entregadas.toLocaleString()} pz</span>
+                      <span className="comparacion-valor entregadas">0 pz</span>
                     </div>
                   </div>
                   <div className="metrics-grid-small">
                     <div className="metric-small">
                       <span>Backlog</span>
-                      <strong>{item.backlog}</strong>
+                      <strong>0</strong>
                     </div>
                     <div className="metric-small">
                       <span>OnTime</span>
-                      <strong>{item.onTime?.toLocaleString()}</strong>
+                      <strong>0</strong>
                     </div>
                     <div className="metric-small">
                       <span>Pendiente</span>
-                      <strong>{item.pending}%</strong>
+                      <strong>0%</strong>
                     </div>
                     <div className="metric-small">
                       <span>Completado</span>
-                      <strong>{item.completed}%</strong>
+                      <strong>0%</strong>
                     </div>
                   </div>
                   <div className="cumplimiento-bar">
                     <div className="barra-label">
                       <span>Cumplimiento</span>
-                      <span>{item.cumplimiento.toFixed(1)}%</span>
+                      <span>0%</span>
                     </div>
                     <div className="barra-contenedor">
-                      <div className="barra-llenado" style={{width: `${item.cumplimiento}%`, backgroundColor: item.color}}></div>
+                      <div className="barra-llenado" style={{width: `0%`, backgroundColor: item.color}}></div>
                     </div>
                   </div>
                   <div className="card-footer">
-                    <span className={`variation-badge ${item.variacion > 0 ? 'positive' : 'negative'}`}>
-                      {item.tendencia} {Math.abs(item.variacion)}%
+                    <span className={`variation-badge`}>
+                      ▶ 0%
                     </span>
                     <button className="mini-btn">Ver detalles</button>
                   </div>
@@ -1011,37 +1024,15 @@ const PlanSemanal = () => {
           {vistaProduccion === 'grafico' && (
             <div className="chart-container meta-real-grafico">
               <h3>Comparativa por Área</h3>
-              <div className="comparativa-barras">
-                {dataProduccion.map((item, index) => (
-                  <div key={index} className="comparativa-item">
-                    <div className="comparativa-label">{item.area}</div>
-                    <div className="barras-dobles">
-                      <div className="barra-meta" style={{height: '30px'}}>
-                        <div className="barra-meta-fill" style={{width: `${(item.meta / 15000) * 100}%`}}>
-                          <span className="barra-texto">Meta: {item.meta.toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <div className="barra-real" style={{height: '30px'}}>
-                        <div className="barra-real-fill" style={{width: `${Math.min((item.total / 15000) * 100, 100)}%`, backgroundColor: item.color}}>
-                          <span className="barra-texto">Real: {item.total.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="comparativa-eficiencia">
-                      <span>Cumplimiento: {item.cumplimiento.toFixed(1)}%</span>
-                      <span className={`variacion ${item.variacion > 0 ? 'positive' : 'negative'}`}>
-                        {item.tendencia} {Math.abs(item.variacion)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="empty-chart">
+                <p>No hay datos para mostrar</p>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* SECCIÓN 2: PLAN SEMANAL NIKE */}
+      {/* SECCIÓN 2: PLAN SEMANAL NIKE - VACÍO */}
       <div className="nike-section">
         <div className="plan-header">
           <div className="header-left">
@@ -1089,7 +1080,7 @@ const PlanSemanal = () => {
             </div>
             <p className={animate ? "number-animate" : ""}>{backlog.toLocaleString()}</p>
             <div className="kpi-footer">
-              <span className="trend">▼ -2%</span>
+              <span className="trend">▼ 0%</span>
               <span className="period">vs ayer</span>
             </div>
           </div>
@@ -1101,7 +1092,7 @@ const PlanSemanal = () => {
             </div>
             <p className={animate ? "number-animate" : ""}>{plan.toLocaleString()}</p>
             <div className="kpi-footer">
-              <span className="trend positive">▲ +5%</span>
+              <span className="trend positive">▲ 0%</span>
               <span className="period">vs meta</span>
             </div>
           </div>
@@ -1113,7 +1104,7 @@ const PlanSemanal = () => {
             </div>
             <p className={animate ? "number-animate" : ""}>{pull.toLocaleString()}</p>
             <div className="kpi-footer">
-              <span className="trend positive">▲ +12%</span>
+              <span className="trend positive">▲ 0%</span>
               <span className="period">vs ayer</span>
             </div>
           </div>
@@ -1125,7 +1116,7 @@ const PlanSemanal = () => {
             </div>
             <p className={animate ? "number-animate" : ""}>{total.toLocaleString()}</p>
             <div className="kpi-footer">
-              <span className="trend">▼ -1%</span>
+              <span className="trend">▼ 0%</span>
               <span className="period">vs plan</span>
             </div>
           </div>
@@ -1162,127 +1153,142 @@ const PlanSemanal = () => {
           <div className="tabla-container">
             <h2>🚨 Lotes Atrasados - NIKE</h2>
 
-            <table className="lotes-table">
-              <thead>
-                <tr>
-                  <th>Lote</th>
-                  <th>Área</th>
-                  <th>Piezas</th>
-                  <th>Fecha Entrega</th>
-                  <th>Días</th>
-                  <th>Horas</th>
-                  <th>Backlog</th>
-                  <th>Progreso</th>
-                  <th>Eficiencia</th>
-                  <th>Prioridad</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {lotesFiltrados.map((l, index) => (
-                  <tr 
-                    key={index} 
-                    className={`${index === lotes.length - 1 ? "new-row" : ""} ${selectedLote === l.lote ? 'selected' : ''}`}
-                    onClick={() => setSelectedLote(l.lote)}
-                  >
-                    <td><span className="lote-code">{l.lote}</span></td>
-                    <td>{l.area}</td>
-                    <td><strong>{l.piezas.toLocaleString()}</strong></td>
-                    <td>{l.fecha}</td>
-                    <td>
-                      <div className="dias-container">
-                        <span>{l.dias}</span>
-                        <div className="severity-bar-container">
-                          <div 
-                            className="severity-bar" 
-                            style={{ width: `${Math.min(l.dias * 8, 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>{l.horas}</td>
-                    <td>{l.backlog}</td>
-                    <td>
-                      <div className="progress-cell">
-                        <div className="progress-bar-small">
-                          <div className="progress-fill-small" style={{width: `${l.progreso}%`}}></div>
-                        </div>
-                        <span>{l.progreso}%</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`eficiencia-badge ${l.eficiencia > 90 ? 'alta' : l.eficiencia > 80 ? 'media' : 'baja'}`}>
-                        {l.eficiencia}%
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`priority-${l.prioridad.toLowerCase()}`}>
-                        {l.prioridad}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          l.estado === "Atraso Grave"
-                            ? "badge grave"
-                            : "badge medio"
-                        }
-                      >
-                        {l.estado}
-                      </span>
-                    </td>
+            {lotesFiltrados.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📭</div>
+                <h3>No hay lotes</h3>
+                <p>Importa un plan desde Excel para comenzar</p>
+              </div>
+            ) : (
+              <table className="lotes-table">
+                <thead>
+                  <tr>
+                    <th>Lote</th>
+                    <th>Área</th>
+                    <th>Piezas</th>
+                    <th>Fecha Entrega</th>
+                    <th>Días</th>
+                    <th>Horas</th>
+                    <th>Backlog</th>
+                    <th>Progreso</th>
+                    <th>Eficiencia</th>
+                    <th>Prioridad</th>
+                    <th>Estado</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {lotesFiltrados.map((l, index) => (
+                    <tr 
+                      key={index} 
+                      className={`${index === lotes.length - 1 ? "new-row" : ""} ${selectedLote === l.lote ? 'selected' : ''}`}
+                      onClick={() => setSelectedLote(l.lote)}
+                    >
+                      <td><span className="lote-code">{l.lote}</span></td>
+                      <td>{l.area}</td>
+                      <td><strong>{l.piezas.toLocaleString()}</strong></td>
+                      <td>{l.fecha}</td>
+                      <td>
+                        <div className="dias-container">
+                          <span>{l.dias}</span>
+                          <div className="severity-bar-container">
+                            <div 
+                              className="severity-bar" 
+                              style={{ width: `${Math.min(l.dias * 8, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{l.horas}</td>
+                      <td>{l.backlog}</td>
+                      <td>
+                        <div className="progress-cell">
+                          <div className="progress-bar-small">
+                            <div className="progress-fill-small" style={{width: `${l.progreso}%`}}></div>
+                          </div>
+                          <span>{l.progreso}%</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`eficiencia-badge ${l.eficiencia > 90 ? 'alta' : l.eficiencia > 80 ? 'media' : 'baja'}`}>
+                          {l.eficiencia}%
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`priority-${l.prioridad.toLowerCase()}`}>
+                          {l.prioridad}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            l.estado === "Atraso Grave"
+                              ? "badge grave"
+                              : "badge medio"
+                          }
+                        >
+                          {l.estado}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {vistaNike === 'cards' && (
           <div className="lotes-cards">
-            {lotesFiltrados.map((l, index) => (
-              <div key={index} className={`lote-card ${l.estado === 'Atraso Grave' ? 'grave-card' : 'medio-card'}`}>
-                <div className="card-header">
-                  <span className="lote-title">{l.lote}</span>
-                  <span className={`priority-badge ${l.prioridad.toLowerCase()}`}>{l.prioridad}</span>
-                </div>
-                <div className="card-body">
-                  <div className="card-info">
-                    <div>📍 {l.area}</div>
-                    <div>📦 {l.piezas.toLocaleString()} piezas</div>
-                    <div>⏰ {l.dias}d {l.horas}h</div>
-                    <div>📋 Backlog: {l.backlog}</div>
-                    <div>👤 {l.cliente}</div>
-                  </div>
-                  <div className="card-metrics">
-                    <div className="metric">
-                      <span>Progreso</span>
-                      <strong>{l.progreso}%</strong>
-                    </div>
-                    <div className="metric">
-                      <span>Eficiencia</span>
-                      <strong>{l.eficiencia}%</strong>
-                    </div>
-                  </div>
-                  <div className="card-progress">
-                    <div className="progress-label">
-                      <span>Progreso</span>
-                      <span>{l.progreso}%</span>
-                    </div>
-                    <div className="card-progress-bar">
-                      <div className="progress-fill" style={{width: `${l.progreso}%`}}></div>
-                    </div>
-                  </div>
-                </div>
-                <div className="card-footer">
-                  <span className={`badge-card ${l.estado === 'Atraso Grave' ? 'grave' : 'medio'}`}>
-                    {l.estado}
-                  </span>
-                  <button className="card-action">Ver detalles →</button>
-                </div>
+            {lotesFiltrados.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📭</div>
+                <h3>No hay lotes</h3>
+                <p>Importa un plan desde Excel para comenzar</p>
               </div>
-            ))}
+            ) : (
+              lotesFiltrados.map((l, index) => (
+                <div key={index} className={`lote-card ${l.estado === 'Atraso Grave' ? 'grave-card' : 'medio-card'}`}>
+                  <div className="card-header">
+                    <span className="lote-title">{l.lote}</span>
+                    <span className={`priority-badge ${l.prioridad.toLowerCase()}`}>{l.prioridad}</span>
+                  </div>
+                  <div className="card-body">
+                    <div className="card-info">
+                      <div>📍 {l.area}</div>
+                      <div>📦 {l.piezas.toLocaleString()} piezas</div>
+                      <div>⏰ {l.dias}d {l.horas}h</div>
+                      <div>📋 Backlog: {l.backlog}</div>
+                      <div>👤 {l.cliente}</div>
+                    </div>
+                    <div className="card-metrics">
+                      <div className="metric">
+                        <span>Progreso</span>
+                        <strong>{l.progreso}%</strong>
+                      </div>
+                      <div className="metric">
+                        <span>Eficiencia</span>
+                        <strong>{l.eficiencia}%</strong>
+                      </div>
+                    </div>
+                    <div className="card-progress">
+                      <div className="progress-label">
+                        <span>Progreso</span>
+                        <span>{l.progreso}%</span>
+                      </div>
+                      <div className="card-progress-bar">
+                        <div className="progress-fill" style={{width: `${l.progreso}%`}}></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card-footer">
+                    <span className={`badge-card ${l.estado === 'Atraso Grave' ? 'grave' : 'medio'}`}>
+                      {l.estado}
+                    </span>
+                    <button className="card-action">Ver detalles →</button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
 
@@ -1291,25 +1297,15 @@ const PlanSemanal = () => {
             <div className="charts-grid">
               <div className="chart-card">
                 <h3>Distribución por Área</h3>
-                <div className="donut-chart">
-                  {Object.entries(chartData).map(([area, total], index) => (
-                    <div key={index} className="chart-legend-item">
-                      <span className="color-dot" style={{backgroundColor: ['#f97316', '#10b981', '#3b82f6', '#8b5cf6'][index]}}></span>
-                      <span>{area}</span>
-                      <span className="chart-value">{total.toLocaleString()}</span>
-                    </div>
-                  ))}
+                <div className="empty-chart">
+                  <p>No hay datos para mostrar</p>
                 </div>
               </div>
               
               <div className="chart-card">
                 <h3>Eficiencia por Lote</h3>
-                <div className="trend-chart">
-                  {lotes.map((l, index) => (
-                    <div key={index} className="trend-bar" title={`${l.lote}: ${l.eficiencia}%`}>
-                      <div className="trend-fill" style={{height: `${l.eficiencia}%`, backgroundColor: l.eficiencia > 90 ? '#10b981' : l.eficiencia > 80 ? '#f59e0b' : '#ef4444'}}></div>
-                    </div>
-                  ))}
+                <div className="empty-chart">
+                  <p>No hay datos para mostrar</p>
                 </div>
               </div>
 
@@ -1318,19 +1314,19 @@ const PlanSemanal = () => {
                 <div className="metrics-grid">
                   <div className="metric-item">
                     <span>Eficiencia Prom</span>
-                    <strong>{(lotes.reduce((acc, l) => acc + l.eficiencia, 0) / lotes.length).toFixed(1)}%</strong>
+                    <strong>0%</strong>
                   </div>
                   <div className="metric-item">
                     <span>Tiempo Promedio</span>
-                    <strong>{(lotes.reduce((acc, l) => acc + l.dias, 0) / lotes.length).toFixed(1)} días</strong>
+                    <strong>0 días</strong>
                   </div>
                   <div className="metric-item">
                     <span>Lotes Críticos</span>
-                    <strong className="critical">{lotes.filter(l => l.estado === 'Atraso Grave').length}</strong>
+                    <strong className="critical">0</strong>
                   </div>
                   <div className="metric-item">
                     <span>Cumplimiento</span>
-                    <strong>{(lotes.filter(l => l.estado !== 'Atraso Grave').length / lotes.length * 100).toFixed(1)}%</strong>
+                    <strong>0%</strong>
                   </div>
                 </div>
               </div>
@@ -1381,6 +1377,109 @@ const PlanSemanal = () => {
           </div>
         )}
       </div>
+
+      {/* Estilos para el indicador de conexión y estado vacío */}
+      <style>{`
+        .connection-status {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          backdrop-filter: blur(10px);
+        }
+        
+        .connection-status.connected {
+          background: #10b981;
+          color: white;
+        }
+        
+        .connection-status.disconnected {
+          background: #f59e0b;
+          color: white;
+        }
+        
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 10px white;
+          animation: pulse 2s infinite;
+        }
+
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10000;
+          animation: slideUp 0.3s ease;
+          font-weight: 500;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 60px 20px;
+          color: #6b7280;
+          background: white;
+          border-radius: 12px;
+          margin: 20px 0;
+        }
+
+        .empty-icon {
+          font-size: 48px;
+          margin-bottom: 16px;
+          opacity: 0.5;
+        }
+
+        .empty-state h3 {
+          font-size: 20px;
+          margin-bottom: 8px;
+          color: #374151;
+        }
+
+        .empty-state p {
+          font-size: 14px;
+        }
+
+        .empty-chart {
+          height: 200px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #6b7280;
+          background: #f9fafb;
+          border-radius: 8px;
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   );
 };

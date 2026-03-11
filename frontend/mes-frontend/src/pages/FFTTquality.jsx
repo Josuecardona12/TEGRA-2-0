@@ -30,6 +30,11 @@ ChartJS.register(
   Filler
 );
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
 const FFTTquality = () => {
   // ================ ESTADOS PRINCIPALES ================
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -58,10 +63,16 @@ const FFTTquality = () => {
   const [busqueda, setBusqueda] = useState('');
   const [ordenarPor, setOrdenarPor] = useState('fecha');
   const [ordenDireccion, setOrdenDireccion] = useState('desc');
-  const [vistaMaquinas, setVistaMaquinas] = useState('grid'); // 'grid' o 'lista'
+  const [vistaMaquinas, setVistaMaquinas] = useState('grid');
 
-  // ================ DATOS DE 12 MÁQUINAS DE SUBLIMADO ================
-  const maquinas = [
+  // ================ ESTADOS DE CONEXIÓN ================
+  const [conectado, setConectado] = useState(false);
+  const [lotesServidor, setLotesServidor] = useState([]);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
+  const wsRef = useRef(null);
+
+  // ================ MÁQUINAS (12 Sublimadoras) ================
+  const [maquinas, setMaquinas] = useState([
     { id: 'M01', nombre: 'Sublimadora 1', tipo: 'Grande', estado: 'operativa', eficiencia: 95, produccion: 150, temperatura: 185, presion: 3.5, velocidad: 18.5, lotesHoy: 8, alertas: [] },
     { id: 'M02', nombre: 'Sublimadora 2', tipo: 'Grande', estado: 'operativa', eficiencia: 92, produccion: 145, temperatura: 188, presion: 3.8, velocidad: 19.2, lotesHoy: 7, alertas: [] },
     { id: 'M03', nombre: 'Sublimadora 3', tipo: 'Mediana', estado: 'mantenimiento', eficiencia: 0, produccion: 0, temperatura: 0, presion: 0, velocidad: 0, lotesHoy: 0, alertas: ['Mantenimiento programado'] },
@@ -74,381 +85,10 @@ const FFTTquality = () => {
     { id: 'M10', nombre: 'Sublimadora 10', tipo: 'Mediana', estado: 'operativa', eficiencia: 93, produccion: 135, temperatura: 187, presion: 3.9, velocidad: 19.5, lotesHoy: 7, alertas: [] },
     { id: 'M11', nombre: 'Sublimadora 11', tipo: 'Pequeña', estado: 'operativa', eficiencia: 96, produccion: 118, temperatura: 182, presion: 3.4, velocidad: 17.9, lotesHoy: 8, alertas: [] },
     { id: 'M12', nombre: 'Sublimadora 12', tipo: 'Pequeña', estado: 'operativa', eficiencia: 90, produccion: 112, temperatura: 183, presion: 3.5, velocidad: 18.1, lotesHoy: 6, alertas: [] }
-  ];
+  ]);
 
-  // ================ DATOS DE LOTES (PERSISTENTES) ================
-  const [lotes, setLotes] = useState(() => {
-    const guardados = localStorage.getItem('lotesFFTT');
-    if (guardados) {
-      return JSON.parse(guardados);
-    }
-    // Datos iniciales mejorados con más información
-    return [
-      {
-        id: 1,
-        lote: 'L2401-001',
-        po: 'PO-2024-001',
-        sport: 'Baseball',
-        fecha: '2024-03-15',
-        horaInicio: '06:00',
-        horaFin: '14:00',
-        turno: 'A',
-        maquina: 'M01',
-        operador: 'Carlos López',
-        inspector: 'María González',
-        supervisor: 'Juan Pérez',
-        totalMuestras: 150,
-        aceptadas: 142,
-        rechazadas: 8,
-        tasaFFTT: 94.7,
-        temperatura: 185,
-        presion: 3.5,
-        velocidad: 18.5,
-        tipoRechazo: {
-          tono: 3,
-          textura: 2,
-          color: 1,
-          dimension: 1,
-          acabado: 1
-        },
-        calidad: {
-          indiceCalidad: 94.7,
-          conformidad: 95.2,
-          capabilidad: 1.25,
-          sigma: 3.5
-        },
-        materiaPrima: {
-          lote: 'MP-2403-015',
-          proveedor: 'Proveedor A',
-          certificado: 'CERT-001'
-        },
-        observaciones: 'Lote con variaciones menores en tono',
-        acciones: [
-          { fecha: '2024-03-15', accion: 'Calibración', estado: 'completada' }
-        ],
-        gravedad: 'media',
-        estado: 'completado',
-        alertas: []
-      },
-      {
-        id: 2,
-        lote: 'L2402-002',
-        po: 'PO-2024-002',
-        sport: 'Soccer',
-        fecha: '2024-03-15',
-        horaInicio: '14:00',
-        horaFin: '22:00',
-        turno: 'B',
-        maquina: 'M02',
-        operador: 'María González',
-        inspector: 'Pedro Ramírez',
-        supervisor: 'Ana Martínez',
-        totalMuestras: 200,
-        aceptadas: 182,
-        rechazadas: 18,
-        tasaFFTT: 91.0,
-        temperatura: 188,
-        presion: 3.8,
-        velocidad: 19.2,
-        tipoRechazo: {
-          tono: 8,
-          textura: 4,
-          color: 3,
-          dimension: 2,
-          acabado: 1
-        },
-        calidad: {
-          indiceCalidad: 91.0,
-          conformidad: 91.5,
-          capabilidad: 1.15,
-          sigma: 3.2
-        },
-        materiaPrima: {
-          lote: 'MP-2403-016',
-          proveedor: 'Proveedor B',
-          certificado: 'CERT-002'
-        },
-        observaciones: 'Problemas con tono - Revisar materia prima',
-        acciones: [
-          { fecha: '2024-03-15', accion: 'Inspección MP', estado: 'en_proceso' }
-        ],
-        gravedad: 'alta',
-        estado: 'en_proceso',
-        alertas: ['Tasa de rechazo alta']
-      },
-      {
-        id: 3,
-        lote: 'L2403-003',
-        po: 'PO-2024-003',
-        sport: 'Basketball',
-        fecha: '2024-03-14',
-        horaInicio: '06:00',
-        horaFin: '14:00',
-        turno: 'A',
-        maquina: 'M05',
-        operador: 'Pedro Ramírez',
-        inspector: 'Ana Martínez',
-        supervisor: 'Carlos López',
-        totalMuestras: 180,
-        aceptadas: 175,
-        rechazadas: 5,
-        tasaFFTT: 97.2,
-        temperatura: 182,
-        presion: 3.4,
-        velocidad: 18.0,
-        tipoRechazo: {
-          tono: 1,
-          textura: 1,
-          color: 1,
-          dimension: 1,
-          acabado: 1
-        },
-        calidad: {
-          indiceCalidad: 97.2,
-          conformidad: 97.5,
-          capabilidad: 1.45,
-          sigma: 3.8
-        },
-        materiaPrima: {
-          lote: 'MP-2403-014',
-          proveedor: 'Proveedor A',
-          certificado: 'CERT-003'
-        },
-        observaciones: 'Excelente calidad',
-        acciones: [],
-        gravedad: 'baja',
-        estado: 'completado',
-        alertas: []
-      },
-      {
-        id: 4,
-        lote: 'L2404-004',
-        po: 'PO-2024-004',
-        sport: 'Football',
-        fecha: '2024-03-14',
-        horaInicio: '22:00',
-        horaFin: '06:00',
-        turno: 'C',
-        maquina: 'M07',
-        operador: 'Ana Martínez',
-        inspector: 'Roberto Díaz',
-        supervisor: 'Laura Torres',
-        totalMuestras: 220,
-        aceptadas: 198,
-        rechazadas: 22,
-        tasaFFTT: 90.0,
-        temperatura: 190,
-        presion: 4.0,
-        velocidad: 20.0,
-        tipoRechazo: {
-          tono: 10,
-          textura: 5,
-          color: 4,
-          dimension: 2,
-          acabado: 1
-        },
-        calidad: {
-          indiceCalidad: 90.0,
-          conformidad: 90.2,
-          capabilidad: 1.08,
-          sigma: 3.1
-        },
-        materiaPrima: {
-          lote: 'MP-2403-017',
-          proveedor: 'Proveedor C',
-          certificado: 'CERT-004'
-        },
-        observaciones: 'Problema crítico - Requiere acción inmediata',
-        acciones: [
-          { fecha: '2024-03-14', accion: 'Paro de línea', estado: 'completada' },
-          { fecha: '2024-03-15', accion: 'Revisión MP', estado: 'pendiente' }
-        ],
-        gravedad: 'critica',
-        estado: 'revision',
-        alertas: ['Crítico', 'Múltiples paros']
-      },
-      {
-        id: 5,
-        lote: 'L2405-005',
-        po: 'PO-2024-005',
-        sport: 'Baseball',
-        fecha: '2024-03-13',
-        horaInicio: '06:00',
-        horaFin: '14:00',
-        turno: 'A',
-        maquina: 'M09',
-        operador: 'Roberto Díaz',
-        inspector: 'Laura Torres',
-        supervisor: 'Carlos López',
-        totalMuestras: 190,
-        aceptadas: 185,
-        rechazadas: 5,
-        tasaFFTT: 97.4,
-        temperatura: 183,
-        presion: 3.3,
-        velocidad: 18.2,
-        tipoRechazo: {
-          tono: 2,
-          textura: 1,
-          color: 1,
-          dimension: 1,
-          acabado: 0
-        },
-        calidad: {
-          indiceCalidad: 97.4,
-          conformidad: 97.8,
-          capabilidad: 1.48,
-          sigma: 3.9
-        },
-        materiaPrima: {
-          lote: 'MP-2403-013',
-          proveedor: 'Proveedor A',
-          certificado: 'CERT-005'
-        },
-        observaciones: 'Buen desempeño',
-        acciones: [],
-        gravedad: 'baja',
-        estado: 'completado',
-        alertas: []
-      },
-      {
-        id: 6,
-        lote: 'L2406-006',
-        po: 'PO-2024-006',
-        sport: 'Soccer',
-        fecha: '2024-03-13',
-        horaInicio: '14:00',
-        horaFin: '22:00',
-        turno: 'B',
-        maquina: 'M10',
-        operador: 'Laura Torres',
-        inspector: 'Carlos López',
-        supervisor: 'Ana Martínez',
-        totalMuestras: 210,
-        aceptadas: 195,
-        rechazadas: 15,
-        tasaFFTT: 92.9,
-        temperatura: 186,
-        presion: 3.6,
-        velocidad: 19.5,
-        tipoRechazo: {
-          tono: 5,
-          textura: 3,
-          color: 3,
-          dimension: 2,
-          acabado: 2
-        },
-        calidad: {
-          indiceCalidad: 92.9,
-          conformidad: 93.1,
-          capabilidad: 1.22,
-          sigma: 3.4
-        },
-        materiaPrima: {
-          lote: 'MP-2403-012',
-          proveedor: 'Proveedor B',
-          certificado: 'CERT-006'
-        },
-        observaciones: 'Múltiples problemas de acabado',
-        acciones: [
-          { fecha: '2024-03-13', accion: 'Ajuste parámetros', estado: 'completada' }
-        ],
-        gravedad: 'media',
-        estado: 'completado',
-        alertas: []
-      },
-      {
-        id: 7,
-        lote: 'L2407-007',
-        po: 'PO-2024-007',
-        sport: 'Basketball',
-        fecha: '2024-03-12',
-        horaInicio: '06:00',
-        horaFin: '14:00',
-        turno: 'A',
-        maquina: 'M11',
-        operador: 'Carlos López',
-        inspector: 'María González',
-        supervisor: 'Juan Pérez',
-        totalMuestras: 160,
-        aceptadas: 152,
-        rechazadas: 8,
-        tasaFFTT: 95.0,
-        temperatura: 184,
-        presion: 3.5,
-        velocidad: 18.3,
-        tipoRechazo: {
-          tono: 3,
-          textura: 2,
-          color: 1,
-          dimension: 1,
-          acabado: 1
-        },
-        calidad: {
-          indiceCalidad: 95.0,
-          conformidad: 95.3,
-          capabilidad: 1.30,
-          sigma: 3.6
-        },
-        materiaPrima: {
-          lote: 'MP-2403-011',
-          proveedor: 'Proveedor A',
-          certificado: 'CERT-007'
-        },
-        observaciones: 'Buen lote',
-        acciones: [],
-        gravedad: 'baja',
-        estado: 'completado',
-        alertas: []
-      },
-      {
-        id: 8,
-        lote: 'L2408-008',
-        po: 'PO-2024-008',
-        sport: 'Football',
-        fecha: '2024-03-12',
-        horaInicio: '14:00',
-        horaFin: '22:00',
-        turno: 'B',
-        maquina: 'M12',
-        operador: 'María González',
-        inspector: 'Pedro Ramírez',
-        supervisor: 'Ana Martínez',
-        totalMuestras: 195,
-        aceptadas: 175,
-        rechazadas: 20,
-        tasaFFTT: 89.7,
-        temperatura: 189,
-        presion: 3.9,
-        velocidad: 19.8,
-        tipoRechazo: {
-          tono: 9,
-          textura: 4,
-          color: 3,
-          dimension: 2,
-          acabado: 2
-        },
-        calidad: {
-          indiceCalidad: 89.7,
-          conformidad: 90.1,
-          capabilidad: 1.05,
-          sigma: 3.0
-        },
-        materiaPrima: {
-          lote: 'MP-2403-010',
-          proveedor: 'Proveedor C',
-          certificado: 'CERT-008'
-        },
-        observaciones: 'Problemas severos de tono',
-        acciones: [
-          { fecha: '2024-03-12', accion: 'Revisión', estado: 'completada' }
-        ],
-        gravedad: 'alta',
-        estado: 'revision',
-        alertas: ['Tasa baja']
-      }
-    ];
-  });
+  // ================ DATOS DE LOTES (VACÍOS PARA DEMO) ================
+  const [lotes, setLotes] = useState([]);
 
   // ================ ESTADO DEL ESCÁNER ================
   const [scannerState, setScannerState] = useState({
@@ -541,6 +181,94 @@ const FFTTquality = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const audioContextRef = useRef(null);
+
+  // ================ CONEXIÓN WEBSOCKET MEJORADA ================
+  useEffect(() => {
+    console.log('🔌 FFTTquality conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ FFTTquality conectado');
+      setConectado(true);
+      agregarNotificacion('exito', '✅ Conectado al servidor de trazabilidad');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 FFTTquality recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          setLotesServidor(lotesData);
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+            agregarNotificacion(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
+          }
+          
+          // Actualizar lotes con datos del servidor
+          const lotesConvertidos = lotesData.map((lote, index) => ({
+            id: index + 1,
+            lote: lote.id || `LOTE-${String(index + 1).padStart(3, '0')}`,
+            po: `PO-${new Date().getFullYear()}-${String(index + 1).padStart(3, '0')}`,
+            sport: lote.producto || 'Producto',
+            fecha: lote.fechaInicio?.split('T')[0] || new Date().toISOString().split('T')[0],
+            horaInicio: lote.horaInicio || '00:00',
+            horaFin: lote.horaFin || '',
+            turno: lote.turno || 'A',
+            maquina: lote.maquinaId || `M${String(index % 12 + 1).padStart(2, '0')}`,
+            operador: lote.responsable || 'Sistema',
+            inspector: 'Pendiente',
+            supervisor: 'Pendiente',
+            totalMuestras: lote.cantidad || 0,
+            aceptadas: (lote.cantidad || 0) - (lote.rechazadas || 0),
+            rechazadas: lote.rechazadas || 0,
+            tasaFFTT: lote.progreso || 0,
+            temperatura: lote.temperatura || 0,
+            presion: lote.presion || 0,
+            velocidad: lote.velocidad || 0,
+            tipoRechazo: lote.tipoRechazo || { tono: 0, textura: 0, color: 0, dimension: 0, acabado: 0 },
+            calidad: {
+              indiceCalidad: lote.progreso || 0,
+              conformidad: lote.progreso || 0,
+              capabilidad: 1.0,
+              sigma: 3.0
+            },
+            materiaPrima: {
+              lote: lote.materiaPrimaLote || '',
+              proveedor: lote.proveedor || '',
+              certificado: ''
+            },
+            observaciones: lote.observaciones || '',
+            acciones: [],
+            gravedad: lote.gravedad || 'baja',
+            estado: lote.estado || 'nuevo',
+            alertas: lote.alertas || []
+          }));
+          
+          setLotes(lotesConvertidos);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      agregarNotificacion('error', '❌ Error de conexión con el servidor');
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ FFTTquality desconectado');
+      setConectado(false);
+    };
+    
+    return () => ws.close();
+  }, []);
 
   // ================ EFECTOS ================
   useEffect(() => {
@@ -1104,7 +832,7 @@ const FFTTquality = () => {
       datasets: [
         {
           label: 'Tasa FFTT %',
-          data: [94, 93, 95, 94, 96, 95],
+          data: lotes.length > 0 ? [94, 93, 95, 94, 96, 95] : [0, 0, 0, 0, 0, 0],
           borderColor: '#6366f1',
           backgroundColor: 'rgba(99, 102, 241, 0.1)',
           fill: true,
@@ -1267,6 +995,12 @@ const FFTTquality = () => {
         </div>
 
         <div className="header-right">
+          {/* Indicador de conexión */}
+          <div className={`connection-indicator ${conectado ? 'connected' : 'disconnected'}`}>
+            <span className="connection-dot"></span>
+            <span className="connection-text">{conectado ? 'Servidor OK' : 'Sin conexión'}</span>
+          </div>
+
           <div className="header-time">
             <div className="time-digital">
               {currentTime.toLocaleTimeString()}
@@ -1304,6 +1038,84 @@ const FFTTquality = () => {
         </div>
       </header>
 
+      {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+      {ultimoMovimiento && (
+        <div className="movimiento-notificacion">
+          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+        </div>
+      )}
+
+      {/* Estilos para el indicador de conexión y notificaciones */}
+      <style>{`
+        .connection-indicator {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 15px;
+          border-radius: 30px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          margin-right: 15px;
+        }
+        
+        .connection-indicator.connected {
+          background: #d4edda;
+          color: #155724;
+        }
+        
+        .connection-indicator.disconnected {
+          background: #f8d7da;
+          color: #721c24;
+        }
+        
+        .connection-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+        
+        .connected .connection-dot {
+          background: #28a745;
+          box-shadow: 0 0 10px #28a745;
+          animation: pulse 2s infinite;
+        }
+        
+        .disconnected .connection-dot {
+          background: #dc3545;
+        }
+
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10000;
+          animation: slideUp 0.3s ease;
+          font-weight: 500;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+      `}</style>
+
       {/* Panel de Control Principal */}
       <div className="control-panel-moderno">
         <div className="panel-glow-effect"></div>
@@ -1320,7 +1132,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Total Muestras</span>
               </div>
               <div className="kpi-trend positivo">
-                <span>↑ 5.2%</span>
+                <span>↑ 0%</span>
               </div>
             </div>
             <div className="kpi-hover-info">
@@ -1338,7 +1150,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Muestras Aceptadas</span>
               </div>
               <div className="kpi-trend positivo">
-                <span>↑ 3.1%</span>
+                <span>↑ 0%</span>
               </div>
             </div>
           </div>
@@ -1353,7 +1165,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Muestras Rechazadas</span>
               </div>
               <div className="kpi-trend negativo">
-                <span>↓ 2.1%</span>
+                <span>↓ 0%</span>
               </div>
             </div>
           </div>
@@ -1383,7 +1195,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Lotes Críticos</span>
               </div>
               <div className="kpi-trend alerta">
-                <span>↑ +2</span>
+                <span>+0</span>
               </div>
             </div>
           </div>
@@ -1744,76 +1556,88 @@ const FFTTquality = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {lotesFiltrados.map(lote => (
-                    <tr key={lote.id} className={`lote-row ${lote.gravedad}`}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={loteSeleccionados.includes(lote.id)}
-                          onChange={() => toggleSeleccionLote(lote.id)}
-                        />
-                      </td>
-                      <td className="lote-cell">{lote.lote}</td>
-                      <td>{lote.po}</td>
-                      <td>{lote.sport}</td>
-                      <td>
-                        <span className="maquina-badge">{lote.maquina}</span>
-                      </td>
-                      <td>{lote.fecha}</td>
-                      <td>
-                        <span className={`turno-badge turno-${lote.turno}`}>
-                          {lote.turno}
-                        </span>
-                      </td>
-                      <td>{lote.operador}</td>
-                      <td className="numero">{lote.totalMuestras}</td>
-                      <td className="numero success">{lote.aceptadas}</td>
-                      <td className="numero danger">{lote.rechazadas}</td>
-                      <td>
-                        <div className="tasa-cell">
-                          <div className="tasa-bar">
-                            <div 
-                              className="tasa-fill"
-                              style={{ 
-                                width: `${lote.tasaFFTT}%`,
-                                backgroundColor: lote.tasaFFTT >= 95 ? '#22c55e' :
-                                               lote.tasaFFTT >= 90 ? '#f59e0b' : '#ef4444'
-                              }}
-                            ></div>
+                  {lotesFiltrados.length > 0 ? (
+                    lotesFiltrados.map(lote => (
+                      <tr key={lote.id} className={`lote-row ${lote.gravedad}`}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={loteSeleccionados.includes(lote.id)}
+                            onChange={() => toggleSeleccionLote(lote.id)}
+                          />
+                        </td>
+                        <td className="lote-cell">{lote.lote}</td>
+                        <td>{lote.po}</td>
+                        <td>{lote.sport}</td>
+                        <td>
+                          <span className="maquina-badge">{lote.maquina}</span>
+                        </td>
+                        <td>{lote.fecha}</td>
+                        <td>
+                          <span className={`turno-badge turno-${lote.turno}`}>
+                            {lote.turno}
+                          </span>
+                        </td>
+                        <td>{lote.operador}</td>
+                        <td className="numero">{lote.totalMuestras}</td>
+                        <td className="numero success">{lote.aceptadas}</td>
+                        <td className="numero danger">{lote.rechazadas}</td>
+                        <td>
+                          <div className="tasa-cell">
+                            <div className="tasa-bar">
+                              <div 
+                                className="tasa-fill"
+                                style={{ 
+                                  width: `${lote.tasaFFTT}%`,
+                                  backgroundColor: lote.tasaFFTT >= 95 ? '#22c55e' :
+                                                 lote.tasaFFTT >= 90 ? '#f59e0b' : '#ef4444'
+                                }}
+                              ></div>
+                            </div>
+                            <span className="tasa-valor">{lote.tasaFFTT}%</span>
                           </div>
-                          <span className="tasa-valor">{lote.tasaFFTT}%</span>
-                        </div>
-                      </td>
-                      <td className="numero">{lote.tipoRechazo?.tono || 0}</td>
-                      <td className="numero">{lote.tipoRechazo?.textura || 0}</td>
-                      <td className="numero">{lote.tipoRechazo?.color || 0}</td>
-                      <td className="numero">{lote.tipoRechazo?.dimension || 0}</td>
-                      <td className="numero">{lote.tipoRechazo?.acabado || 0}</td>
-                      <td>
-                        <span className={`estado-badge ${lote.estado}`}>
-                          {lote.estado === 'en_proceso' ? '⚙️' :
-                           lote.estado === 'completado' ? '✅' :
-                           lote.estado === 'revision' ? '⚠️' : '🆕'} {lote.estado}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="acciones-cell">
-                          <button className="accion-icon small" onClick={() => {
-                            setSelectedLote(lote);
-                            setModalType('ver');
-                            setShowModal(true);
-                          }} title="Ver detalles">👁️</button>
-                          <button className="accion-icon small" onClick={() => {
-                            setSelectedLote(lote);
-                            setModalType('editar');
-                            setShowModal(true);
-                          }} title="Editar">✏️</button>
-                          <button className="accion-icon small" onClick={() => duplicarLote(lote)} title="Duplicar">📋</button>
-                          <button className="accion-icon small danger" onClick={() => eliminarLote(lote.id)} title="Eliminar">🗑️</button>
+                        </td>
+                        <td className="numero">{lote.tipoRechazo?.tono || 0}</td>
+                        <td className="numero">{lote.tipoRechazo?.textura || 0}</td>
+                        <td className="numero">{lote.tipoRechazo?.color || 0}</td>
+                        <td className="numero">{lote.tipoRechazo?.dimension || 0}</td>
+                        <td className="numero">{lote.tipoRechazo?.acabado || 0}</td>
+                        <td>
+                          <span className={`estado-badge ${lote.estado}`}>
+                            {lote.estado === 'en_proceso' ? '⚙️' :
+                             lote.estado === 'completado' ? '✅' :
+                             lote.estado === 'revision' ? '⚠️' : '🆕'} {lote.estado}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="acciones-cell">
+                            <button className="accion-icon small" onClick={() => {
+                              setSelectedLote(lote);
+                              setModalType('ver');
+                              setShowModal(true);
+                            }} title="Ver detalles">👁️</button>
+                            <button className="accion-icon small" onClick={() => {
+                              setSelectedLote(lote);
+                              setModalType('editar');
+                              setShowModal(true);
+                            }} title="Editar">✏️</button>
+                            <button className="accion-icon small" onClick={() => duplicarLote(lote)} title="Duplicar">📋</button>
+                            <button className="accion-icon small danger" onClick={() => eliminarLote(lote.id)} title="Eliminar">🗑️</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="19" style={{ textAlign: 'center', padding: '40px' }}>
+                        <div className="empty-state">
+                          <div className="empty-icon">📭</div>
+                          <h3>No hay lotes</h3>
+                          <p>Comienza escaneando un lote o creando uno nuevo</p>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2482,4 +2306,4 @@ const FFTTquality = () => {
   );
 };
 
-export default FFTTquality; 
+export default FFTTquality;

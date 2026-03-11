@@ -1,4 +1,4 @@
- import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './TrazabilidadLotes.css';
 import TrackingLote from './TrackingLote';
 
@@ -48,6 +48,10 @@ const TrazabilidadLotes = () => {
   const [camaras, setCamaras] = useState({});
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
   
+  // ===== NUEVOS ESTADOS PARA EL SERVIDOR =====
+  const [servidorConectado, setServidorConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  
   const inputRef = useRef(null);
   const headerRef = useRef(null);
   const wsRef = useRef(null);
@@ -72,11 +76,141 @@ const TrazabilidadLotes = () => {
   ];
 
   // ============================================
-  // INICIALIZAR DATOS
+  // CONEXIÓN AL SERVIDOR WEB SOCKET
   // ============================================
   useEffect(() => {
-    setAreas(areasProduccion);
+    // 🔴 IMPORTANTE: CAMBIA ESTA URL POR LA DE TU CODESPACES
+    const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+    
+    console.log('🔌 Conectando a servidor...', WS_URL);
+    
+    const ws = new WebSocket(WS_URL);
+    
+    ws.onopen = () => {
+      console.log('✅ Conectado al servidor');
+      setServidorConectado(true);
+      setUsandoServidor(true);
+      agregarEvento('info', 'Conectado al servidor tiempo real');
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('📦 Recibido:', data.type);
+      
+      if (data.type === 'INIT') {
+        // Datos iniciales del servidor
+        const lotesServidor = data.data.lotes.map(l => ({
+          id: l.id,
+          codigo: l.codigo,
+          producto: l.producto,
+          cliente: l.cliente,
+          cantidad: l.cantidad,
+          fechaInicio: new Date().toLocaleString(),
+          estado: l.estado || 'en_proceso',
+          areaActual: l.areaActual || 'Recepción',
+          progreso: l.progreso || 5,
+          prioridad: l.prioridad || 'media',
+          responsable: l.responsable || 'Sistema',
+          tiempoRestante: '8h 00m',
+          alertas: [],
+          historial: []
+        }));
+        
+        setLotes(lotesServidor);
+        
+        // Usar áreas del servidor o las nuestras
+        if (data.data.areas && data.data.areas.length > 0) {
+          const areasMapeadas = data.data.areas.map((nombre, index) => ({
+            id: `AREA-${String(index + 1).padStart(3, '0')}`,
+            codigo: String(9000 + index + 1),
+            nombre: nombre,
+            icono: ['📦', '🎨', '🖨️', '✂️', '🔥', '🎯', '⚙️', '✅', '🚚', '🏢'][index] || '📍',
+            color: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#14b8a6', '#a855f7', '#06b6d4', '#d946ef'][index] || '#6b7280'
+          }));
+          setAreas(areasMapeadas);
+        } else {
+          setAreas(areasProduccion);
+        }
+        
+        if (lotesServidor.length > 0) {
+          setLoteSeleccionado(lotesServidor[0]);
+          setLoteActivo(lotesServidor[0].id);
+        }
+      }
+      
+      if (data.type === 'ACTUALIZACION') {
+        // Actualización en tiempo real
+        const lotesActualizados = data.data.lotes.map(l => ({
+          id: l.id,
+          codigo: l.codigo,
+          producto: l.producto,
+          cliente: l.cliente,
+          cantidad: l.cantidad,
+          fechaInicio: new Date().toLocaleString(),
+          estado: l.estado || 'en_proceso',
+          areaActual: l.areaActual,
+          progreso: l.progreso,
+          prioridad: l.prioridad || 'media',
+          responsable: l.responsable || 'Sistema',
+          tiempoRestante: '8h 00m',
+          alertas: []
+        }));
+        
+        setLotes(lotesActualizados);
+        
+        if (data.data.ultimoMovimiento) {
+          const { loteId, area } = data.data.ultimoMovimiento;
+          setUltimoEscaneo({
+            lote: loteId,
+            area: area,
+            fecha: new Date().toLocaleString()
+          });
+          
+          setMensajeEscaner(`✅ ${loteId} → ${area}`);
+          setTipoMensaje('exito');
+          agregarEvento('exito', `✅ ${loteId} movido a ${area}`);
+          
+          if (navigator.vibrate) navigator.vibrate(100);
+        }
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setServidorConectado(false);
+      setUsandoServidor(false);
+      setAreas(areasProduccion);
+      agregarEvento('error', 'Error conectando al servidor - Usando modo local');
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ Desconectado del servidor');
+      setServidorConectado(false);
+      setUsandoServidor(false);
+      setAreas(areasProduccion);
+      agregarEvento('error', 'Desconectado del servidor - Usando modo local');
+    };
+    
+    wsRef.current = ws;
+    
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
 
+  // ============================================
+  // SIMULACIÓN LOCAL (solo si no hay servidor)
+  // ============================================
+  useEffect(() => {
+    // Solo ejecutar simulación si NO estamos usando el servidor
+    if (usandoServidor) return;
+    
+    console.log('🎮 Usando modo local (simulación)');
+    setAreas(areasProduccion);
+    
+    // LOTES DE EJEMPLO PARA MODO LOCAL
     const lotesIniciales = [
       {
         id: 'LOTE-001',
@@ -84,20 +218,16 @@ const TrazabilidadLotes = () => {
         producto: 'Camiseta MLB Yankees',
         cliente: 'Nike',
         cantidad: 150,
-        fechaInicio: '2024-02-26 08:30',
+        fechaInicio: new Date().toLocaleString(),
         estado: 'en_proceso',
-        areaActual: 'Sublimado',
-        progreso: 65,
+        areaActual: 'Recepción',
+        progreso: 5,
         prioridad: 'alta',
         responsable: 'Carlos Ruiz',
-        tiempoRestante: '2h 15m',
+        tiempoRestante: '8h 00m',
         alertas: [],
         historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: '2024-02-26 08:30', operador: 'Ana López' },
-          { area: 'Diseño', codigoArea: '9002', fecha: '2024-02-26 09:45', operador: 'Pedro Sánchez' },
-          { area: 'Plotter', codigoArea: '9003', fecha: '2024-02-26 10:30', operador: 'María García' },
-          { area: 'Corte', codigoArea: '9004', fecha: '2024-02-26 11:20', operador: 'Juan Pérez' },
-          { area: 'Sublimado', codigoArea: '9005', fecha: '2024-02-26 13:15', operador: 'Roberto Díaz', actual: true }
+          { area: 'Recepción', codigoArea: '9001', fecha: new Date().toLocaleString(), operador: 'Ana López', actual: true }
         ]
       },
       {
@@ -106,19 +236,16 @@ const TrazabilidadLotes = () => {
         producto: 'Gorra NBA Lakers',
         cliente: 'Adidas',
         cantidad: 75,
-        fechaInicio: '2024-02-26 09:15',
+        fechaInicio: new Date().toLocaleString(),
         estado: 'en_proceso',
-        areaActual: 'Colorimetría',
-        progreso: 45,
+        areaActual: 'Recepción',
+        progreso: 5,
         prioridad: 'media',
         responsable: 'María González',
-        tiempoRestante: '4h 30m',
-        alertas: ['retraso'],
+        tiempoRestante: '8h 00m',
+        alertas: [],
         historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: '2024-02-26 09:15', operador: 'Ana López' },
-          { area: 'Diseño', codigoArea: '9002', fecha: '2024-02-26 10:30', operador: 'Pedro Sánchez' },
-          { area: 'Plotter', codigoArea: '9003', fecha: '2024-02-26 11:45', operador: 'María García' },
-          { area: 'Colorimetría', codigoArea: '9006', fecha: '2024-02-26 13:00', operador: 'Laura Martínez', actual: true }
+          { area: 'Recepción', codigoArea: '9001', fecha: new Date().toLocaleString(), operador: 'Ana López', actual: true }
         ]
       },
       {
@@ -127,71 +254,16 @@ const TrazabilidadLotes = () => {
         producto: 'Uniforme NFL Patriots',
         cliente: 'Puma',
         cantidad: 200,
-        fechaInicio: '2024-02-26 10:00',
-        estado: 'calidad',
-        areaActual: 'Calidad',
-        progreso: 85,
+        fechaInicio: new Date().toLocaleString(),
+        estado: 'en_proceso',
+        areaActual: 'Recepción',
+        progreso: 5,
         prioridad: 'alta',
         responsable: 'Juan Pérez',
-        tiempoRestante: '1h 00m',
+        tiempoRestante: '8h 00m',
         alertas: [],
         historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: '2024-02-26 10:00', operador: 'Ana López' },
-          { area: 'Diseño', codigoArea: '9002', fecha: '2024-02-26 11:15', operador: 'Pedro Sánchez' },
-          { area: 'Plotter', codigoArea: '9003', fecha: '2024-02-26 12:30', operador: 'María García' },
-          { area: 'Corte', codigoArea: '9004', fecha: '2024-02-26 14:00', operador: 'Juan Pérez' },
-          { area: 'Sublimado', codigoArea: '9005', fecha: '2024-02-26 15:30', operador: 'Roberto Díaz' },
-          { area: 'Colorimetría', codigoArea: '9006', fecha: '2024-02-26 16:45', operador: 'Laura Martínez' },
-          { area: 'Preparacion', codigoArea: '9007', fecha: '2024-02-26 17:30', operador: 'Carlos Ruiz' },
-          { area: 'Calidad', codigoArea: '9008', fecha: '2024-02-26 18:15', operador: 'Ana López', actual: true }
-        ]
-      },
-      {
-        id: 'LOTE-004',
-        codigo: '1004',
-        producto: 'Sudadera NHL Bruins',
-        cliente: 'Local',
-        cantidad: 100,
-        fechaInicio: '2024-02-26 11:30',
-        estado: 'incompleto',
-        areaActual: 'Incompleto',
-        progreso: 38,
-        prioridad: 'baja',
-        responsable: 'Ana López',
-        tiempoRestante: '6h 00m',
-        alertas: ['materiales', 'urgente'],
-        historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: '2024-02-26 11:30', operador: 'Ana López' },
-          { area: 'Diseño', codigoArea: '9002', fecha: '2024-02-26 12:45', operador: 'Pedro Sánchez' },
-          { area: 'Incompleto', codigoArea: '9012', fecha: '2024-02-26 14:00', operador: 'Sistema', actual: true, observacion: 'Faltan materiales' }
-        ]
-      },
-      {
-        id: 'LOTE-005',
-        codigo: '1005',
-        producto: 'Jersey NBA Bulls',
-        cliente: 'Nike',
-        cantidad: 180,
-        fechaInicio: '2024-02-26 08:00',
-        estado: 'completado',
-        areaActual: 'Logística',
-        progreso: 100,
-        prioridad: 'alta',
-        responsable: 'Pedro Sánchez',
-        tiempoRestante: '0h 00m',
-        alertas: [],
-        historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: '2024-02-26 08:00', operador: 'Ana López' },
-          { area: 'Diseño', codigoArea: '9002', fecha: '2024-02-26 09:15', operador: 'Pedro Sánchez' },
-          { area: 'Plotter', codigoArea: '9003', fecha: '2024-02-26 10:30', operador: 'María García' },
-          { area: 'Corte', codigoArea: '9004', fecha: '2024-02-26 11:45', operador: 'Juan Pérez' },
-          { area: 'Sublimado', codigoArea: '9005', fecha: '2024-02-26 13:00', operador: 'Roberto Díaz' },
-          { area: 'Colorimetría', codigoArea: '9006', fecha: '2024-02-26 14:15', operador: 'Laura Martínez' },
-          { area: 'Preparacion', codigoArea: '9007', fecha: '2024-02-26 15:30', operador: 'Carlos Ruiz' },
-          { area: 'Calidad', codigoArea: '9008', fecha: '2024-02-26 16:45', operador: 'Ana López' },
-          { area: 'RH', codigoArea: '9009', fecha: '2024-02-26 17:30', operador: 'Sistema RH' },
-          { area: 'Logística', codigoArea: '9010', fecha: '2024-02-26 18:15', operador: 'Logística', actual: true },
-          { area: 'Almacén', codigoArea: '9011', fecha: '2024-02-26 19:00', operador: 'Almacén' }
+          { area: 'Recepción', codigoArea: '9001', fecha: new Date().toLocaleString(), operador: 'Ana López', actual: true }
         ]
       }
     ];
@@ -204,28 +276,7 @@ const TrazabilidadLotes = () => {
       setLoteActivo(lotesIniciales[0].id);
     }
 
-    generarDatosGrafico();
-    generarPredicciones();
-  }, []);
-
-  // ============================================
-  // CERRAR NOTIFICACIONES AL HACER CLICK FUERA
-  // ============================================
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notificacionesRef.current && !notificacionesRef.current.contains(event.target)) {
-        setMostrarNotificaciones(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // ============================================
-  // SIMULACIÓN DE TIEMPO REAL
-  // ============================================
-  useEffect(() => {
+    // Simulación de estadísticas en modo local
     const intervaloStats = setInterval(() => {
       setStatsTiempoReal(prev => ({
         lotesPorHora: Math.floor(Math.random() * 20) + 15,
@@ -238,64 +289,13 @@ const TrazabilidadLotes = () => {
         calidad: Math.floor(Math.random() * 5) + 94
       }));
 
-      if (Math.random() > 0.7) {
-        const tipos = ['info', 'success', 'warning', 'error'];
-        const mensajes = [
-          '📊 Producción en aumento',
-          '⚡ Nueva orden de trabajo',
-          '✅ Lote completado',
-          '⚠️ Mantenimiento preventivo',
-          '📦 Material recibido',
-          '🔧 Máquina en reparación',
-          '📈 Meta de producción alcanzada',
-          '🎯 Objetivo del día cumplido'
-        ];
-        const randomTipo = tipos[Math.floor(Math.random() * tipos.length)];
-        const randomMensaje = mensajes[Math.floor(Math.random() * mensajes.length)];
-        
-        agregarEvento(randomTipo, randomMensaje);
-
-        if (randomTipo === 'warning' || randomTipo === 'error') {
-          enviarAlerta(randomTipo, randomMensaje);
-        }
-      }
-
-      setLotes(prev => prev.map(lote => {
-        if (lote.estado !== 'completado' && Math.random() > 0.8) {
-          return {
-            ...lote,
-            progreso: Math.min(100, lote.progreso + 1)
-          };
-        }
-        return lote;
-      }));
-
       generarDatosGrafico();
     }, 3000);
 
-    wsRef.current = {
-      send: (data) => console.log('WebSocket enviado:', data),
-      close: () => console.log('WebSocket cerrado')
-    };
-
     return () => {
       clearInterval(intervaloStats);
-      if (wsRef.current) wsRef.current.close();
     };
-  }, [lotes]);
-
-  // ============================================
-  // GENERAR PREDICCIONES IA
-  // ============================================
-  const generarPredicciones = () => {
-    const pred = {
-      'LOTE-001': { tiempoEstimado: '2h 15m', confianza: 85, alerta: 'ninguna' },
-      'LOTE-002': { tiempoEstimado: '4h 30m', confianza: 65, alerta: 'retraso' },
-      'LOTE-003': { tiempoEstimado: '1h 00m', confianza: 95, alerta: 'ninguna' },
-      'LOTE-004': { tiempoEstimado: '6h 00m', confianza: 45, alerta: 'critico' }
-    };
-    setPredicciones(pred);
-  };
+  }, [usandoServidor]); // Depende de usandoServidor
 
   // ============================================
   // GENERAR DATOS PARA GRÁFICO
@@ -311,56 +311,17 @@ const TrazabilidadLotes = () => {
   };
 
   // ============================================
-  // ENVIAR ALERTA
+  // CERRAR NOTIFICACIONES
   // ============================================
-  const enviarAlerta = (tipo, mensaje) => {
-    if (alertasConfig.email) {
-      console.log('📧 Email enviado:', mensaje);
-    }
-    if (alertasConfig.sms) {
-      console.log('📱 SMS enviado:', mensaje);
-    }
-    if (alertasConfig.telegram) {
-      console.log('📨 Telegram enviado:', mensaje);
-    }
-  };
-
-  // ============================================
-  // AGREGAR INCIDENCIA
-  // ============================================
-  const agregarIncidencia = (loteId, tipo, descripcion) => {
-    const nuevaIncidencia = {
-      id: Date.now(),
-      loteId,
-      tipo,
-      descripcion,
-      fecha: new Date().toLocaleString(),
-      estado: 'abierta',
-      fotos: []
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificacionesRef.current && !notificacionesRef.current.contains(event.target)) {
+        setMostrarNotificaciones(false);
+      }
     };
-    setIncidencias(prev => [nuevaIncidencia, ...prev]);
-    agregarEvento('warning', `⚠️ Incidencia en ${loteId}: ${descripcion}`);
-  };
-
-  // ============================================
-  // EXPORTAR REPORTE
-  // ============================================
-  const exportarReporte = (formato) => {
-    const data = {
-      lotes,
-      eventos,
-      estadisticas: statsTiempoReal,
-      fecha: new Date().toLocaleString()
-    };
-    
-    if (formato === 'pdf') {
-      console.log('📄 Exportando PDF...', data);
-      alert('Reporte PDF generado');
-    } else if (formato === 'excel') {
-      console.log('📊 Exportando Excel...', data);
-      alert('Reporte Excel generado');
-    }
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // ============================================
   // ENFOCAR INPUT
@@ -372,7 +333,7 @@ const TrazabilidadLotes = () => {
   }, [modoEscaner]);
 
   // ============================================
-  // AGREGAR EVENTO
+  // FUNCIONES AUXILIARES
   // ============================================
   const agregarEvento = (tipo, mensaje, loteRef = '') => {
     const nuevoEvento = {
@@ -395,13 +356,8 @@ const TrazabilidadLotes = () => {
     }
   };
 
-  // ============================================
-  // MARCAR NOTIFICACIÓN COMO LEÍDA
-  // ============================================
   const marcarNotificacionLeida = (id) => {
-    setNotificaciones(prev => prev.map(n => 
-      n.id === id ? { ...n, leida: true } : n
-    ));
+    setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
   };
 
   // ============================================
@@ -513,106 +469,93 @@ const TrazabilidadLotes = () => {
   // PROCESAR MOVIMIENTO
   // ============================================
   const procesarMovimiento = (area, lote) => {
-  // En lugar de bloquear, registramos el movimiento aunque ya haya pasado
-  const yaPaso = lote.historial.some(h => h.codigoArea === area.codigo);
-  
-  // Registrar si es un reingreso
-  const esReingreso = yaPaso;
-  
-  if (esReingreso) {
-    // Mostramos una advertencia pero permitimos el movimiento
-    setMensajeEscaner(`↩️ ${lote.id} REINGRESA a ${area.nombre}`);
-    setTipoMensaje('warning');
-    agregarEvento('warning', `↩️ ${lote.id} reingresa a ${area.nombre}`, lote.id);
-    if (navigator.vibrate) navigator.vibrate(100);
-  }
+    // Si estamos conectados al servidor, enviar por WebSocket
+    if (usandoServidor && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'MOVIMIENTO',
+        payload: {
+          loteId: lote.id,
+          area: area.nombre
+        }
+      }));
+      
+      setMensajeEscaner(`📤 Enviando: ${lote.id} → ${area.nombre}`);
+      setTipoMensaje('info');
+      return;
+    }
+    
+    // MODO LOCAL - Simular movimiento
+    const vecesPasadas = lote.historial?.filter(h => h.codigoArea === area.codigo).length || 0;
+    const esReingreso = vecesPasadas > 0;
+    
+    const nuevoHistorial = {
+      area: area.nombre,
+      codigoArea: area.codigo,
+      fecha: new Date().toLocaleString(),
+      operador: 'Operador Actual',
+      actual: true,
+      reingreso: esReingreso,
+      numeroPaso: vecesPasadas + 1
+    };
 
-  // Contar cuántas veces ha pasado por esta área
-  const vecesPasadas = lote.historial.filter(h => h.codigoArea === area.codigo).length;
-  
-  const nuevoHistorial = {
-    area: area.nombre,
-    codigoArea: area.codigo,
-    fecha: new Date().toLocaleString(),
-    operador: 'Operador Actual',
-    actual: true,
-    reingreso: esReingreso,
-    numeroPaso: vecesPasadas + 1 // Indica si es la 1ra, 2da, etc. vez
+    setLotes(prevLotes => prevLotes.map(l => {
+      if (l.id === lote.id) {
+        const historialActualizado = (l.historial || []).map(h => ({ ...h, actual: false }));
+        const nuevoEstado = area.id === 'AREA-011' ? 'completado' : 
+                           area.id === 'AREA-012' ? 'incompleto' : 
+                           area.id === 'AREA-008' ? 'calidad' : 'en_proceso';
+        
+        let nuevoProgreso;
+        if (esReingreso) {
+          nuevoProgreso = Math.max(0, Math.min(100, l.progreso + (Math.random() > 0.5 ? 5 : -3)));
+        } else {
+          nuevoProgreso = Math.min(100, l.progreso + 8);
+        }
+
+        return {
+          ...l,
+          areaActual: area.nombre,
+          estado: nuevoEstado,
+          progreso: nuevoProgreso,
+          historial: [...historialActualizado, nuevoHistorial]
+        };
+      }
+      return l;
+    }));
+
+    setLoteSeleccionado(prev => {
+      if (!prev || prev.id !== lote.id) return prev;
+      return {
+        ...prev,
+        areaActual: area.nombre,
+        progreso: esReingreso ? 
+          Math.max(0, Math.min(100, prev.progreso + (Math.random() > 0.5 ? 5 : -3))) : 
+          Math.min(100, prev.progreso + 8),
+        historial: [...(prev.historial || []).map(h => ({ ...h, actual: false })), nuevoHistorial]
+      };
+    });
+
+    if (esReingreso) {
+      setMensajeEscaner(`↩️ ${lote.id} REINGRESA a ${area.nombre} (${vecesPasadas + 1}ª vez)`);
+      setTipoMensaje('warning');
+      agregarEvento('warning', `↩️ ${lote.id} reingresa a ${area.nombre} (${vecesPasadas + 1}ª vez)`, lote.id);
+    } else {
+      setMensajeEscaner(`✅ ${lote.id} → ${area.nombre}`);
+      setTipoMensaje('exito');
+      agregarEvento('exito', `✅ ${lote.id} movido a ${area.nombre}`, lote.id);
+    }
+    
+    if (navigator.vibrate) navigator.vibrate(200);
+
+    setUltimoEscaneo({
+      lote: lote.id,
+      area: area.nombre,
+      fecha: new Date().toLocaleString(),
+      reingreso: esReingreso,
+      veces: vecesPasadas + 1
+    });
   };
 
-  setLotes(prevLotes => prevLotes.map(l => {
-    if (l.id === lote.id) {
-      // Marcar todos los historiales anteriores como no actuales
-      const historialActualizado = l.historial.map(h => ({
-        ...h,
-        actual: false
-      }));
-
-      // Determinar el estado basado en el área actual
-      const nuevoEstado = area.id === 'AREA-011' ? 'completado' : 
-                         area.id === 'AREA-012' ? 'incompleto' : 
-                         area.id === 'AREA-008' ? 'calidad' : 
-                         l.estado === 'completado' ? 'en_proceso' : // Si estaba completado y regresa
-                         'en_proceso';
-
-      // Ajustar progreso (puede subir o bajar dependiendo del contexto)
-      let nuevoProgreso = l.progreso;
-      if (esReingreso) {
-        // Si reingresa, podría bajar el progreso o mantenerse
-        nuevoProgreso = Math.max(0, l.progreso - 5); // Baja 5% al reingresar
-      } else {
-        nuevoProgreso = Math.min(100, l.progreso + 8);
-      }
-
-      return {
-        ...l,
-        areaActual: area.nombre,
-        estado: nuevoEstado,
-        progreso: nuevoProgreso,
-        historial: [...historialActualizado, nuevoHistorial]
-      };
-    }
-    return l;
-  }));
-
-  setLoteSeleccionado(prev => {
-    if (!prev || prev.id !== lote.id) return prev;
-    
-    return {
-      ...prev,
-      areaActual: area.nombre,
-      progreso: esReingreso ? Math.max(0, prev.progreso - 5) : Math.min(100, prev.progreso + 8),
-      historial: [...prev.historial.map(h => ({ ...h, actual: false })), nuevoHistorial]
-    };
-  });
-
-  setHistorialCompleto(prev => [nuevoHistorial, ...prev]);
-
-  if (!esReingreso) {
-    setMensajeEscaner(`✅ ${lote.id} → ${area.nombre}`);
-    setTipoMensaje('exito');
-    agregarEvento('exito', `✅ ${lote.id} movido a ${area.nombre}`, lote.id);
-  }
-  
-  if (navigator.vibrate) navigator.vibrate(200);
-
-  setUltimoEscaneo({
-    lote: lote.id,
-    area: area.nombre,
-    fecha: new Date().toLocaleString(),
-    reingreso: esReingreso
-  });
-
-  // Notificaciones especiales
-  if (area.id === 'AREA-011') {
-    agregarEvento('completado', `🎉 ¡Lote ${lote.id} COMPLETADO!`, lote.id);
-    enviarAlerta('completado', `Lote ${lote.id} completado`);
-  } else if (area.id === 'AREA-012') {
-    agregarEvento('warning', `⚠️ Lote ${lote.id} marcado como incompleto`, lote.id);
-  } else if (esReingreso) {
-    agregarEvento('warning', `↩️ Lote ${lote.id} reingresó a ${area.nombre}`, lote.id);
-  }
-};
   // ============================================
   // CREAR NUEVO LOTE
   // ============================================
@@ -626,7 +569,7 @@ const TrazabilidadLotes = () => {
       fechaInicio: new Date().toLocaleString(),
       estado: 'en_proceso',
       areaActual: 'Recepción',
-      progreso: 8,
+      progreso: 5,
       prioridad: 'media',
       responsable: 'Sistema',
       tiempoRestante: '8h 00m',
@@ -684,7 +627,9 @@ const TrazabilidadLotes = () => {
               <span className="logo-icon">🏭</span>
               <h1 className="app-title">
                 TEGRA ERP
-                <span className="title-badge">Trazabilidad</span>
+                <span className="title-badge">
+                  {usandoServidor ? '🌐 Modo Servidor' : '💻 Modo Local'}
+                </span>
               </h1>
             </div>
             <div className="header-date">
@@ -703,7 +648,13 @@ const TrazabilidadLotes = () => {
               {modoOscuro ? '☀️' : '🌙'}
             </button>
 
-            {/* NOTIFICACIONES CORREGIDAS */}
+            {/* INDICADOR DE SERVIDOR */}
+            <div className={`server-status ${servidorConectado ? 'connected' : 'disconnected'}`}>
+              <span className="status-dot"></span>
+              <span>{servidorConectado ? 'Servidor OK' : 'Sin servidor'}</span>
+            </div>
+
+            {/* NOTIFICACIONES */}
             <div className="notificaciones-wrapper" ref={notificacionesRef}>
               <button 
                 className="notificaciones-icono"
@@ -764,7 +715,7 @@ const TrazabilidadLotes = () => {
               {modoEscaner ? '🔴 Desactivar' : '🟢 Activar'}
             </button>
 
-            <button className="export-btn" onClick={() => exportarReporte('pdf')}>
+            <button className="export-btn" onClick={() => alert('Exportar')}>
               📥 Exportar
             </button>
 
@@ -790,7 +741,7 @@ const TrazabilidadLotes = () => {
                 value={codigoEscaneado}
                 onChange={(e) => setCodigoEscaneado(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && procesarEscaneo()}
-                placeholder="Escanea un código aquí..."
+                placeholder="Escanea un código aquí (9001-9012 para áreas, 1001-1005 para lotes)"
                 disabled={!modoEscaner}
               />
               <button 
@@ -861,7 +812,7 @@ const TrazabilidadLotes = () => {
         </div>
       </header>
 
-      {/* ===== CONTENIDO CON SCROLL ===== */}
+      {/* ===== RESTO DEL CÓDIGO JSX (sin cambios) ===== */}
       <main className="app-main">
         {/* Tabs y filtros */}
         <div className="tabs-container">
@@ -974,9 +925,6 @@ const TrazabilidadLotes = () => {
                   <span className="lote-tiempo">⏱️ {lote.tiempoRestante}</span>
                   <span className="lote-responsable">👤 {lote.responsable}</span>
                 </div>
-                {predicciones[lote.id] && predicciones[lote.id].alerta === 'critico' && (
-                  <div className="prediccion-alerta">⚠️ Riesgo alto</div>
-                )}
               </div>
             ))}
           </div>
@@ -1065,26 +1013,25 @@ const TrazabilidadLotes = () => {
             </div>
           </div>
 
- {/* Columna central - Tracking */}
-<div className="tracking-column">
-  <TrackingLote 
-    loteSeleccionado={loteSeleccionado}
-    areas={areas}
-    predicciones={predicciones}
-  />
-  
-  {/* Cámara en tiempo real (simulada) - AHORA DENTRO DE LA COLUMNA */}
-  {loteSeleccionado && (
-    <div className="camera-preview">
-      <h4>📹 Vista en tiempo real - {loteSeleccionado.areaActual}</h4>
-      <div className="camera-placeholder">
-        <span className="camera-icon">🎥</span>
-        <span>Transmisión en vivo</span>
-        <small>{loteSeleccionado.areaActual} - Estación {Math.floor(Math.random() * 5) + 1}</small>
-      </div>
-    </div>
-  )}
-</div>
+          {/* Columna central - Tracking */}
+          <div className="tracking-column">
+            <TrackingLote 
+              loteSeleccionado={loteSeleccionado}
+              areas={areas}
+              predicciones={predicciones}
+            />
+            
+            {loteSeleccionado && (
+              <div className="camera-preview">
+                <h4>📹 Vista en tiempo real - {loteSeleccionado.areaActual}</h4>
+                <div className="camera-placeholder">
+                  <span className="camera-icon">🎥</span>
+                  <span>Transmisión en vivo</span>
+                  <small>{loteSeleccionado.areaActual} - Estación {Math.floor(Math.random() * 5) + 1}</small>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Columna derecha - Eventos y análisis */}
           <div className="events-column">
@@ -1129,6 +1076,11 @@ const TrazabilidadLotes = () => {
                   <span className="scan-arrow">→</span>
                   <span className="scan-area">{ultimoEscaneo.area}</span>
                   <span className="scan-time">{ultimoEscaneo.fecha}</span>
+                  {ultimoEscaneo.reingreso && (
+                    <span className="scan-reingreso" title={`${ultimoEscaneo.veces}ª vez en esta área`}>
+                      ↩️{ultimoEscaneo.veces > 1 ? ` x${ultimoEscaneo.veces}` : ''}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -1252,6 +1204,41 @@ const TrazabilidadLotes = () => {
           </div>
         </div>
       </main>
+
+      {/* CSS para el indicador de servidor */}
+      <style jsx>{`
+        .server-status {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 13px;
+          margin-right: 10px;
+        }
+        .server-status.connected {
+          background: #10b98120;
+          color: #10b981;
+        }
+        .server-status.disconnected {
+          background: #ef444420;
+          color: #ef4444;
+        }
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+        .connected .status-dot {
+          background: #10b981;
+          box-shadow: 0 0 10px #10b981;
+        }
+        .disconnected .status-dot {
+          background: #ef4444;
+          box-shadow: 0 0 10px #ef4444;
+        }
+      `}</style>
     </div>
   );
 };

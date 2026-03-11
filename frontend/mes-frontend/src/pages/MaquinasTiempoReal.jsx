@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./MaquinasTiempoReal.css";
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
 const MaquinasTiempoReal = () => {
   // ================ ESTADOS PRINCIPALES ================
   const [loteEscaneado, setLoteEscaneado] = useState("");
@@ -18,6 +23,13 @@ const MaquinasTiempoReal = () => {
   const [modoOscuro, setModoOscuro] = useState(false);
   const [vistaCompacta, setVistaCompacta] = useState(false);
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState(null);
+  
+  // ================ ESTADOS DE CONEXIÓN ================
+  const [conectado, setConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
+  const wsRef = useRef(null);
+
   const [nuevoLoteForm, setNuevoLoteForm] = useState({
     codigo: "",
     cliente: "",
@@ -43,6 +55,101 @@ const MaquinasTiempoReal = () => {
 
   const inputRef = useRef(null);
   const intervalRef = useRef(null);
+
+  // ================ CONEXIÓN WEBSOCKET MEJORADA ================
+  useEffect(() => {
+    console.log('🔌 MaquinasTiempoReal conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ MaquinasTiempoReal conectado');
+      setConectado(true);
+      setUsandoServidor(true);
+      agregarNotificacion('✅ Conectado al servidor - Tiempo Real', 'success');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 MaquinasTiempoReal recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+            agregarNotificacion(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
+          }
+          
+          // Actualizar lotesDB con datos del servidor
+          const lotesConvertidos = lotesData.map((lote, index) => ({
+            id: lote.id || `LOTE-${String(index + 1).padStart(3, '0')}`,
+            codigo: lote.codigo || `NK-${Math.floor(Math.random() * 9000 + 1000)}`,
+            cliente: lote.cliente || 'Pendiente',
+            clienteIcono: '📦',
+            producto: lote.producto || 'Producto',
+            cantidadTotal: lote.cantidad || 0,
+            cantidadProcesada: lote.cantidadProcesada || 0,
+            prioridad: lote.prioridad || 'MEDIA',
+            estado: lote.estado || 'pendiente',
+            area: lote.areaActual || 'Sublimado',
+            operador: lote.responsable || 'Pendiente',
+            eficiencia: lote.progreso || 0,
+            escaneos: 0,
+            fechaCreacion: lote.fechaInicio?.split('T')[0] || new Date().toLocaleDateString(),
+            horaCreacion: lote.horaInicio || new Date().toLocaleTimeString()
+          }));
+          
+          setLotesDB(lotesConvertidos);
+          
+          // Actualizar lotes en producción
+          const enProduccion = lotesData
+            .filter(l => l.estado === 'en_proceso')
+            .map(l => ({
+              ...l,
+              idProduccion: `PROD-${Date.now()}-${l.codigo}`,
+              cantidadProcesada: l.cantidadProcesada || 0,
+              progreso: l.progreso || 0,
+              piezasPorHora: Math.floor(Math.random() * 100) + 50
+            }));
+          
+          setLotesEnProduccion(enProduccion);
+          
+          // Actualizar lotes finalizados
+          const finalizados = lotesData
+            .filter(l => l.estado === 'completado')
+            .map(l => ({
+              ...l,
+              idProduccion: `PROD-${Date.now()}-${l.codigo}`,
+              cantidadProcesada: l.cantidad || 0,
+              eficienciaFinal: 100,
+              tiempoTotal: l.tiempoTotal || '02:30:00'
+            }));
+          
+          setLotesFinalizados(finalizados);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      setUsandoServidor(false);
+      agregarNotificacion('❌ Usando modo local - Demo', 'info');
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ MaquinasTiempoReal desconectado');
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    return () => ws.close();
+  }, []);
 
   // ================ DETECTAR TURNO ================
   useEffect(() => {
@@ -73,7 +180,7 @@ const MaquinasTiempoReal = () => {
       operador: "Carlos R.",
       ultimoMantenimiento: "2026-02-15",
       produccionHoy: 1245,
-      historial: [] // Array para guardar lotes procesados
+      historial: []
     },
     {
       id: "sub-001",
@@ -112,76 +219,7 @@ const MaquinasTiempoReal = () => {
   ]);
 
   // ================ LOTES DB PREMIUM ================
-  const [lotesDB, setLotesDB] = useState([
-    {
-      id: "LOTE-001",
-      codigo: "NK-137",
-      cliente: "NIKE SPORTSWEAR",
-      clienteIcono: "👟",
-      producto: "CAMISETA DRI-FIT",
-      cantidadTotal: 1500,
-      cantidadProcesada: 0,
-      prioridad: "ALTA",
-      estado: "pendiente",
-      area: "Sublimado",
-      operador: "Carlos",
-      eficiencia: 0,
-      escaneos: 0,
-      fechaCreacion: "2026-02-27",
-      horaCreacion: "08:30"
-    },
-    {
-      id: "LOTE-002",
-      codigo: "NK-79",
-      cliente: "NIKE RUNNING",
-      clienteIcono: "🏃",
-      producto: "SHORT DEPORTIVO",
-      cantidadTotal: 600,
-      cantidadProcesada: 0,
-      prioridad: "MEDIA",
-      estado: "pendiente",
-      area: "Sublimado",
-      operador: "María",
-      eficiencia: 0,
-      escaneos: 0,
-      fechaCreacion: "2026-02-27",
-      horaCreacion: "09:15"
-    },
-    {
-      id: "LOTE-003",
-      codigo: "NK-1002",
-      cliente: "NIKE SB",
-      clienteIcono: "🛹",
-      producto: "Run",
-      cantidadTotal: 1502,
-      cantidadProcesada: 0,
-      prioridad: "MEDIA",
-      estado: "pendiente",
-      area: "Sublimado",
-      operador: "Juan",
-      eficiencia: 0,
-      escaneos: 0,
-      fechaCreacion: "2026-02-27",
-      horaCreacion: "10:00"
-    },
-    {
-      id: "LOTE-004",
-      codigo: "NK-73",
-      cliente: "NIKE ACG",
-      clienteIcono: "🏔️",
-      producto: "CHAQUETA",
-      cantidadTotal: 280,
-      cantidadProcesada: 0,
-      prioridad: "BAJA",
-      estado: "pendiente",
-      area: "Sublimado",
-      operador: "Ana",
-      eficiencia: 0,
-      escaneos: 0,
-      fechaCreacion: "2026-02-27",
-      horaCreacion: "11:30"
-    }
-  ]);
+  const [lotesDB, setLotesDB] = useState([]);
 
   // ================ ENFOCAR INPUT ================
   useEffect(() => {
@@ -208,14 +246,14 @@ const MaquinasTiempoReal = () => {
   const actualizarProduccion = useCallback(() => {
     setLotesEnProduccion(prev => 
       prev.map(lote => {
-        if (lote.estado !== "en_produccion" || !lote.maquinaId) return lote;
+        if (lote.estado !== "en_proceso" || !lote.maquinaId) return lote;
         
         const variacion = 0.9 + (Math.random() * 0.2);
         const incremento = (lote.velocidadProduccion || 5) * variacion;
         
         const nuevaCantidad = Math.min(
-          lote.cantidadProcesada + incremento,
-          lote.cantidadTotal
+          (lote.cantidadProcesada || 0) + incremento,
+          lote.cantidad || 0
         );
         
         const tiempoTranscurrido = Math.floor((new Date() - new Date(lote.horaInicio)) / 1000);
@@ -223,7 +261,7 @@ const MaquinasTiempoReal = () => {
         const minutos = Math.floor((tiempoTranscurrido % 3600) / 60);
         const segundos = tiempoTranscurrido % 60;
         
-        const progreso = (nuevaCantidad / lote.cantidadTotal) * 100;
+        const progreso = lote.cantidad > 0 ? (nuevaCantidad / lote.cantidad) * 100 : 0;
         
         const piezasPorHora = tiempoTranscurrido > 0 
           ? Math.round((nuevaCantidad / tiempoTranscurrido) * 3600)
@@ -242,8 +280,8 @@ const MaquinasTiempoReal = () => {
 
   // ================ ACTUALIZAR ESTADÍSTICAS ================
   const actualizarEstadisticas = useCallback(() => {
-    const totalPiezas = lotesEnProduccion.reduce((acc, l) => acc + l.cantidadProcesada, 0);
-    const totalPiezasFinalizadas = lotesFinalizados.reduce((acc, l) => acc + l.cantidadProcesada, 0);
+    const totalPiezas = lotesEnProduccion.reduce((acc, l) => acc + (l.cantidadProcesada || 0), 0);
+    const totalPiezasFinalizadas = lotesFinalizados.reduce((acc, l) => acc + (l.cantidadProcesada || 0), 0);
     const piezasPorHora = lotesEnProduccion.reduce((acc, l) => acc + (l.piezasPorHora || 0), 0);
     
     setEstadisticas(prev => ({
@@ -251,12 +289,19 @@ const MaquinasTiempoReal = () => {
       lotesActivos: lotesEnProduccion.length,
       lotesCompletados: lotesFinalizados.length,
       piezasProcesadas: Math.round(totalPiezas + totalPiezasFinalizadas),
-      piezasTotales: lotesDB.reduce((acc, l) => acc + l.cantidadTotal, 0),
+      piezasTotales: lotesDB.reduce((acc, l) => acc + (l.cantidadTotal || 0), 0),
       piezasPorHora: Math.round(piezasPorHora)
     }));
   }, [lotesEnProduccion, lotesFinalizados, lotesDB]);
 
-  // ================ PROCESAR ESCANEO - DOBLE FUNCIÓN CORREGIDA ================
+  // ================ ENVIAR AL SERVIDOR ================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+    }
+  };
+
+  // ================ PROCESAR ESCANEO ================
   const procesarEscaneo = (codigo) => {
     if (!codigo || codigo.trim() === "") {
       agregarNotificacion("⚠️ Ingrese un código válido", "warning");
@@ -320,7 +365,7 @@ const MaquinasTiempoReal = () => {
       cantidadProcesada: 0,
       piezasPorHora: 0,
       escaneos: 1,
-      estado: "en_produccion",
+      estado: "en_proceso",
       velocidadProduccion: 5,
       color: `hsl(${Math.random() * 360}, 70%, 60%)`
     };
@@ -332,7 +377,7 @@ const MaquinasTiempoReal = () => {
     setLotesDB(prev =>
       prev.map(l =>
         l.codigo === lote.codigo
-          ? { ...l, estado: "en_produccion" }
+          ? { ...l, estado: "en_proceso" }
           : l
       )
     );
@@ -344,6 +389,13 @@ const MaquinasTiempoReal = () => {
       timestamp: new Date().toLocaleString()
     }, ...prev]);
 
+    // Enviar al servidor
+    enviarAlServidor('MOVIMIENTO', {
+      loteId: lote.codigo,
+      area: lote.area || 'Sublimado',
+      estado: 'iniciado'
+    });
+
     agregarNotificacion(`🚀 Lote ${lote.codigo} iniciado`, "success");
     
     if (maquinasDisponibles.length > 0) {
@@ -353,13 +405,13 @@ const MaquinasTiempoReal = () => {
     }
   };
 
-  // ================ FINALIZAR LOTE - CORREGIDO (SIN PANTALLAZO) ================
+  // ================ FINALIZAR LOTE ================
   const finalizarLote = (loteId) => {
     const lote = lotesEnProduccion.find(l => l.idProduccion === loteId);
     if (!lote) return;
 
-    const cantidadFinal = Math.round(lote.cantidadProcesada);
-    const eficiencia = ((cantidadFinal / lote.cantidadTotal) * 100).toFixed(1);
+    const cantidadFinal = Math.round(lote.cantidadProcesada || 0);
+    const eficiencia = lote.cantidadTotal > 0 ? ((cantidadFinal / lote.cantidadTotal) * 100).toFixed(1) : 0;
 
     const loteFinalizado = {
       ...lote,
@@ -410,6 +462,14 @@ const MaquinasTiempoReal = () => {
       timestamp: new Date().toLocaleString()
     }, ...prev]);
 
+    // Enviar al servidor
+    enviarAlServidor('MOVIMIENTO', {
+      loteId: lote.codigo,
+      area: 'Finalizado',
+      estado: 'completado',
+      eficiencia
+    });
+
     // MOSTRAR DETALLE AUTOMÁTICAMENTE
     setLoteActivo(loteFinalizado);
     setEscaneando(true);
@@ -452,6 +512,13 @@ const MaquinasTiempoReal = () => {
       )
     );
 
+    // Enviar al servidor
+    enviarAlServidor('ASIGNACION', {
+      loteId: lote.codigo,
+      maquinaId: maquinaId,
+      maquinaNombre: maquina.nombre
+    });
+
     agregarNotificacion(`⚡ Máquina ${maquina.nombre} asignada`, "success");
   };
 
@@ -490,6 +557,10 @@ const MaquinasTiempoReal = () => {
     };
     
     setLotesDB(prev => [nuevoLote, ...prev]);
+    
+    // Enviar al servidor
+    enviarAlServidor('NUEVO_LOTE', nuevoLote);
+    
     agregarNotificacion(`✨ Lote ${codigo} generado`, "success");
   };
 
@@ -515,6 +586,10 @@ const MaquinasTiempoReal = () => {
     };
 
     setLotesDB(prev => [nuevoLote, ...prev]);
+    
+    // Enviar al servidor
+    enviarAlServidor('NUEVO_LOTE', nuevoLote);
+    
     setModalCrearLote(false);
     setNuevoLoteForm({
       codigo: "",
@@ -558,6 +633,19 @@ const MaquinasTiempoReal = () => {
   return (
     <div className={`sistema-produccion-container ${modoOscuro ? 'dark-mode' : ''} ${vistaCompacta ? 'vista-compacta' : ''}`}>
       
+      {/* Indicador de conexión */}
+      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+        <span className="status-dot"></span>
+        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+      </div>
+
+      {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+      {ultimoMovimiento && (
+        <div className="movimiento-notificacion">
+          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+        </div>
+      )}
+
       {/* Panel de Control Rápido */}
       <div className="control-panel">
         <button className={`control-btn ${modoOscuro ? 'active' : ''}`} onClick={() => setModoOscuro(!modoOscuro)}>
@@ -711,7 +799,7 @@ const MaquinasTiempoReal = () => {
             </div>
 
             <div className="lote-footer">
-              <span>{Math.round(lote.cantidadProcesada)}/{lote.cantidadTotal}</span>
+              <span>{Math.round(lote.cantidadProcesada)}/{lote.cantidad}</span>
               <span>{lote.tiempoActual}</span>
               <span>{lote.piezasPorHora} pz/h</span>
             </div>
@@ -790,7 +878,7 @@ const MaquinasTiempoReal = () => {
                   </span>
                 </div>
                 <div className="finalizado-body">
-                  <span>{lote.cantidadProcesada}/{lote.cantidadTotal}</span>
+                  <span>{lote.cantidadProcesada}/{lote.cantidad}</span>
                   <span>⏱️ {lote.tiempoTotal}</span>
                 </div>
               </div>
@@ -845,7 +933,7 @@ const MaquinasTiempoReal = () => {
                       </svg>
                       <span className="progreso-porcentaje">{loteActivo.progreso || 0}%</span>
                     </div>
-                    <p>{Math.round(loteActivo.cantidadProcesada)}/{loteActivo.cantidadTotal} piezas</p>
+                    <p>{Math.round(loteActivo.cantidadProcesada)}/{loteActivo.cantidad} piezas</p>
                   </div>
 
                   <div className="detalle-metricas">
@@ -888,6 +976,74 @@ const MaquinasTiempoReal = () => {
           </div>
         </div>
       ) : null}
+
+      {/* Estilos para el indicador de conexión */}
+      <style>{`
+        .connection-status {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          backdrop-filter: blur(10px);
+        }
+        
+        .connection-status.connected {
+          background: #10b981;
+          color: white;
+        }
+        
+        .connection-status.disconnected {
+          background: #f59e0b;
+          color: white;
+        }
+        
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 10px white;
+          animation: pulse 2s infinite;
+        }
+
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10000;
+          animation: slideUp 0.3s ease;
+          font-weight: 500;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   );
 };

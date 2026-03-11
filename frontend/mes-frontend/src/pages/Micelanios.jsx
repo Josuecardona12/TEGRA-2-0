@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './Micelanios.css'; // Corregido: ahora importa Micelanios.css
+import './Micelanios.css';
 
-const Micelanios = () => { // Corregido: nombre del componente igual al archivo
+// ============================================
+// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
+const Micelanios = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [codigo, setCodigo] = useState('');
   const [tipo, setTipo] = useState('');
@@ -13,18 +18,84 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
   const [tipoMensaje, setTipoMensaje] = useState('');
   const [mostrarNuevoLote, setMostrarNuevoLote] = useState(false);
   const [nuevoLoteNombre, setNuevoLoteNombre] = useState('');
-  const [vista, setVista] = useState('lotes'); // 'lotes', 'tracking', 'estadisticas'
+  const [vista, setVista] = useState('lotes');
   const [busqueda, setBusqueda] = useState('');
   const [modoOscuro, setModoOscuro] = useState(false);
   const [ordenAscendente, setOrdenAscendente] = useState(true);
+  
+  // ================ ESTADOS DE CONEXIÓN PARA TIEMPO REAL ================
+  const [conectado, setConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
+  const wsRef = useRef(null);
+  
   const inputRef = useRef(null);
+
+  // ================ CONEXIÓN WEBSOCKET PARA TIEMPO REAL ================
+  useEffect(() => {
+    console.log('🔌 Micelanios conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ Micelanios conectado');
+      setConectado(true);
+      setUsandoServidor(true);
+      mostrarMensaje('✅ Conectado al servidor - Tiempo Real', 'exito');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 Micelanios recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+            mostrarMensaje(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
+          }
+          
+          if (lotesData.length > 0) {
+            mostrarMensaje(`📊 ${lotesData.length} lotes en el sistema`, 'info');
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      setUsandoServidor(false);
+      mostrarMensaje('❌ Usando modo local - Demo', 'info');
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ Micelanios desconectado');
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    return () => ws.close();
+  }, []);
+
+  // ================ ENVIAR AL SERVIDOR ================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+    }
+  };
 
   // Estado para almacenar registros agrupados por lote
   const [lotes, setLotes] = useState([
     {
       id: 'LOTE-001',
       nombre: 'LOTE-001',
-      fechaCreacion: '2/25/2026',
+      fechaCreacion: '3/11/2026',
       color: '#6366f1',
       icono: '📦',
       activo: true,
@@ -36,7 +107,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
           areaOrigen: 'Corte', 
           areaDestino: 'Producción', 
           cantidad: 1, 
-          fecha: '2/25/2026', 
+          fecha: '3/11/2026', 
           hora: '5:04 AM', 
           estado: 'REGISTRADO',
           prioridad: 'Alta',
@@ -49,7 +120,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
           areaOrigen: 'Corte', 
           areaDestino: 'Almacén', 
           cantidad: 1, 
-          fecha: '2/25/2026', 
+          fecha: '3/11/2026', 
           hora: '5:04 AM', 
           estado: 'REGISTRADO',
           prioridad: 'Media',
@@ -62,7 +133,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
           areaOrigen: 'Diseño', 
           areaDestino: 'Plotter', 
           cantidad: 3, 
-          fecha: '2/25/2026', 
+          fecha: '3/11/2026', 
           hora: '6:30 AM', 
           estado: 'REGISTRADO',
           prioridad: 'Baja',
@@ -73,7 +144,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
     {
       id: 'LOTE-002',
       nombre: 'LOTE-002',
-      fechaCreacion: '2/25/2026',
+      fechaCreacion: '3/11/2026',
       color: '#8b5cf6',
       icono: '📫',
       activo: false,
@@ -85,7 +156,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
           areaOrigen: 'Logística', 
           areaDestino: 'Incompleto', 
           cantidad: 2, 
-          fecha: '2/25/2026', 
+          fecha: '3/11/2026', 
           hora: '5:04 AM', 
           estado: 'REGISTRADO',
           prioridad: 'Alta',
@@ -96,7 +167,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
     {
       id: 'LOTE-003',
       nombre: 'LOTE-003',
-      fechaCreacion: '2/25/2026',
+      fechaCreacion: '3/11/2026',
       color: '#ec4899',
       icono: '📭',
       activo: false,
@@ -105,7 +176,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
     {
       id: 'v10120',
       nombre: 'v10120',
-      fechaCreacion: '2/25/2026',
+      fechaCreacion: '3/11/2026',
       color: '#10b981',
       icono: '⚡',
       activo: false,
@@ -117,7 +188,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
           areaOrigen: 'Colorimetría', 
           areaDestino: 'Calidad', 
           cantidad: 5, 
-          fecha: '2/25/2026', 
+          fecha: '3/11/2026', 
           hora: '8:15 AM', 
           estado: 'REGISTRADO',
           prioridad: 'Media',
@@ -130,7 +201,7 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
           areaOrigen: 'RH', 
           areaDestino: 'Producción', 
           cantidad: 2, 
-          fecha: '2/25/2026', 
+          fecha: '3/11/2026', 
           hora: '9:30 AM', 
           estado: 'REGISTRADO',
           prioridad: 'Alta',
@@ -229,6 +300,10 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
     setLoteActivo(nuevoLoteId);
     setMostrarNuevoLote(false);
     setNuevoLoteNombre('');
+    
+    // Enviar al servidor
+    enviarAlServidor('NUEVO_LOTE', { id: nuevoLoteId, nombre: nuevoLoteId });
+    
     mostrarMensaje(`✅ Nuevo lote ${nuevoLoteId} creado`, 'exito');
   };
 
@@ -297,6 +372,16 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
     };
     
     setLotes(lotesActualizados);
+    
+    // Enviar al servidor
+    enviarAlServidor('MOVIMIENTO', {
+      loteId: loteActivo,
+      area: areaDestino,
+      origen: areaOrigen,
+      codigo: codigo,
+      tipo: tipo,
+      cantidad: cantidad
+    });
     
     mostrarMensaje(`✅ Registro ${nuevoId} agregado a ${loteActivo}`, 'exito');
     
@@ -389,6 +474,20 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
 
   return (
     <div className={`micelanios-premium-container ${modoOscuro ? 'dark-mode' : ''}`}>
+      
+      {/* Indicador de conexión */}
+      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+        <span className="status-dot"></span>
+        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+      </div>
+
+      {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+      {ultimoMovimiento && (
+        <div className="movimiento-notificacion">
+          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+        </div>
+      )}
+
       {/* Header Premium */}
       <div className="premium-header">
         <div className="header-glow"></div>
@@ -926,17 +1025,85 @@ const Micelanios = () => { // Corregido: nombre del componente igual al archivo
         <div className="footer-left">
           <div className="sync-status">
             <span className="sync-dot"></span>
-            <span>Sincronizado • {formatTime(currentTime)}</span>
+            <span>{conectado ? 'Conectado • ' : 'Demo • '}{formatTime(currentTime)}</span>
           </div>
         </div>
         <div className="footer-right">
           <span className="footer-version">v2.5.0</span>
           <span className="footer-separator">•</span>
-          <span className="footer-user">Josué Cardona</span>
+          <span className="footer-user">Demo</span>
         </div>
       </div>
+
+      {/* Estilos para el indicador de conexión */}
+      <style>{`
+        .connection-status {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          backdrop-filter: blur(10px);
+        }
+        
+        .connection-status.connected {
+          background: #10b981;
+          color: white;
+        }
+        
+        .connection-status.disconnected {
+          background: #f59e0b;
+          color: white;
+        }
+        
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 10px white;
+          animation: pulse 2s infinite;
+        }
+
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10000;
+          animation: slideUp 0.3s ease;
+          font-weight: 500;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   );
 };
 
-export default Micelanios; // Exportación con nombre corregido
+export default Micelanios;

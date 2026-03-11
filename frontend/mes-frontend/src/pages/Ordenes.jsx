@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Ordenes.css';
+
+// ============================================
+// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
 
 const Ordenes = () => {
   const [vista, setVista] = useState('tablero');
@@ -18,6 +23,86 @@ const Ordenes = () => {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [favoritos, setFavoritos] = useState([]);
 
+  // ================ ESTADOS DE CONEXIÓN PARA TIEMPO REAL ================
+  const [conectado, setConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
+  const wsRef = useRef(null);
+
+  // ================ CONEXIÓN WEBSOCKET PARA TIEMPO REAL ================
+  useEffect(() => {
+    console.log('🔌 Ordenes conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ Ordenes conectado');
+      setConectado(true);
+      setUsandoServidor(true);
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 Ordenes recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+          }
+          
+          if (lotesData.length > 0) {
+            // Actualizar órdenes con datos del servidor
+            const nuevasOrdenes = lotesData.map((lote, index) => ({
+              id: lote.codigo || `ORD-${String(index + 1).padStart(3, '0')}`,
+              producto: lote.producto || 'Producto',
+              cliente: lote.cliente || 'Cliente',
+              cantidad: lote.cantidad || 0,
+              area: lote.areaActual || 'Producción',
+              turno: lote.turno || 'Mañana',
+              tiempo: lote.tiempoRestante || '00:00:00',
+              estado: lote.estado || 'pendiente',
+              prioridad: lote.prioridad || 'media',
+              progreso: lote.progreso || 0,
+              fechaInicio: lote.fechaInicio?.split('T')[0] || new Date().toISOString().split('T')[0],
+              fechaEntrega: lote.fechaEntrega || new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
+              responsable: lote.responsable || 'Sistema',
+              notas: lote.observaciones || ''
+            }));
+            
+            setOrdenes(nuevasOrdenes);
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ Ordenes desconectado');
+      setConectado(false);
+      setUsandoServidor(false);
+    };
+    
+    return () => ws.close();
+  }, []);
+
+  // ================ ENVIAR AL SERVIDOR ================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+    }
+  };
+
   // Datos de ejemplo mejorados
   const [ordenes, setOrdenes] = useState([
     { 
@@ -31,8 +116,8 @@ const Ordenes = () => {
       estado: 'en_proceso',
       prioridad: 'alta',
       progreso: 75,
-      fechaInicio: '2026-02-26',
-      fechaEntrega: '2026-03-05',
+      fechaInicio: '2026-03-11',
+      fechaEntrega: '2026-03-18',
       responsable: 'Carlos Ruiz',
       notas: 'Urgente - Cliente premium'
     },
@@ -47,8 +132,8 @@ const Ordenes = () => {
       estado: 'completada',
       prioridad: 'media',
       progreso: 100,
-      fechaInicio: '2026-02-25',
-      fechaEntrega: '2026-02-26',
+      fechaInicio: '2026-03-10',
+      fechaEntrega: '2026-03-11',
       responsable: 'María González',
       notas: 'Inspección final'
     },
@@ -63,8 +148,8 @@ const Ordenes = () => {
       estado: 'pendiente',
       prioridad: 'baja',
       progreso: 0,
-      fechaInicio: '2026-02-27',
-      fechaEntrega: '2026-03-10',
+      fechaInicio: '2026-03-11',
+      fechaEntrega: '2026-03-22',
       responsable: 'Juan Pérez',
       notas: 'Esperando materiales'
     },
@@ -79,8 +164,8 @@ const Ordenes = () => {
       estado: 'en_proceso',
       prioridad: 'alta',
       progreso: 45,
-      fechaInicio: '2026-02-26',
-      fechaEntrega: '2026-03-03',
+      fechaInicio: '2026-03-11',
+      fechaEntrega: '2026-03-16',
       responsable: 'Ana López',
       notas: 'Diseño personalizado'
     },
@@ -95,8 +180,8 @@ const Ordenes = () => {
       estado: 'revision',
       prioridad: 'critica',
       progreso: 90,
-      fechaInicio: '2026-02-24',
-      fechaEntrega: '2026-02-28',
+      fechaInicio: '2026-03-09',
+      fechaEntrega: '2026-03-13',
       responsable: 'Pedro Sánchez',
       notas: 'Revisar calidad'
     },
@@ -111,8 +196,8 @@ const Ordenes = () => {
       estado: 'en_proceso',
       prioridad: 'media',
       progreso: 30,
-      fechaInicio: '2026-02-26',
-      fechaEntrega: '2026-03-02',
+      fechaInicio: '2026-03-11',
+      fechaEntrega: '2026-03-15',
       responsable: 'Laura Martínez',
       notas: 'Lote prioritario'
     },
@@ -127,8 +212,8 @@ const Ordenes = () => {
       estado: 'en_proceso',
       prioridad: 'alta',
       progreso: 60,
-      fechaInicio: '2026-02-25',
-      fechaEntrega: '2026-03-04',
+      fechaInicio: '2026-03-10',
+      fechaEntrega: '2026-03-17',
       responsable: 'Carlos Ruiz',
       notas: 'Producción en línea'
     },
@@ -143,8 +228,8 @@ const Ordenes = () => {
       estado: 'pendiente',
       prioridad: 'baja',
       progreso: 0,
-      fechaInicio: '2026-02-28',
-      fechaEntrega: '2026-03-12',
+      fechaInicio: '2026-03-12',
+      fechaEntrega: '2026-03-24',
       responsable: 'Ana López',
       notas: 'Material en camino'
     }
@@ -178,17 +263,14 @@ const Ordenes = () => {
   // Filtrar órdenes
   const ordenesFiltradas = ordenes
     .filter(orden => {
-      // Filtro por búsqueda
       if (busqueda && !orden.id.toLowerCase().includes(busqueda.toLowerCase()) && 
           !orden.producto.toLowerCase().includes(busqueda.toLowerCase()) &&
           !orden.cliente.toLowerCase().includes(busqueda.toLowerCase())) {
         return false;
       }
       
-      // Filtro por estado
       if (filtroEstado !== 'todas' && orden.estado !== filtroEstado) return false;
       
-      // Filtros avanzados
       if (filtrosAvanzados.area !== 'todas' && orden.area !== filtrosAvanzados.area) return false;
       if (filtrosAvanzados.turno !== 'todos' && orden.turno !== filtrosAvanzados.turno) return false;
       if (filtrosAvanzados.prioridad !== 'todas' && orden.prioridad !== filtrosAvanzados.prioridad) return false;
@@ -196,7 +278,6 @@ const Ordenes = () => {
       return true;
     })
     .sort((a, b) => {
-      // Ordenamiento
       let valorA = a[ordenamiento.campo];
       let valorB = b[ordenamiento.campo];
       
@@ -264,6 +345,19 @@ const Ordenes = () => {
 
   return (
     <div className="ordenes-container">
+      {/* Indicador de conexión */}
+      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+        <span className="status-dot"></span>
+        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+      </div>
+
+      {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+      {ultimoMovimiento && (
+        <div className="movimiento-notificacion">
+          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+        </div>
+      )}
+
       {/* Panel de detalle */}
       {mostrarPanelDetalle && ordenSeleccionada && (
         <div className="detalle-overlay" onClick={() => setMostrarPanelDetalle(false)}>
@@ -794,6 +888,74 @@ const Ordenes = () => {
           </select>
         </div>
       </div>
+
+      {/* Estilos para el indicador de conexión */}
+      <style>{`
+        .connection-status {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          backdrop-filter: blur(10px);
+        }
+        
+        .connection-status.connected {
+          background: #10b981;
+          color: white;
+        }
+        
+        .connection-status.disconnected {
+          background: #f59e0b;
+          color: white;
+        }
+        
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 0 10px white;
+          animation: pulse 2s infinite;
+        }
+
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10000;
+          animation: slideUp 0.3s ease;
+          font-weight: 500;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   );
 };

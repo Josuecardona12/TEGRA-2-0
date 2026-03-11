@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
 const AtrasosDashboard = () => {
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
@@ -10,18 +15,80 @@ const AtrasosDashboard = () => {
   const [busqueda, setBusqueda] = useState('');
   const [tiempoActual, setTiempoActual] = useState(new Date());
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
+  
+  // ============================================
+  // ESTADOS DE CONEXIÓN Y DATOS
+  // ============================================
+  const [conectado, setConectado] = useState(false);
+  const [lotes, setLotes] = useState([]);
+  const [atrasos, setAtrasos] = useState([]);
+  const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
 
-  // Datos de ejemplo
-  const [atrasos] = useState([
-    { id: 1, lote: 'LOTE-001', cliente: 'Nike', area: 'Corte', piezas: 1260, dias: 12, prioridad: 'Alta', estado: 'GRAVE', progreso: 35, responsable: 'Carlos Ruiz', fecha: '2024-02-14' },
-    { id: 2, lote: 'LOTE-002', cliente: 'Adidas', area: 'Sublimado', piezas: 1099, dias: 8, prioridad: 'Media', estado: 'MEDIO', progreso: 45, responsable: 'María González', fecha: '2024-02-18' },
-    { id: 3, lote: 'LOTE-003', cliente: 'Puma', area: 'Empaque', piezas: 804, dias: 5, prioridad: 'Media', estado: 'MEDIO', progreso: 60, responsable: 'Juan Pérez', fecha: '2024-02-19' },
-    { id: 4, lote: 'LOTE-004', cliente: 'Nike', area: 'Estampado', piezas: 562, dias: 2, prioridad: 'Baja', estado: 'LEVE', progreso: 85, responsable: 'Ana López', fecha: '2024-02-24' },
-    { id: 5, lote: 'LOTE-005', cliente: 'Adidas', area: 'Corte', piezas: 750, dias: 10, prioridad: 'Alta', estado: 'GRAVE', progreso: 20, responsable: 'Pedro Sánchez', fecha: '2024-02-16' },
-    { id: 6, lote: 'LOTE-006', cliente: 'Local', area: 'Sublimado', piezas: 976, dias: 6, prioridad: 'Media', estado: 'MEDIO', progreso: 40, responsable: 'Laura Martínez', fecha: '2024-02-20' }
-  ]);
+  // ============================================
+  // CONEXIÓN WEBSOCKET MEJORADA
+  // ============================================
+  useEffect(() => {
+    console.log('🔌 AtrasosDashboard conectando...');
+    
+    const ws = new WebSocket(WS_URL);
+    
+    ws.onopen = () => {
+      console.log('✅ AtrasosDashboard conectado');
+      setConectado(true);
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 AtrasosDashboard recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          setLotes(data.data.lotes || []);
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+          }
+          
+          // Calcular atrasos basado en progreso bajo (menos del 30%)
+          const atrasosCalculados = (data.data.lotes || [])
+            .filter(l => l.progreso < 30) // Solo lotes con poco progreso
+            .map((l, index) => ({
+              id: index + 1,
+              lote: l.id || l.codigo || 'Sin ID',
+              cliente: l.cliente || 'Pendiente',
+              area: l.areaActual || 'Recepción',
+              piezas: l.cantidad || 0,
+              dias: Math.floor(Math.random() * 15) + 1, // Simulado para demo
+              prioridad: l.prioridad || 'Media',
+              estado: l.progreso < 15 ? 'GRAVE' : l.progreso < 25 ? 'MEDIO' : 'LEVE',
+              progreso: l.progreso || 0,
+              responsable: l.responsable || 'Sistema',
+              fecha: new Date().toLocaleDateString()
+            }));
+          
+          setAtrasos(atrasosCalculados);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ AtrasosDashboard desconectado');
+      setConectado(false);
+    };
+    
+    return () => ws.close();
+  }, []);
 
-  // Estadísticas
+  // ============================================
+  // ESTADÍSTICAS CALCULADAS
+  // ============================================
   const estadisticas = {
     graves: atrasos.filter(a => a.estado === 'GRAVE').length,
     medios: atrasos.filter(a => a.estado === 'MEDIO').length,
@@ -31,7 +98,9 @@ const AtrasosDashboard = () => {
     dias: atrasos.reduce((acc, a) => acc + a.dias, 0)
   };
 
-  // Tiempo real
+  // ============================================
+  // TIEMPO REAL
+  // ============================================
   useEffect(() => {
     const intervalo = setInterval(() => {
       setTiempoActual(new Date());
@@ -39,7 +108,9 @@ const AtrasosDashboard = () => {
     return () => clearInterval(intervalo);
   }, []);
 
-  // Filtrar datos
+  // ============================================
+  // FILTRAR DATOS
+  // ============================================
   const atrasosFiltrados = atrasos.filter(item => {
     if (filtroArea !== 'todas' && item.area !== filtroArea) return false;
     if (filtroEstado !== 'todos' && item.estado !== filtroEstado) return false;
@@ -47,8 +118,10 @@ const AtrasosDashboard = () => {
     return true;
   });
 
-  // Paginación
-  const totalPaginas = Math.ceil(atrasosFiltrados.length / elementosPorPagina);
+  // ============================================
+  // PAGINACIÓN
+  // ============================================
+  const totalPaginas = Math.ceil(atrasosFiltrados.length / elementosPorPagina) || 1;
   const inicio = (paginaActual - 1) * elementosPorPagina;
   const atrasosPaginados = atrasosFiltrados.slice(inicio, inicio + elementosPorPagina);
 
@@ -75,6 +148,54 @@ const AtrasosDashboard = () => {
           background: #f8fafc;
           color: #0f172a;
           overflow: hidden;
+        }
+
+        /* ===== INDICADOR DE CONEXIÓN ===== */
+        .connection-status {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          z-index: 9999;
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .connection-status.connected {
+          background: #10b981;
+          color: white;
+        }
+        
+        .connection-status.disconnected {
+          background: #ef4444;
+          color: white;
+        }
+
+        /* ===== NOTIFICACIÓN DE MOVIMIENTO ===== */
+        .movimiento-notificacion {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          animation: slideUp 0.3s ease;
+          z-index: 10000;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
         }
 
         /* ===== DASHBOARD PRINCIPAL ===== */
@@ -1075,6 +1196,18 @@ const AtrasosDashboard = () => {
       `}</style>
 
       <div className="atrasos-dashboard">
+        {/* INDICADOR DE CONEXIÓN */}
+        <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+          {conectado ? '🟢 Servidor Conectado' : '🔴 Sin conexión'}
+        </div>
+
+        {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+        {ultimoMovimiento && (
+          <div className="movimiento-notificacion">
+            🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+          </div>
+        )}
+
         {/* HEADER */}
         <header className="dashboard-header">
           <div className="header-left">
@@ -1110,12 +1243,12 @@ const AtrasosDashboard = () => {
 
             <button className="header-btn" onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}>
               ⚠️
-              <span className="notificacion-badge">3</span>
+              <span className="notificacion-badge">{atrasos.length}</span>
             </button>
 
             <div className="header-tiempo-real">
               <span className="punto-tiempo-real"></span>
-              <span className="tiempo-real-texto">⚠️ EN VIVO</span>
+              <span className="tiempo-real-texto">{conectado ? '🟢 EN VIVO' : '🔴 SIN CONEXIÓN'}</span>
               <span className="reloj-digital">
                 {tiempoActual.toLocaleTimeString()}
               </span>
@@ -1129,12 +1262,12 @@ const AtrasosDashboard = () => {
           <div className="kpi-card grave">
             <div className="kpi-header">
               <span className="kpi-icon">🔥</span>
-              <span className="kpi-tendencia positivo">+5%</span>
+              <span className="kpi-tendencia positivo">+{Math.floor(Math.random() * 10)}%</span>
             </div>
             <div className="kpi-numero">{estadisticas.graves}</div>
             <div className="kpi-label">ATRASOS GRAVES</div>
             <div className="kpi-footer">
-              <span className="kpi-trend positivo">⬆️ +2 vs ayer</span>
+              <span className="kpi-trend positivo">⬆️ +{Math.floor(Math.random() * 5)} vs ayer</span>
               <span className="kpi-periodo critico">⛔ CRÍTICO</span>
             </div>
           </div>
@@ -1143,12 +1276,12 @@ const AtrasosDashboard = () => {
           <div className="kpi-card medio">
             <div className="kpi-header">
               <span className="kpi-icon">⚠️</span>
-              <span className="kpi-tendencia positivo">+5%</span>
+              <span className="kpi-tendencia positivo">+{Math.floor(Math.random() * 10)}%</span>
             </div>
             <div className="kpi-numero">{estadisticas.medios}</div>
             <div className="kpi-label">ATRASOS MEDIOS</div>
             <div className="kpi-footer">
-              <span className="kpi-trend positivo">📈 +1 esta semana</span>
+              <span className="kpi-trend positivo">📈 +{Math.floor(Math.random() * 5)} esta semana</span>
               <span className="kpi-periodo atencion">⚡ ATENCIÓN</span>
             </div>
           </div>
@@ -1157,12 +1290,12 @@ const AtrasosDashboard = () => {
           <div className="kpi-card leve">
             <div className="kpi-header">
               <span className="kpi-icon">✅</span>
-              <span className="kpi-tendencia negativo">-8%</span>
+              <span className="kpi-tendencia negativo">-{Math.floor(Math.random() * 10)}%</span>
             </div>
             <div className="kpi-numero">{estadisticas.leves}</div>
             <div className="kpi-label">ATRASOS LEVES</div>
             <div className="kpi-footer">
-              <span className="kpi-trend negativo">⬇️ -3 resueltos</span>
+              <span className="kpi-trend negativo">⬇️ -{Math.floor(Math.random() * 5)} resueltos</span>
               <span className="kpi-periodo controlado">✅ CONTROLADO</span>
             </div>
           </div>
@@ -1177,7 +1310,7 @@ const AtrasosDashboard = () => {
             <div className="kpi-label">TOTAL ATRASOS</div>
             <div className="kpi-footer">
               <span className="kpi-trend positivo">{estadisticas.dias} días</span>
-              <span className="kpi-periodo">+2 vs ayer</span>
+              <span className="kpi-periodo">+{Math.floor(Math.random() * 5)} vs ayer</span>
             </div>
           </div>
 
@@ -1201,9 +1334,15 @@ const AtrasosDashboard = () => {
           <div className="filtros-izquierda">
             <select className="filtro-select" value={filtroArea} onChange={(e) => setFiltroArea(e.target.value)}>
               <option value="todas">🌐 Todas las áreas</option>
+              <option value="Recepción">📦 Recepción</option>
+              <option value="Diseño">🎨 Diseño</option>
+              <option value="Plotter">🖨️ Plotter</option>
               <option value="Corte">✂️ Corte</option>
-              <option value="Sublimado">🎨 Sublimado</option>
-              <option value="Empaque">📦 Empaque</option>
+              <option value="Sublimado">🔥 Sublimado</option>
+              <option value="Colorimetría">🎯 Colorimetría</option>
+              <option value="Preparacion">⚙️ Preparacion</option>
+              <option value="Calidad">✅ Calidad</option>
+              <option value="Logística">🚚 Logística</option>
             </select>
 
             <select className="filtro-select" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
@@ -1211,12 +1350,6 @@ const AtrasosDashboard = () => {
               <option value="GRAVE">🔥 Graves</option>
               <option value="MEDIO">⚠️ Medios</option>
               <option value="LEVE">✅ Leves</option>
-            </select>
-
-            <select className="filtro-select" value={filtroDias} onChange={(e) => setFiltroDias(e.target.value)}>
-              <option value="todos">📅 Todos los días</option>
-              <option value="critico">⛔ Crítico (+10 días)</option>
-              <option value="moderado">⚠️ Moderado (5-10 días)</option>
             </select>
 
             <select className="filtro-select" value={elementosPorPagina} onChange={(e) => setElementosPorPagina(Number(e.target.value))}>
@@ -1227,11 +1360,8 @@ const AtrasosDashboard = () => {
           </div>
 
           <div className="filtros-derecha">
-            <button className="btn-exportar" onClick={() => alert('Exportando...')}>
+            <button className="btn-exportar" onClick={() => alert('Exportando reporte...')}>
               📥 Exportar
-            </button>
-            <button className="btn-buscar">
-              ⚠️ Aplicar Filtros
             </button>
           </div>
         </div>
@@ -1273,53 +1403,61 @@ const AtrasosDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {atrasosPaginados.map(item => (
-                  <tr key={item.id} className={`fila-${item.estado.toLowerCase()}`}>
-                    <td>
-                      <button className="favorito-btn" onClick={() => toggleFavorito(item.id)}>
-                        {favoritos.includes(item.id) ? '⭐' : '☆'}
-                      </button>
-                    </td>
-                    <td><strong>{item.lote}</strong></td>
-                    <td>{item.cliente}</td>
-                    <td>{item.area}</td>
-                    <td className="numero">{item.piezas.toLocaleString()}</td>
-                    <td>
-                      <span className={`dias-badge ${item.dias > 10 ? 'critico' : item.dias > 5 ? 'moderado' : 'normal'}`}>
-                        {item.dias} 📅
-                      </span>
-                    </td>
-                    <td>
-                      <span className="prioridad-indicator">
-                        {item.prioridad === 'Alta' ? '🔥' : item.prioridad === 'Media' ? '⚠️' : '✅'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`estado-badge estado-${item.estado.toLowerCase()}`}>
-                        {item.estado === 'GRAVE' ? '🔥 ' : item.estado === 'MEDIO' ? '⚠️ ' : '✅ '}
-                        {item.estado}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="progreso-container">
-                        <div className="progreso-barra">
-                          <div className={`progreso-llenado ${item.estado.toLowerCase()}`} style={{width: `${item.progreso}%`}}></div>
+                {atrasosPaginados.length > 0 ? (
+                  atrasosPaginados.map(item => (
+                    <tr key={item.id} className={`fila-${item.estado.toLowerCase()}`}>
+                      <td>
+                        <button className="favorito-btn" onClick={() => toggleFavorito(item.id)}>
+                          {favoritos.includes(item.id) ? '⭐' : '☆'}
+                        </button>
+                      </td>
+                      <td><strong>{item.lote}</strong></td>
+                      <td>{item.cliente}</td>
+                      <td>{item.area}</td>
+                      <td className="numero">{item.piezas.toLocaleString()}</td>
+                      <td>
+                        <span className={`dias-badge ${item.dias > 10 ? 'critico' : item.dias > 5 ? 'moderado' : 'normal'}`}>
+                          {item.dias} 📅
+                        </span>
+                      </td>
+                      <td>
+                        <span className="prioridad-indicator">
+                          {item.prioridad === 'Alta' ? '🔥' : item.prioridad === 'Media' ? '⚠️' : '✅'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`estado-badge estado-${item.estado.toLowerCase()}`}>
+                          {item.estado === 'GRAVE' ? '🔥 ' : item.estado === 'MEDIO' ? '⚠️ ' : '✅ '}
+                          {item.estado}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="progreso-container">
+                          <div className="progreso-barra">
+                            <div className={`progreso-llenado ${item.estado.toLowerCase()}`} style={{width: `${item.progreso}%`}}></div>
+                          </div>
+                          <span className="progreso-texto">{item.progreso}%</span>
                         </div>
-                        <span className="progreso-texto">{item.progreso}%</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="responsable">👤 {item.responsable}</span>
-                    </td>
-                    <td>
-                      <div className="acciones-container">
-                        <button className="accion-btn">👁️</button>
-                        <button className="accion-btn">✏️</button>
-                        <button className="accion-btn">⚡</button>
-                      </div>
+                      </td>
+                      <td>
+                        <span className="responsable">👤 {item.responsable}</span>
+                      </td>
+                      <td>
+                        <div className="acciones-container">
+                          <button className="accion-btn" onClick={() => alert(`Ver detalles de ${item.lote}`)}>👁️</button>
+                          <button className="accion-btn" onClick={() => alert(`Editar ${item.lote}`)}>✏️</button>
+                          <button className="accion-btn" onClick={() => alert(`Acción rápida en ${item.lote}`)}>⚡</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="11" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                      {conectado ? '✅ No hay atrasos en este momento' : '🔴 Conectando al servidor...'}
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -1360,8 +1498,8 @@ const AtrasosDashboard = () => {
         <footer className="dashboard-footer">
           <div className="footer-left">
             <div className="info-actualizacion">
-              <span className="punto-estado activo"></span>
-              <span>⚠️ Actualización en tiempo real • cada 5 segundos</span>
+              <span className={`punto-estado ${conectado ? 'activo' : ''}`}></span>
+              <span>{conectado ? '⚠️ Actualización en tiempo real' : '🔴 Sin conexión al servidor'}</span>
             </div>
             <div className="stats-rapidas">
               <span className="stat-rapida">📊 {atrasosFiltrados.length} filtrados</span>
@@ -1373,7 +1511,7 @@ const AtrasosDashboard = () => {
             <span className="total-registros">⚠️ Página {paginaActual} de {totalPaginas}</span>
             <span className="version-info">
               🚨 TEGRA v2.5.0
-              <span className="build-info">Build 2024.02.26</span>
+              <span className="build-info">Demo - Tiempo Real</span>
             </span>
           </div>
         </footer>
