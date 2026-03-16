@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './TrazabilidadLotes.css';
 import TrackingLote from './TrackingLote';
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
+// ============================================
+const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+
 const TrazabilidadLotes = () => {
+  // ===== ESTADOS PRINCIPALES =====
   const [lotes, setLotes] = useState([]);
   const [areas, setAreas] = useState([]);
   const [ultimoEscaneo, setUltimoEscaneo] = useState(null);
@@ -10,188 +16,157 @@ const TrazabilidadLotes = () => {
   const [modoEscaner, setModoEscaner] = useState(true);
   const [eventos, setEventos] = useState([]);
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
-  const [loteActivo, setLoteActivo] = useState(null);
   const [codigoEscaneado, setCodigoEscaneado] = useState('');
   const [mensajeEscaner, setMensajeEscaner] = useState('📡 Esperando código...');
   const [tipoMensaje, setTipoMensaje] = useState('info');
+  const [animacionActiva, setAnimacionActiva] = useState(false);
+  
+  // ===== ESTADOS DE CONEXIÓN WEBSOCKET =====
+  const [conectado, setConectado] = useState(false);
+  const [usandoServidor, setUsandoServidor] = useState(false);
+  const wsRef = useRef(null);
+  
+  // ===== ESTADOS DE UI/UX =====
   const [vistaLotes, setVistaLotes] = useState('activos');
   const [filtroArea, setFiltroArea] = useState('todas');
-  const [mostrarPanelAyuda, setMostrarPanelAyuda] = useState(true);
+  const [modoOscuro, setModoOscuro] = useState(false);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
+  const [vistaCompacta, setVistaCompacta] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  
+  // ===== ESTADOS DE ANÁLISIS =====
   const [statsTiempoReal, setStatsTiempoReal] = useState({
     lotesPorHora: 0,
     eficiencia: 0,
     tiempoPromedio: 0,
     alertasActivas: 0,
-    productividad: 0,
-    oee: 0,
-    disponibilidad: 0,
-    calidad: 0
+    wip: 0
   });
+  
   const [notificaciones, setNotificaciones] = useState([]);
-  const [graficoData, setGraficoData] = useState([]);
   const [filtrosAvanzados, setFiltrosAvanzados] = useState({
     fechaInicio: '',
     fechaFin: '',
     responsable: '',
-    prioridad: 'todas'
+    prioridad: 'todas',
+    cliente: '',
+    producto: ''
   });
-  const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  const [modoOscuro, setModoOscuro] = useState(false);
-  const [historialCompleto, setHistorialCompleto] = useState([]);
-  const [alertasConfig, setAlertasConfig] = useState({
-    email: true,
-    sms: false,
-    telegram: true
-  });
-  const [predicciones, setPredicciones] = useState({});
-  const [incidencias, setIncidencias] = useState([]);
-  const [camaras, setCamaras] = useState({});
-  const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
-  
-  // ===== NUEVOS ESTADOS PARA EL SERVIDOR =====
-  const [servidorConectado, setServidorConectado] = useState(false);
-  const [usandoServidor, setUsandoServidor] = useState(false);
-  
+
+  // ===== REFS =====
   const inputRef = useRef(null);
-  const headerRef = useRef(null);
-  const wsRef = useRef(null);
   const notificacionesRef = useRef(null);
+  const mainContentRef = useRef(null);
 
   // ============================================
   // CONFIGURACIÓN DE ÁREAS
   // ============================================
-  const areasProduccion = [
-    { id: 'AREA-001', codigo: '9001', nombre: 'Recepción', icono: '📦', color: '#3b82f6', orden: 1 },
-    { id: 'AREA-002', codigo: '9002', nombre: 'Diseño', icono: '🎨', color: '#8b5cf6', orden: 2 },
-    { id: 'AREA-003', codigo: '9003', nombre: 'Plotter', icono: '🖨️', color: '#ec4899', orden: 3 },
-    { id: 'AREA-004', codigo: '9004', nombre: 'Corte', icono: '✂️', color: '#f59e0b', orden: 4 },
-    { id: 'AREA-005', codigo: '9005', nombre: 'Sublimado', icono: '🔥', color: '#10b981', orden: 5 },
-    { id: 'AREA-006', codigo: '9006', nombre: 'Colorimetría', icono: '🎯', color: '#6366f1', orden: 6 },
-    { id: 'AREA-007', codigo: '9007', nombre: 'Preparacion', icono: '⚙️', color: '#14b8a6', orden: 7 },
-    { id: 'AREA-008', codigo: '9008', nombre: 'Calidad', icono: '✅', color: '#a855f7', orden: 8 },
-    { id: 'AREA-009', codigo: '9009', nombre: 'RH', icono: '👥', color: '#f43f5e', orden: 9 },
-    { id: 'AREA-010', codigo: '9010', nombre: 'Logística', icono: '🚚', color: '#06b6d4', orden: 10 },
-    { id: 'AREA-011', codigo: '9011', nombre: 'Almacén', icono: '🏢', color: '#d946ef', orden: 11 },
-    { id: 'AREA-012', codigo: '9012', nombre: 'Incompleto', icono: '⚠️', color: '#f97316', orden: 12 }
-  ];
+  const areasProduccion = useMemo(() => [
+    { id: 'AREA-001', codigo: '9001', nombre: 'Recepción', icono: '📦', color: '#3b82f6', orden: 1, capacidad: 50 },
+    { id: 'AREA-002', codigo: '9002', nombre: 'Diseño', icono: '🎨', color: '#8b5cf6', orden: 2, capacidad: 25 },
+    { id: 'AREA-003', codigo: '9003', nombre: 'Plotter', icono: '🖨️', color: '#ec4899', orden: 3, capacidad: 15 },
+    { id: 'AREA-004', codigo: '9004', nombre: 'Corte', icono: '✂️', color: '#f59e0b', orden: 4, capacidad: 20 },
+    { id: 'AREA-005', codigo: '9005', nombre: 'Sublimado', icono: '🔥', color: '#10b981', orden: 5, capacidad: 18 },
+    { id: 'AREA-006', codigo: '9006', nombre: 'Colorimetría', icono: '🎯', color: '#6366f1', orden: 6, capacidad: 12 },
+    { id: 'AREA-007', codigo: '9007', nombre: 'Preparacion', icono: '⚙️', color: '#14b8a6', orden: 7, capacidad: 30 },
+    { id: 'AREA-008', codigo: '9008', nombre: 'Calidad', icono: '✅', color: '#a855f7', orden: 8, capacidad: 10 },
+    { id: 'AREA-009', codigo: '9009', nombre: 'RH', icono: '👥', color: '#f43f5e', orden: 9, capacidad: 8 },
+    { id: 'AREA-010', codigo: '9010', nombre: 'Logística', icono: '🚚', color: '#06b6d4', orden: 10, capacidad: 22 },
+    { id: 'AREA-011', codigo: '9011', nombre: 'Almacén', icono: '🏢', color: '#d946ef', orden: 11, capacidad: 100 },
+    { id: 'AREA-012', codigo: '9012', nombre: 'Incompleto', icono: '⚠️', color: '#f97316', orden: 12, capacidad: 15 }
+  ], []);
 
   // ============================================
-  // CONEXIÓN AL SERVIDOR WEB SOCKET
+  // CONEXIÓN WEBSOCKET PARA TIEMPO REAL
   // ============================================
   useEffect(() => {
-    // 🔴 IMPORTANTE: CAMBIA ESTA URL POR LA DE TU CODESPACES
-    const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
-    
-    console.log('🔌 Conectando a servidor...', WS_URL);
+    console.log('🔌 Trazabilidad conectando...');
     
     const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
     
     ws.onopen = () => {
-      console.log('✅ Conectado al servidor');
-      setServidorConectado(true);
+      console.log('✅ Trazabilidad conectado');
+      setConectado(true);
       setUsandoServidor(true);
-      agregarEvento('info', 'Conectado al servidor tiempo real');
+      agregarEvento('success', '✅ Conectado al servidor - Tiempo Real');
     };
     
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log('📦 Recibido:', data.type);
-      
-      if (data.type === 'INIT') {
-        // Datos iniciales del servidor
-        const lotesServidor = data.data.lotes.map(l => ({
-          id: l.id,
-          codigo: l.codigo,
-          producto: l.producto,
-          cliente: l.cliente,
-          cantidad: l.cantidad,
-          fechaInicio: new Date().toLocaleString(),
-          estado: l.estado || 'en_proceso',
-          areaActual: l.areaActual || 'Recepción',
-          progreso: l.progreso || 5,
-          prioridad: l.prioridad || 'media',
-          responsable: l.responsable || 'Sistema',
-          tiempoRestante: '8h 00m',
-          alertas: [],
-          historial: []
-        }));
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 Trazabilidad recibió:', data.type);
         
-        setLotes(lotesServidor);
-        
-        // Usar áreas del servidor o las nuestras
-        if (data.data.areas && data.data.areas.length > 0) {
-          const areasMapeadas = data.data.areas.map((nombre, index) => ({
-            id: `AREA-${String(index + 1).padStart(3, '0')}`,
-            codigo: String(9000 + index + 1),
-            nombre: nombre,
-            icono: ['📦', '🎨', '🖨️', '✂️', '🔥', '🎯', '⚙️', '✅', '🚚', '🏢'][index] || '📍',
-            color: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#14b8a6', '#a855f7', '#06b6d4', '#d946ef'][index] || '#6b7280'
+        if (data.type === 'INIT') {
+          // Datos iniciales del servidor
+          const lotesServidor = data.data.lotes.map((l, index) => ({
+            id: l.codigo || `LOTE-${String(index + 1).padStart(3, '0')}`,
+            codigo: l.codigo || `V${String(Math.floor(Math.random() * 900000) + 100000)}/IF${String(Math.floor(Math.random() * 9000) + 1000)}`,
+            producto: l.producto || 'Producto',
+            cliente: l.cliente || 'Cliente',
+            cantidad: l.cantidad || Math.floor(Math.random() * 500) + 100,
+            fechaInicio: new Date().toLocaleString(),
+            estado: l.estado || 'en_proceso',
+            areaActual: l.areaActual || 'Recepción',
+            progreso: l.progreso || 5,
+            prioridad: l.prioridad || 'media',
+            responsable: l.responsable || 'Sistema',
+            tiempoRestante: '8h 00m',
+            alertas: [],
+            historial: [
+              { 
+                area: 'Recepción',
+                codigoArea: '9001',
+                fecha: new Date().toLocaleString(),
+                operador: 'Sistema',
+                actual: true
+              }
+            ],
+            metadatos: { codigoOriginal: l.codigo }
           }));
-          setAreas(areasMapeadas);
-        } else {
-          setAreas(areasProduccion);
-        }
-        
-        if (lotesServidor.length > 0) {
-          setLoteSeleccionado(lotesServidor[0]);
-          setLoteActivo(lotesServidor[0].id);
-        }
-      }
-      
-      if (data.type === 'ACTUALIZACION') {
-        // Actualización en tiempo real
-        const lotesActualizados = data.data.lotes.map(l => ({
-          id: l.id,
-          codigo: l.codigo,
-          producto: l.producto,
-          cliente: l.cliente,
-          cantidad: l.cantidad,
-          fechaInicio: new Date().toLocaleString(),
-          estado: l.estado || 'en_proceso',
-          areaActual: l.areaActual,
-          progreso: l.progreso,
-          prioridad: l.prioridad || 'media',
-          responsable: l.responsable || 'Sistema',
-          tiempoRestante: '8h 00m',
-          alertas: []
-        }));
-        
-        setLotes(lotesActualizados);
-        
-        if (data.data.ultimoMovimiento) {
-          const { loteId, area } = data.data.ultimoMovimiento;
-          setUltimoEscaneo({
-            lote: loteId,
-            area: area,
-            fecha: new Date().toLocaleString()
-          });
           
-          setMensajeEscaner(`✅ ${loteId} → ${area}`);
-          setTipoMensaje('exito');
-          agregarEvento('exito', `✅ ${loteId} movido a ${area}`);
-          
-          if (navigator.vibrate) navigator.vibrate(100);
+          setLotes(lotesServidor);
+          if (lotesServidor.length > 0) {
+            setLoteSeleccionado(lotesServidor[0]);
+          }
         }
+        
+        if (data.type === 'ACTUALIZACION') {
+          // Actualización en tiempo real
+          if (data.data.ultimoMovimiento) {
+            const { loteId, area } = data.data.ultimoMovimiento;
+            setUltimoEscaneo({
+              lote: loteId,
+              area: area,
+              fecha: new Date().toLocaleString()
+            });
+            
+            setMensajeEscaner(`✅ ${loteId} → ${area}`);
+            setTipoMensaje('success');
+            agregarEvento('success', `✅ ${loteId} movido a ${area}`);
+            
+            if (navigator.vibrate) navigator.vibrate(100);
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
       }
     };
     
     ws.onerror = (error) => {
       console.error('❌ Error WebSocket:', error);
-      setServidorConectado(false);
+      setConectado(false);
       setUsandoServidor(false);
-      setAreas(areasProduccion);
-      agregarEvento('error', 'Error conectando al servidor - Usando modo local');
+      agregarEvento('error', '❌ Error conectando al servidor - Usando modo local');
     };
     
     ws.onclose = () => {
       console.log('❌ Desconectado del servidor');
-      setServidorConectado(false);
+      setConectado(false);
       setUsandoServidor(false);
-      setAreas(areasProduccion);
-      agregarEvento('error', 'Desconectado del servidor - Usando modo local');
+      agregarEvento('info', 'ℹ️ Desconectado del servidor - Usando modo local');
     };
-    
-    wsRef.current = ws;
     
     return () => {
       if (wsRef.current) {
@@ -201,188 +176,159 @@ const TrazabilidadLotes = () => {
   }, []);
 
   // ============================================
-  // SIMULACIÓN LOCAL (solo si no hay servidor)
+  // ENVIAR AL SERVIDOR
+  // ============================================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+      console.log('📤 Enviado:', tipo, payload);
+    }
+  };
+
+  // ============================================
+  // INICIALIZACIÓN LOCAL
   // ============================================
   useEffect(() => {
-    // Solo ejecutar simulación si NO estamos usando el servidor
-    if (usandoServidor) return;
-    
-    console.log('🎮 Usando modo local (simulación)');
-    setAreas(areasProduccion);
-    
-    // LOTES DE EJEMPLO PARA MODO LOCAL
-    const lotesIniciales = [
-      {
-        id: 'LOTE-001',
-        codigo: '1001',
-        producto: 'Camiseta MLB Yankees',
-        cliente: 'Nike',
-        cantidad: 150,
-        fechaInicio: new Date().toLocaleString(),
-        estado: 'en_proceso',
-        areaActual: 'Recepción',
-        progreso: 5,
-        prioridad: 'alta',
-        responsable: 'Carlos Ruiz',
-        tiempoRestante: '8h 00m',
-        alertas: [],
-        historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: new Date().toLocaleString(), operador: 'Ana López', actual: true }
-        ]
-      },
-      {
-        id: 'LOTE-002',
-        codigo: '1002',
-        producto: 'Gorra NBA Lakers',
-        cliente: 'Adidas',
-        cantidad: 75,
-        fechaInicio: new Date().toLocaleString(),
-        estado: 'en_proceso',
-        areaActual: 'Recepción',
-        progreso: 5,
-        prioridad: 'media',
-        responsable: 'María González',
-        tiempoRestante: '8h 00m',
-        alertas: [],
-        historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: new Date().toLocaleString(), operador: 'Ana López', actual: true }
-        ]
-      },
-      {
-        id: 'LOTE-003',
-        codigo: '1003',
-        producto: 'Uniforme NFL Patriots',
-        cliente: 'Puma',
-        cantidad: 200,
-        fechaInicio: new Date().toLocaleString(),
-        estado: 'en_proceso',
-        areaActual: 'Recepción',
-        progreso: 5,
-        prioridad: 'alta',
-        responsable: 'Juan Pérez',
-        tiempoRestante: '8h 00m',
-        alertas: [],
-        historial: [
-          { area: 'Recepción', codigoArea: '9001', fecha: new Date().toLocaleString(), operador: 'Ana López', actual: true }
-        ]
-      }
-    ];
-
-    setLotes(lotesIniciales);
-    setHistorialCompleto(lotesIniciales.flatMap(l => l.historial));
-    
-    if (lotesIniciales.length > 0) {
-      setLoteSeleccionado(lotesIniciales[0]);
-      setLoteActivo(lotesIniciales[0].id);
+    // Solo si no hay conexión WebSocket
+    if (!conectado) {
+      setAreas(areasProduccion);
     }
+  }, [conectado]);
 
-    // Simulación de estadísticas en modo local
-    const intervaloStats = setInterval(() => {
-      setStatsTiempoReal(prev => ({
-        lotesPorHora: Math.floor(Math.random() * 20) + 15,
-        eficiencia: Math.floor(Math.random() * 15) + 80,
-        tiempoPromedio: Math.floor(Math.random() * 30) + 25,
-        alertasActivas: lotes.filter(l => l.alertas?.length > 0).length,
-        productividad: Math.floor(Math.random() * 20) + 75,
-        oee: Math.floor(Math.random() * 15) + 80,
-        disponibilidad: Math.floor(Math.random() * 10) + 85,
-        calidad: Math.floor(Math.random() * 5) + 94
-      }));
+  // ============================================
+  // GUARDAR PREFERENCIAS
+  // ============================================
+  useEffect(() => { localStorage.setItem('modoOscuro', modoOscuro); }, [modoOscuro]);
+  useEffect(() => { localStorage.setItem('vistaCompacta', vistaCompacta); }, [vistaCompacta]);
 
-      generarDatosGrafico();
-    }, 3000);
-
-    return () => {
-      clearInterval(intervaloStats);
+  // ============================================
+  // DETECTAR SCROLL
+  // ============================================
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mainContentRef.current) setShowScrollTop(mainContentRef.current.scrollTop > 400);
     };
-  }, [usandoServidor]); // Depende de usandoServidor
+    const currentRef = mainContentRef.current;
+    if (currentRef) currentRef.addEventListener('scroll', handleScroll);
+    return () => { if (currentRef) currentRef.removeEventListener('scroll', handleScroll); };
+  }, []);
+
+  const scrollToTop = () => {
+    if (mainContentRef.current) mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // ============================================
-  // GENERAR DATOS PARA GRÁFICO
+  // ENFOCAR INPUT
   // ============================================
-  const generarDatosGrafico = () => {
-    const horas = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
-    const datos = horas.map(hora => ({
-      hora,
-      valor: Math.floor(Math.random() * 50) + 50,
-      meta: 85
-    }));
-    setGraficoData(datos);
-  };
+  useEffect(() => {
+    if (modoEscaner && inputRef.current) inputRef.current.focus();
+  }, [modoEscaner]);
 
   // ============================================
   // CERRAR NOTIFICACIONES
   // ============================================
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (notificacionesRef.current && !notificacionesRef.current.contains(event.target)) {
-        setMostrarNotificaciones(false);
-      }
+      if (notificacionesRef.current && !notificacionesRef.current.contains(event.target)) setMostrarNotificaciones(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // ============================================
-  // ENFOCAR INPUT
+  // ACTUALIZAR ESTADÍSTICAS
   // ============================================
   useEffect(() => {
-    if (modoEscaner && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [modoEscaner]);
+    const calcularEstadisticas = () => {
+      const lotesActivos = lotes.filter(l => l.estado !== 'completado').length;
+      const alertasActivas = lotes.filter(l => l.alertas?.length > 0).length;
+      let eficiencia = 0;
+      if (lotes.length > 0) {
+        const completados = lotes.filter(l => l.estado === 'completado').length;
+        eficiencia = Math.round((completados / lotes.length) * 100);
+      }
+      setStatsTiempoReal({
+        lotesPorHora: lotesActivos,
+        eficiencia: eficiencia,
+        tiempoPromedio: lotes.length > 0 ? Math.round(lotes.reduce((acc, l) => acc + (l.progreso || 0), 0) / lotes.length) : 0,
+        alertasActivas: alertasActivas,
+        wip: lotesActivos
+      });
+    };
+    calcularEstadisticas();
+    const intervalo = setInterval(calcularEstadisticas, 5000);
+    return () => clearInterval(intervalo);
+  }, [lotes]);
 
   // ============================================
   // FUNCIONES AUXILIARES
   // ============================================
   const agregarEvento = (tipo, mensaje, loteRef = '') => {
     const nuevoEvento = {
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       tipo,
       mensaje,
       loteRef,
       timestamp: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
-    setEventos(prev => [nuevoEvento, ...prev.slice(0, 19)]);
-
-    if (tipo === 'warning' || tipo === 'error' || tipo === 'completado') {
+    setEventos(prev => [nuevoEvento, ...prev.slice(0, 29)]);
+    if (tipo === 'warning' || tipo === 'error' || tipo === 'success') {
       setNotificaciones(prev => [{
         id: Date.now(),
         mensaje,
         tipo,
-        leida: false,
-        tiempo: 'ahora'
-      }, ...prev.slice(0, 4)]);
+        leida: false
+      }, ...prev.slice(0, 9)]);
+      if (navigator.vibrate) navigator.vibrate(tipo === 'success' ? 50 : 100);
     }
   };
 
   const marcarNotificacionLeida = (id) => {
     setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
   };
+  const marcarTodasLeidas = () => {
+    setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
+  };
+
+  // ============================================
+  // VALIDAR FORMATO DE LOTE (AHORA ACEPTA CUALQUIER COSA)
+  // ============================================
+  const validarFormatoLote = (codigo) => {
+    // ¡AHORA ACEPTA CUALQUIER CÓDIGO QUE NO SEA UN ÁREA!
+    // Solo rechaza si es un código de área (9001-9012)
+    return !codigo.match(/^9\d{3}$/);
+  };
+
+  const extraerInfoLote = (codigo) => {
+    // Extraer información básica del código (sin validación estricta)
+    return {
+      formato: 'generico',
+      codigoOriginal: codigo,
+      timestamp: Date.now()
+    };
+  };
 
   // ============================================
   // PROCESAR ESCANEO
   // ============================================
   const procesarEscaneo = () => {
-    const codigo = codigoEscaneado.trim();
+    const codigo = codigoEscaneado.trim().toUpperCase();
     if (!codigo) return;
 
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 500);
+    
     setMensajeEscaner(`⏳ Procesando: ${codigo}...`);
     setTipoMensaje('info');
 
-    if (navigator.vibrate) navigator.vibrate(50);
-
+    // Códigos de área (9001-9012)
     if (codigo.match(/^9\d{3}$/)) {
       procesarEscaneoArea(codigo);
     }
-    else if (codigo.match(/^1\d{3}$/)) {
-      procesarEscaneoLote(codigo);
-    }
     else {
-      setMensajeEscaner(`❌ Código inválido: ${codigo}`);
-      setTipoMensaje('error');
-      agregarEvento('error', `❌ Código inválido: ${codigo}`);
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      // ¡TODO LO DEMÁS SE TRATA COMO LOTE!
+      const infoLote = extraerInfoLote(codigo);
+      procesarEscaneoLote(codigo, infoLote);
     }
 
     setTimeout(() => {
@@ -399,22 +345,21 @@ const TrazabilidadLotes = () => {
   // ============================================
   const procesarEscaneoArea = (codigoArea) => {
     const area = areas.find(a => a.codigo === codigoArea);
-
     if (area) {
       setMensajeEscaner(`✅ Área: ${area.nombre}`);
-      setTipoMensaje('exito');
+      setTipoMensaje('success');
       agregarEvento('area', `📍 Área escaneada: ${area.nombre} [${area.codigo}]`);
       
-      if (navigator.vibrate) navigator.vibrate(100);
-
+      // Enviar al servidor
+      enviarAlServidor('ESCANEO', { codigo: codigoArea, tipo: 'area', area: area.nombre });
+      
+      if (navigator.vibrate) navigator.vibrate(30);
       setColaEscaneos(prev => {
         const nuevaCola = { ...prev, area: area };
-        
         if (prev.lote) {
           procesarMovimiento(area, prev.lote);
           return { area: null, lote: null };
         }
-        
         setMensajeEscaner('⏳ Área guardada. Escanea el lote...');
         return nuevaCola;
       });
@@ -422,151 +367,75 @@ const TrazabilidadLotes = () => {
       setMensajeEscaner(`❌ Área no encontrada: ${codigoArea}`);
       setTipoMensaje('error');
       agregarEvento('error', `❌ Área no encontrada: ${codigoArea}`);
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     }
   };
 
   // ============================================
-  // PROCESAR ESCANEO DE LOTE
+  // PROCESAR ESCANEO DE LOTE (ACEPTA CUALQUIER CÓDIGO)
   // ============================================
-  const procesarEscaneoLote = (codigoLote) => {
-    const lote = lotes.find(l => l.codigo === codigoLote);
+  const procesarEscaneoLote = (codigoLote, infoLote = null) => {
+    // Buscar el lote en la lista por cualquier coincidencia
+    const loteExistente = lotes.find(l => 
+      l.codigo === codigoLote || 
+      l.id === codigoLote
+    );
 
-    if (lote) {
-      setMensajeEscaner(`✅ Lote: ${lote.id} - ${lote.producto}`);
-      setTipoMensaje('exito');
-      agregarEvento('lote', `📦 Lote escaneado: ${lote.id}`);
+    if (loteExistente) {
+      setMensajeEscaner(`✅ Lote encontrado: ${loteExistente.id}`);
+      setTipoMensaje('success');
+      agregarEvento('lote', `📦 Lote escaneado: ${loteExistente.id}`, loteExistente.id);
+      setLoteSeleccionado(loteExistente);
       
-      setLoteSeleccionado(lote);
-      setLoteActivo(lote.id);
+      // Enviar al servidor
+      enviarAlServidor('ESCANEO', { codigo: codigoLote, tipo: 'lote', loteId: loteExistente.id });
       
-      if (navigator.vibrate) navigator.vibrate(100);
+      if (navigator.vibrate) navigator.vibrate(30);
 
       setColaEscaneos(prev => {
-        const nuevaCola = { ...prev, lote: lote };
-        
+        const nuevaCola = { ...prev, lote: loteExistente };
         if (prev.area) {
-          procesarMovimiento(prev.area, lote);
+          procesarMovimiento(prev.area, loteExistente);
           return { area: null, lote: null };
         }
-        
         setMensajeEscaner('⏳ Lote guardado. Escanea el área...');
         return nuevaCola;
       });
     } else {
-      if (window.confirm(`❌ Lote no encontrado.\n¿Desea crear un nuevo lote con código ${codigoLote}?`)) {
-        crearNuevoLote(codigoLote);
-      } else {
-        setMensajeEscaner(`❌ Lote no encontrado: ${codigoLote}`);
-        setTipoMensaje('error');
-        agregarEvento('error', `❌ Lote no encontrado: ${codigoLote}`);
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      }
+      // Crear nuevo lote con cualquier código
+      crearNuevoLote(codigoLote, infoLote);
     }
   };
 
   // ============================================
-  // PROCESAR MOVIMIENTO
+  // CREAR NUEVO LOTE (ACEPTA CUALQUIER CÓDIGO)
   // ============================================
-  const procesarMovimiento = (area, lote) => {
-    // Si estamos conectados al servidor, enviar por WebSocket
-    if (usandoServidor && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'MOVIMIENTO',
-        payload: {
-          loteId: lote.id,
-          area: area.nombre
-        }
-      }));
-      
-      setMensajeEscaner(`📤 Enviando: ${lote.id} → ${area.nombre}`);
-      setTipoMensaje('info');
-      return;
-    }
+  const crearNuevoLote = (codigo, infoLote = null) => {
+    const nuevoId = `LOTE-${String(lotes.length + 1).padStart(3, '0')}`;
     
-    // MODO LOCAL - Simular movimiento
-    const vecesPasadas = lote.historial?.filter(h => h.codigoArea === area.codigo).length || 0;
-    const esReingreso = vecesPasadas > 0;
+    // Detectar formato para personalizar el producto
+    let producto = 'Producto Genérico';
+    let cliente = 'Pendiente';
+    let cantidad = Math.floor(Math.random() * 500) + 100;
     
-    const nuevoHistorial = {
-      area: area.nombre,
-      codigoArea: area.codigo,
-      fecha: new Date().toLocaleString(),
-      operador: 'Operador Actual',
-      actual: true,
-      reingreso: esReingreso,
-      numeroPaso: vecesPasadas + 1
-    };
-
-    setLotes(prevLotes => prevLotes.map(l => {
-      if (l.id === lote.id) {
-        const historialActualizado = (l.historial || []).map(h => ({ ...h, actual: false }));
-        const nuevoEstado = area.id === 'AREA-011' ? 'completado' : 
-                           area.id === 'AREA-012' ? 'incompleto' : 
-                           area.id === 'AREA-008' ? 'calidad' : 'en_proceso';
-        
-        let nuevoProgreso;
-        if (esReingreso) {
-          nuevoProgreso = Math.max(0, Math.min(100, l.progreso + (Math.random() > 0.5 ? 5 : -3)));
-        } else {
-          nuevoProgreso = Math.min(100, l.progreso + 8);
-        }
-
-        return {
-          ...l,
-          areaActual: area.nombre,
-          estado: nuevoEstado,
-          progreso: nuevoProgreso,
-          historial: [...historialActualizado, nuevoHistorial]
-        };
+    // Personalizar según el formato
+    if (codigo.includes('/')) {
+      const partes = codigo.split('/');
+      producto = `Producto ${partes[0]}`;
+      if (partes[1] && partes[1].startsWith('IF')) {
+        cliente = 'Cliente IF';
+      } else if (partes[1] && partes[1].startsWith('BV')) {
+        cliente = 'Cliente BV';
       }
-      return l;
-    }));
-
-    setLoteSeleccionado(prev => {
-      if (!prev || prev.id !== lote.id) return prev;
-      return {
-        ...prev,
-        areaActual: area.nombre,
-        progreso: esReingreso ? 
-          Math.max(0, Math.min(100, prev.progreso + (Math.random() > 0.5 ? 5 : -3))) : 
-          Math.min(100, prev.progreso + 8),
-        historial: [...(prev.historial || []).map(h => ({ ...h, actual: false })), nuevoHistorial]
-      };
-    });
-
-    if (esReingreso) {
-      setMensajeEscaner(`↩️ ${lote.id} REINGRESA a ${area.nombre} (${vecesPasadas + 1}ª vez)`);
-      setTipoMensaje('warning');
-      agregarEvento('warning', `↩️ ${lote.id} reingresa a ${area.nombre} (${vecesPasadas + 1}ª vez)`, lote.id);
-    } else {
-      setMensajeEscaner(`✅ ${lote.id} → ${area.nombre}`);
-      setTipoMensaje('exito');
-      agregarEvento('exito', `✅ ${lote.id} movido a ${area.nombre}`, lote.id);
     }
-    
-    if (navigator.vibrate) navigator.vibrate(200);
 
-    setUltimoEscaneo({
-      lote: lote.id,
-      area: area.nombre,
-      fecha: new Date().toLocaleString(),
-      reingreso: esReingreso,
-      veces: vecesPasadas + 1
-    });
-  };
-
-  // ============================================
-  // CREAR NUEVO LOTE
-  // ============================================
-  const crearNuevoLote = (codigo) => {
     const nuevoLote = {
-      id: `LOTE-${String(lotes.length + 1).padStart(3, '0')}`,
+      id: nuevoId,
       codigo: codigo,
-      producto: `Producto Nuevo ${lotes.length + 1}`,
-      cliente: 'Pendiente',
-      cantidad: 0,
+      producto: producto,
+      cliente: cliente,
+      cantidad: cantidad,
       fechaInicio: new Date().toLocaleString(),
+      fechaISO: new Date().toISOString(),
       estado: 'en_proceso',
       areaActual: 'Recepción',
       progreso: 5,
@@ -574,127 +443,248 @@ const TrazabilidadLotes = () => {
       responsable: 'Sistema',
       tiempoRestante: '8h 00m',
       alertas: [],
+      infoLote: infoLote,
       historial: [
         { 
           area: 'Recepción',
           codigoArea: '9001',
           fecha: new Date().toLocaleString(),
+          timestamp: Date.now(),
           operador: 'Sistema',
           actual: true
         }
-      ]
+      ],
+      metadatos: {
+        codigoOriginal: codigo,
+        timestamp: Date.now()
+      }
     };
 
     setLotes(prev => [...prev, nuevoLote]);
     setLoteSeleccionado(nuevoLote);
-    setLoteActivo(nuevoLote.id);
     
-    setMensajeEscaner(`🆕 Nuevo lote: ${nuevoLote.id}`);
-    setTipoMensaje('exito');
-    agregarEvento('nuevo', `🆕 Nuevo lote: ${nuevoLote.id}`);
+    // Enviar al servidor
+    enviarAlServidor('NUEVO_LOTE', { 
+      lote: nuevoLote,
+      codigo: codigo
+    });
+    
+    setMensajeEscaner(`🆕 Nuevo lote: ${codigo}`);
+    setTipoMensaje('success');
+    agregarEvento('success', `🆕 Nuevo lote: ${codigo}`, nuevoId);
 
     setUltimoEscaneo({
-      lote: nuevoLote.id,
+      lote: nuevoId,
+      codigoLote: codigo,
       area: 'Recepción',
       fecha: new Date().toLocaleString()
     });
   };
 
   // ============================================
-  // FILTRAR LOTES
+  // PROCESAR MOVIMIENTO
   // ============================================
-  const lotesFiltrados = lotes.filter(lote => {
-    if (vistaLotes === 'activos') return lote.estado !== 'completado';
-    if (vistaLotes === 'completados') return lote.estado === 'completado';
-    return true;
-  }).filter(lote => {
-    if (filtroArea === 'todas') return true;
-    return lote.areaActual === filtroArea;
-  }).filter(lote => {
-    if (filtrosAvanzados.prioridad !== 'todas') {
-      return lote.prioridad === filtrosAvanzados.prioridad;
-    }
-    return true;
-  });
+  const procesarMovimiento = (area, lote) => {
+    const vecesPasadas = lote.historial?.filter(h => h.codigoArea === area.codigo).length || 0;
+    const esReingreso = vecesPasadas > 0;
+    const nuevoHistorial = {
+      area: area.nombre,
+      codigoArea: area.codigo,
+      fecha: new Date().toLocaleString(),
+      timestamp: Date.now(),
+      operador: 'Operador',
+      actual: true,
+      reingreso: esReingreso,
+      numeroPaso: vecesPasadas + 1
+    };
+    
+    setLotes(prevLotes => prevLotes.map(l => {
+      if (l.id === lote.id) {
+        const historialActualizado = (l.historial || []).map(h => ({ ...h, actual: false }));
+        let nuevoEstado = l.estado;
+        if (area.id === 'AREA-011') nuevoEstado = 'completado';
+        else if (area.id === 'AREA-012') nuevoEstado = 'incompleto';
+        const nuevoProgreso = esReingreso ? 
+          Math.max(0, Math.min(100, l.progreso + (Math.random() > 0.5 ? 5 : -2))) : 
+          Math.min(100, l.progreso + 8);
+        return {
+          ...l,
+          areaActual: area.nombre,
+          estado: nuevoEstado,
+          progreso: nuevoProgreso,
+          historial: [...historialActualizado, nuevoHistorial],
+          ultimoMovimiento: Date.now()
+        };
+      }
+      return l;
+    }));
+    
+    setLoteSeleccionado(prev => {
+      if (!prev || prev.id !== lote.id) return prev;
+      return {
+        ...prev,
+        areaActual: area.nombre,
+        progreso: esReingreso ? 
+          Math.max(0, Math.min(100, prev.progreso + (Math.random() > 0.5 ? 5 : -2))) : 
+          Math.min(100, prev.progreso + 8),
+        historial: [...(prev.historial || []).map(h => ({ ...h, actual: false })), nuevoHistorial],
+        ultimoMovimiento: Date.now()
+      };
+    });
+    
+    const mensaje = esReingreso ? 
+      `↩️ ${lote.id} reingresa a ${area.nombre} (${vecesPasadas + 1}ª vez)` : 
+      `✅ ${lote.id} → ${area.nombre}`;
+    
+    setMensajeEscaner(mensaje);
+    setTipoMensaje(esReingreso ? 'warning' : 'success');
+    agregarEvento(esReingreso ? 'warning' : 'success', mensaje, lote.id);
+    
+    // Enviar al servidor
+    enviarAlServidor('MOVIMIENTO', {
+      loteId: lote.id,
+      codigoLote: lote.codigo,
+      area: area.nombre,
+      codigoArea: area.codigo,
+      reingreso: esReingreso,
+      veces: vecesPasadas + 1
+    });
+    
+    setUltimoEscaneo({ 
+      lote: lote.id, 
+      codigoLote: lote.codigo, 
+      area: area.nombre, 
+      fecha: new Date().toLocaleString(), 
+      reingreso: esReingreso, 
+      veces: vecesPasadas + 1 
+    });
+    
+    if (area.id === 'AREA-011') agregarEvento('success', `🎉 ${lote.id} completado`, lote.id);
+  };
 
+  // ============================================
+  // ELIMINAR LOTE
+  // ============================================
+  const eliminarLote = (loteId) => {
+    if (window.confirm('¿Eliminar este lote?')) {
+      setLotes(prev => prev.filter(l => l.id !== loteId));
+      if (loteSeleccionado?.id === loteId) setLoteSeleccionado(lotes.length > 1 ? lotes[0] : null);
+      
+      // Enviar al servidor
+      enviarAlServidor('ELIMINAR_LOTE', { loteId });
+      
+      agregarEvento('info', `🗑️ Lote ${loteId} eliminado`, loteId);
+    }
+  };
+
+  // ============================================
+  // FILTROS
+  // ============================================
+  const lotesFiltrados = useMemo(() => {
+    return lotes
+      .filter(lote => {
+        if (vistaLotes === 'activos') return lote.estado !== 'completado';
+        if (vistaLotes === 'completados') return lote.estado === 'completado';
+        return true;
+      })
+      .filter(lote => {
+        if (filtroArea === 'todas') return true;
+        return lote.areaActual === filtroArea;
+      })
+      .filter(lote => {
+        if (filtrosAvanzados.prioridad !== 'todas') return lote.prioridad === filtrosAvanzados.prioridad;
+        return true;
+      })
+      .filter(lote => {
+        if (filtrosAvanzados.cliente) return lote.cliente?.toLowerCase().includes(filtrosAvanzados.cliente.toLowerCase());
+        return true;
+      })
+      .sort((a, b) => (b.ultimoMovimiento || 0) - (a.ultimoMovimiento || 0));
+  }, [lotes, vistaLotes, filtroArea, filtrosAvanzados]);
+
+  // ============================================
+  // RENDER
+  // ============================================
   return (
-    <div className={`trazabilidad-container ${modoOscuro ? 'dark-mode' : ''}`}>
-      {/* ===== HEADER FIJO ===== */}
-      <header className="app-header" ref={headerRef}>
+    <div className={`trazabilidad-container ${modoOscuro ? 'dark-mode' : ''} ${vistaCompacta ? 'compact-view' : ''}`}>
+      
+      {/* INDICADOR DE CONEXIÓN WEBSOCKET */}
+      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+        <span className="status-dot"></span>
+        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+      </div>
+
+      {/* HEADER */}
+      <header className="app-header">
         <div className="header-top">
           <div className="header-left">
             <div className="logo-area">
-              <span className="logo-icon">🏭</span>
-              <h1 className="app-title">
-                TEGRA ERP
-                <span className="title-badge">
-                  {usandoServidor ? '🌐 Modo Servidor' : '💻 Modo Local'}
-                </span>
-              </h1>
+              <div className="logo-icon-wrapper">
+                <span className="logo-icon">🏭</span>
+                <span className="logo-glow"></span>
+              </div>
+              <div className="logo-text">
+                <h1 className="app-title">TEGRA ERP <span className="title-badge">PRO</span></h1>
+                <span className="app-subtitle">Trazabilidad Premium</span>
+              </div>
             </div>
             <div className="header-date">
               <span className="date-icon">📅</span>
-              {new Date().toLocaleDateString('es-ES', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              }).replace(/^\w/, c => c.toUpperCase())}
+              <div className="date-info">
+                <span className="date-full">{new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <span className="time-full">{new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
             </div>
           </div>
 
           <div className="header-right">
-            <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)}>
-              {modoOscuro ? '☀️' : '🌙'}
+            <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)} title={modoOscuro ? 'Modo claro' : 'Modo oscuro'}>
+              <span>{modoOscuro ? '☀️' : '🌙'}</span>
             </button>
-
-            {/* INDICADOR DE SERVIDOR */}
-            <div className={`server-status ${servidorConectado ? 'connected' : 'disconnected'}`}>
-              <span className="status-dot"></span>
-              <span>{servidorConectado ? 'Servidor OK' : 'Sin servidor'}</span>
-            </div>
+            <button className="compact-toggle" onClick={() => setVistaCompacta(!vistaCompacta)} title={vistaCompacta ? 'Vista normal' : 'Vista compacta'}>
+              <span>{vistaCompacta ? '🔲' : '📱'}</span>
+            </button>
 
             {/* NOTIFICACIONES */}
             <div className="notificaciones-wrapper" ref={notificacionesRef}>
               <button 
-                className="notificaciones-icono"
+                className={`notificaciones-btn ${notificaciones.filter(n => !n.leida).length > 0 ? 'tiene-notificaciones' : ''}`}
                 onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}
               >
-                🔔
+                <span>🔔</span>
                 {notificaciones.filter(n => !n.leida).length > 0 && (
-                  <span className="notificaciones-badge">
-                    {notificaciones.filter(n => !n.leida).length}
-                  </span>
+                  <span className="notificaciones-badge">{notificaciones.filter(n => !n.leida).length}</span>
                 )}
               </button>
 
               {mostrarNotificaciones && (
-                <div className="notificaciones-dropdown">
+                <div className="notificaciones-menu">
                   <div className="notificaciones-header">
-                    <h4>Notificaciones</h4>
-                    <button onClick={() => setNotificaciones([])}>Limpiar</button>
+                    <h4>Notificaciones <span className="header-count">{notificaciones.length}</span></h4>
+                    <div className="header-actions">
+                      <button onClick={marcarTodasLeidas}>✓ Todo</button>
+                    </div>
                   </div>
                   <div className="notificaciones-lista">
                     {notificaciones.length === 0 ? (
-                      <div className="no-notificaciones">No hay notificaciones</div>
+                      <div className="no-notificaciones">
+                        <span className="empty-icon">🔔</span>
+                        <p>No hay notificaciones</p>
+                      </div>
                     ) : (
                       notificaciones.map(notif => (
-                        <div 
-                          key={notif.id} 
-                          className={`notificacion-item ${notif.tipo} ${notif.leida ? 'leida' : ''}`}
-                          onClick={() => marcarNotificacionLeida(notif.id)}
-                        >
-                          <span className="notif-icon">
-                            {notif.tipo === 'warning' && '⚠️'}
-                            {notif.tipo === 'error' && '❌'}
-                            {notif.tipo === 'completado' && '🎉'}
-                            {notif.tipo === 'info' && 'ℹ️'}
-                            {notif.tipo === 'success' && '✅'}
-                          </span>
+                        <div key={notif.id} className={`notificacion-item ${notif.tipo} ${notif.leida ? 'leida' : ''}`} onClick={() => marcarNotificacionLeida(notif.id)}>
+                          <div className="notif-icon-wrapper">
+                            <span className="notif-icon">
+                              {notif.tipo === 'warning' && '⚠️'}
+                              {notif.tipo === 'error' && '❌'}
+                              {notif.tipo === 'success' && '✅'}
+                            </span>
+                          </div>
                           <div className="notif-contenido">
                             <span className="notif-mensaje">{notif.mensaje}</span>
-                            <span className="notif-tiempo">{notif.tiempo || 'ahora'}</span>
                           </div>
+                          {!notif.leida && <span className="notif-dot"></span>}
                         </div>
                       ))
                     )}
@@ -704,339 +694,322 @@ const TrazabilidadLotes = () => {
             </div>
 
             <div className={`scanner-status ${modoEscaner ? 'active' : ''}`}>
-              <span className="status-pulse"></span>
-              <span>{modoEscaner ? 'Escáner activo' : 'Escáner inactivo'}</span>
+              <div className="status-indicator">
+                <span className="status-pulse"></span>
+                <span className="status-text">{modoEscaner ? 'Escáner activo' : 'Inactivo'}</span>
+              </div>
             </div>
 
-            <button 
-              className={`scanner-toggle ${modoEscaner ? 'active' : ''}`}
-              onClick={() => setModoEscaner(!modoEscaner)}
-            >
-              {modoEscaner ? '🔴 Desactivar' : '🟢 Activar'}
-            </button>
-
-            <button className="export-btn" onClick={() => alert('Exportar')}>
-              📥 Exportar
+            <button className={`scanner-toggle ${modoEscaner ? 'active' : ''}`} onClick={() => setModoEscaner(!modoEscaner)}>
+              <span>{modoEscaner ? '🔴' : '🟢'}</span>
+              <span>{modoEscaner ? 'Desactivar' : 'Activar'}</span>
             </button>
 
             <div className="user-profile">
-              <div className="user-avatar">OP</div>
-              <div className="user-info">
-                <span className="user-name">Operador</span>
-                <span className="user-role">Producción</span>
+              <div className="user-avatar">
+                <span>OP</span>
+                <span className="avatar-status online"></span>
               </div>
+              <span className="user-name">Operador</span>
             </div>
           </div>
         </div>
 
-        {/* ===== PANEL DE ESCANEO ===== */}
+        {/* PANEL DE ESCANEO - AHORA ACEPTA CUALQUIER CÓDIGO */}
         <div className="scanner-panel">
           <div className="scanner-container">
+            <div className="scanner-header">
+              <h3><span className="title-icon">📷</span> Escáner de Códigos</h3>
+              <div className="formatos-ayuda">
+                <span className="formato-badge area">9001-9012</span>
+                <span className="formato-badge lote">V132274/IF2128</span>
+                <span className="formato-badge lote">V134339/BV1012</span>
+                <span className="formato-badge lote">Cualquier código</span>
+              </div>
+            </div>
+
             <div className="scanner-input-group">
-              <span className="scanner-icon">📷</span>
-              <input
-                ref={inputRef}
-                type="text"
-                className="scanner-input"
-                value={codigoEscaneado}
-                onChange={(e) => setCodigoEscaneado(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && procesarEscaneo()}
-                placeholder="Escanea un código aquí (9001-9012 para áreas, 1001-1005 para lotes)"
-                disabled={!modoEscaner}
-              />
-              <button 
-                className="scanner-button"
-                onClick={procesarEscaneo}
-                disabled={!codigoEscaneado}
-              >
-                Procesar
+              <div className="input-wrapper">
+                <span className="input-icon">🔍</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className={`scanner-input ${animacionActiva ? 'pulse' : ''}`}
+                  value={codigoEscaneado}
+                  onChange={(e) => setCodigoEscaneado(e.target.value.toUpperCase())}
+                  onKeyPress={(e) => e.key === 'Enter' && procesarEscaneo()}
+                  placeholder="V132274/IF2128, V134339/BV1012 o cualquier código..."
+                  disabled={!modoEscaner}
+                  autoComplete="off"
+                />
+                {codigoEscaneado && (
+                  <button className="input-clear" onClick={() => setCodigoEscaneado('')}>✕</button>
+                )}
+              </div>
+              <button className={`scanner-button ${animacionActiva ? 'pulse' : ''}`} onClick={procesarEscaneo} disabled={!codigoEscaneado}>
+                <span>Procesar</span>
               </button>
             </div>
 
-            <div className={`scanner-message ${tipoMensaje}`}>
-              {mensajeEscaner}
+            <div className={`scanner-message ${tipoMensaje} ${animacionActiva ? 'pop' : ''}`}>
+              <span className="message-icon">
+                {tipoMensaje === 'success' && '✅'}
+                {tipoMensaje === 'error' && '❌'}
+                {tipoMensaje === 'warning' && '⚠️'}
+                {tipoMensaje === 'info' && 'ℹ️'}
+              </span>
+              <span className="message-text">{mensajeEscaner}</span>
             </div>
 
             {(colaEscaneos.area || colaEscaneos.lote) && (
               <div className="queue-indicator">
-                {colaEscaneos.area && (
-                  <span className="queue-item" style={{ background: colaEscaneos.area.color + '20', color: colaEscaneos.area.color }}>
-                    {colaEscaneos.area.icono} {colaEscaneos.area.nombre}
-                  </span>
-                )}
-                <span className="queue-arrow">→</span>
-                {colaEscaneos.lote ? (
-                  <span className="queue-item" style={{ background: '#3b82f620', color: '#3b82f6' }}>
-                    📦 {colaEscaneos.lote.id}
-                  </span>
-                ) : (
-                  <span className="queue-item pending">Esperando lote...</span>
-                )}
+                <div className="queue-items">
+                  {colaEscaneos.area && (
+                    <div className="queue-item area" style={{ borderColor: colaEscaneos.area.color }}>
+                      <span className="item-icon">{colaEscaneos.area.icono}</span>
+                      <span className="item-name">{colaEscaneos.area.nombre}</span>
+                      <span className="item-code">{colaEscaneos.area.codigo}</span>
+                    </div>
+                  )}
+                  <span className="queue-arrow">→</span>
+                  {colaEscaneos.lote ? (
+                    <div className="queue-item lote">
+                      <span className="item-icon">📦</span>
+                      <span className="item-name">{colaEscaneos.lote.id}</span>
+                      <span className="item-code">{colaEscaneos.lote.codigo}</span>
+                    </div>
+                  ) : (
+                    <div className="queue-item pending">
+                      <span className="pending-icon">⏳</span>
+                      <span>Esperando lote...</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* ===== KPI EN TIEMPO REAL ===== */}
+        {/* KPI */}
         <div className="kpi-tiempo-real">
           <div className="kpi-item">
-            <span className="kpi-label">Lotes/hora</span>
-            <span className="kpi-valor">{statsTiempoReal.lotesPorHora}</span>
-            <span className="kpi-trend positive">↑12%</span>
+            <span className="kpi-icon">📊</span>
+            <div className="kpi-content">
+              <span className="kpi-label">En proceso</span>
+              <span className="kpi-valor">{statsTiempoReal.wip}</span>
+            </div>
+            <div className="kpi-glow"></div>
           </div>
           <div className="kpi-item">
-            <span className="kpi-label">Eficiencia</span>
-            <span className="kpi-valor">{statsTiempoReal.eficiencia}%</span>
-            <span className="kpi-trend positive">↑5%</span>
+            <span className="kpi-icon">⚡</span>
+            <div className="kpi-content">
+              <span className="kpi-label">Eficiencia</span>
+              <span className="kpi-valor">{statsTiempoReal.eficiencia}%</span>
+            </div>
+            <div className="kpi-glow"></div>
           </div>
           <div className="kpi-item">
-            <span className="kpi-label">OEE</span>
-            <span className="kpi-valor">{statsTiempoReal.oee}%</span>
-            <span className="kpi-trend positive">↑3%</span>
+            <span className="kpi-icon">📈</span>
+            <div className="kpi-content">
+              <span className="kpi-label">Progreso</span>
+              <span className="kpi-valor">{statsTiempoReal.tiempoPromedio}%</span>
+            </div>
+            <div className="kpi-glow"></div>
           </div>
-          <div className="kpi-item">
-            <span className="kpi-label">Calidad</span>
-            <span className="kpi-valor">{statsTiempoReal.calidad}%</span>
-            <span className="kpi-trend positive">↑1%</span>
-          </div>
-          <div className="kpi-item">
-            <span className="kpi-label">Tiempo prom.</span>
-            <span className="kpi-valor">{statsTiempoReal.tiempoPromedio} min</span>
-            <span className="kpi-trend negative">↓3%</span>
-          </div>
-          <div className="kpi-item">
-            <span className="kpi-label">Alertas</span>
-            <span className="kpi-valor">{statsTiempoReal.alertasActivas}</span>
-            <span className="kpi-trend warning">activas</span>
+          <div className="kpi-item warning">
+            <span className="kpi-icon">⚠️</span>
+            <div className="kpi-content">
+              <span className="kpi-label">Alertas</span>
+              <span className="kpi-valor">{statsTiempoReal.alertasActivas}</span>
+            </div>
+            <div className="kpi-glow"></div>
           </div>
         </div>
       </header>
 
-      {/* ===== RESTO DEL CÓDIGO JSX (sin cambios) ===== */}
-      <main className="app-main">
-        {/* Tabs y filtros */}
+      {/* MAIN CONTENT CON SCROLL */}
+      <main className="app-main" ref={mainContentRef}>
+        {/* TABS Y FILTROS */}
         <div className="tabs-container">
-          <div className="lotes-tabs">
-            <button 
-              className={`tab-btn ${vistaLotes === 'activos' ? 'active' : ''}`}
-              onClick={() => setVistaLotes('activos')}
-            >
-              📋 Activos <span className="tab-count">{lotes.filter(l => l.estado !== 'completado').length}</span>
-            </button>
-            <button 
-              className={`tab-btn ${vistaLotes === 'completados' ? 'active' : ''}`}
-              onClick={() => setVistaLotes('completados')}
-            >
-              ✅ Completados <span className="tab-count">{lotes.filter(l => l.estado === 'completado').length}</span>
-            </button>
-            <button 
-              className={`tab-btn ${vistaLotes === 'todos' ? 'active' : ''}`}
-              onClick={() => setVistaLotes('todos')}
-            >
-              📊 Todos <span className="tab-count">{lotes.length}</span>
-            </button>
+          <div className="tabs-header">
+            <div className="lotes-tabs">
+              <button className={`tab-btn ${vistaLotes === 'activos' ? 'active' : ''}`} onClick={() => setVistaLotes('activos')}>
+                <span className="tab-icon">📋</span> Activos
+                <span className="tab-count">{lotes.filter(l => l.estado !== 'completado').length}</span>
+                {vistaLotes === 'activos' && <span className="tab-glow"></span>}
+              </button>
+              <button className={`tab-btn ${vistaLotes === 'completados' ? 'active' : ''}`} onClick={() => setVistaLotes('completados')}>
+                <span className="tab-icon">✅</span> Completados
+                <span className="tab-count">{lotes.filter(l => l.estado === 'completado').length}</span>
+              </button>
+              <button className={`tab-btn ${vistaLotes === 'todos' ? 'active' : ''}`} onClick={() => setVistaLotes('todos')}>
+                <span className="tab-icon">📊</span> Todos
+                <span className="tab-count">{lotes.length}</span>
+              </button>
+            </div>
 
-            <button 
-              className={`filter-toggle-btn ${mostrarFiltros ? 'active' : ''}`}
-              onClick={() => setMostrarFiltros(!mostrarFiltros)}
-            >
-              🔍 Filtros
-            </button>
-
-            <select 
-              className="area-filter"
-              value={filtroArea}
-              onChange={(e) => setFiltroArea(e.target.value)}
-            >
-              <option value="todas">🌐 Todas las áreas</option>
-              {areas.map(area => (
-                <option key={area.id} value={area.nombre}>
-                  {area.icono} {area.nombre}
-                </option>
-              ))}
-            </select>
+            <div className="filters-actions">
+              <button className={`filter-toggle-btn ${mostrarFiltros ? 'active' : ''}`} onClick={() => setMostrarFiltros(!mostrarFiltros)}>
+                <span className="btn-icon">🔍</span> Filtros
+                {(filtrosAvanzados.cliente || filtrosAvanzados.producto || filtrosAvanzados.prioridad !== 'todas') && (
+                  <span className="filter-indicator"></span>
+                )}
+              </button>
+              <select className="area-filter" value={filtroArea} onChange={(e) => setFiltroArea(e.target.value)}>
+                <option value="todas">🌐 Todas las áreas</option>
+                {areas.map(area => (
+                  <option key={area.id} value={area.nombre}>{area.icono} {area.nombre}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {mostrarFiltros && (
             <div className="filtros-avanzados">
-              <input
-                type="date"
-                value={filtrosAvanzados.fechaInicio}
-                onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, fechaInicio: e.target.value})}
-                placeholder="Fecha inicio"
-              />
-              <input
-                type="date"
-                value={filtrosAvanzados.fechaFin}
-                onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, fechaFin: e.target.value})}
-                placeholder="Fecha fin"
-              />
-              <select
-                value={filtrosAvanzados.prioridad}
-                onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, prioridad: e.target.value})}
-              >
-                <option value="todas">Todas las prioridades</option>
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Responsable"
-                value={filtrosAvanzados.responsable}
-                onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, responsable: e.target.value})}
-              />
+              <div className="filtro-group">
+                <label>Cliente</label>
+                <input type="text" placeholder="Buscar cliente..." value={filtrosAvanzados.cliente} onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, cliente: e.target.value})} />
+              </div>
+              <div className="filtro-group">
+                <label>Producto</label>
+                <input type="text" placeholder="Buscar producto..." value={filtrosAvanzados.producto} onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, producto: e.target.value})} />
+              </div>
+              <div className="filtro-group">
+                <label>Prioridad</label>
+                <select value={filtrosAvanzados.prioridad} onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, prioridad: e.target.value})}>
+                  <option value="todas">Todas</option>
+                  <option value="alta">Alta</option>
+                  <option value="media">Media</option>
+                  <option value="baja">Baja</option>
+                </select>
+              </div>
+              <div className="filtro-group">
+                <label>Fecha</label>
+                <input type="date" value={filtrosAvanzados.fechaInicio} onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, fechaInicio: e.target.value})} />
+              </div>
             </div>
           )}
 
-          {/* Lista horizontal de lotes */}
-          <div className="lotes-horizontal">
-            {lotesFiltrados.map(lote => (
-              <div 
-                key={lote.id} 
-                className={`lote-card ${loteActivo === lote.id ? 'active' : ''} ${lote.estado} ${lote.alertas?.length > 0 ? 'con-alerta' : ''}`}
-                onClick={() => {
-                  setLoteSeleccionado(lote);
-                  setLoteActivo(lote.id);
-                }}
-              >
-                {lote.alertas?.length > 0 && (
-                  <span className="alerta-icono">⚠️</span>
-                )}
-                <div className="lote-card-header">
-                  <span className="lote-id">{lote.id}</span>
-                  <span className={`lote-status ${lote.estado}`}></span>
-                </div>
-                <span className="lote-producto">{lote.producto}</span>
-                <div className="lote-cliente">
-                  <span>{lote.cliente}</span>
-                  <span className="lote-cantidad">{lote.cantidad}</span>
-                </div>
-                <span className="lote-area">
-                  {areas.find(a => a.nombre === lote.areaActual)?.icono} {lote.areaActual}
-                </span>
-                <div className="lote-progress">
-                  <div className="progress-bar-mini">
-                    <div className="progress-fill-mini" style={{ width: `${lote.progreso}%` }}></div>
+          {/* LISTA DE LOTES */}
+          {lotesFiltrados.length > 0 ? (
+            <div className="lotes-horizontal">
+              {lotesFiltrados.map(lote => {
+                const areaActual = areas.find(a => a.nombre === lote.areaActual);
+                
+                return (
+                  <div key={lote.id} className={`lote-card ${loteSeleccionado?.id === lote.id ? 'selected' : ''} ${lote.estado}`} onClick={() => setLoteSeleccionado(lote)} style={{ borderLeftColor: areaActual?.color }}>
+                    {lote.alertas?.length > 0 && <span className="alerta-flotante">⚠️</span>}
+                    <div className="card-header">
+                      <div className="lote-info">
+                        <span className="lote-id">{lote.id}</span>
+                        <span className="lote-codigo" title={lote.codigo}>{lote.codigo}</span>
+                      </div>
+                      <span className={`status-badge ${lote.estado}`}>
+                        {lote.estado === 'completado' ? '✅' : lote.estado === 'calidad' ? '🔍' : lote.estado === 'incompleto' ? '⚠️' : '⚙️'}
+                      </span>
+                    </div>
+                    <div className="card-body">
+                      <span className="lote-producto">{lote.producto}</span>
+                      <div className="lote-cliente">
+                        <span className="cliente-nombre">{lote.cliente}</span>
+                        <span className="lote-cantidad">{lote.cantidad}uds</span>
+                      </div>
+                    </div>
+                    <div className="card-area" style={{ background: areaActual?.color + '15' }}>
+                      <span className="area-icon">{areaActual?.icono}</span>
+                      <span className="area-nombre">{lote.areaActual}</span>
+                    </div>
+                    <div className="progress-container">
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${lote.progreso}%`, background: `linear-gradient(90deg, ${areaActual?.color}, ${areaActual?.color}dd)` }}></div>
+                      </div>
+                      <span className="progress-text">{lote.progreso}%</span>
+                    </div>
+                    <div className="card-footer">
+                      <span className="lote-tiempo" title="Tiempo restante">⏱️ {lote.tiempoRestante}</span>
+                      <button className="btn-eliminar" onClick={(e) => { e.stopPropagation(); eliminarLote(lote.id); }} title="Eliminar lote">🗑️</button>
+                    </div>
+                    {loteSeleccionado?.id === lote.id && <span className="selected-glow"></span>}
                   </div>
-                  <span className="progress-text-mini">{lote.progreso}%</span>
-                </div>
-                <div className="lote-footer">
-                  <span className="lote-tiempo">⏱️ {lote.tiempoRestante}</span>
-                  <span className="lote-responsable">👤 {lote.responsable}</span>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="no-lotes-message">
+              <div className="empty-state">
+                <span className="empty-icon">📦</span>
+                <h3>No hay lotes</h3>
+                <p>Escanea cualquier código de lote para comenzar</p>
+                <div className="formatos-ejemplos">
+                  <code>V132274/IF2128</code>
+                  <code>V134339/BV1012</code>
+                  <code>NK-137</code>
+                  <code>1001</code>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Grid principal */}
+        {/* GRID PRINCIPAL */}
         <div className="main-grid">
-          {/* Columna izquierda - Áreas */}
+          {/* COLUMNA ÁREAS */}
           <div className="areas-column">
             <div className="areas-header">
-              <h2>Áreas de Producción</h2>
-              <span className="areas-count">{areas.length}</span>
+              <h2><span className="title-icon">🏭</span> Áreas de Producción</h2>
+              <div className="header-stats">
+                <span className="areas-count">{areas.length}</span>
+                <span className="ocupacion-total">
+                  {Math.round(areas.reduce((acc, a) => acc + (lotes.filter(l => l.areaActual === a.nombre).length / a.capacidad * 100), 0) / areas.length)}%
+                </span>
+              </div>
             </div>
 
             <div className="areas-list">
               {areas.map(area => {
                 const lotesEnArea = lotes.filter(l => l.areaActual === area.nombre).length;
-                const progresoArea = Math.floor(Math.random() * 100);
+                const ocupacion = (lotesEnArea / area.capacidad) * 100;
+                const esAreaActiva = loteSeleccionado?.areaActual === area.nombre;
                 return (
-                  <div 
-                    key={area.id} 
-                    className="area-item"
-                    style={{ borderLeftColor: area.color }}
-                    onClick={() => {
-                      setCodigoEscaneado(area.codigo);
-                      inputRef.current?.focus();
-                    }}
-                  >
-                    <div className="area-icon" style={{ background: area.color + '15', color: area.color }}>
-                      {area.icono}
+                  <div key={area.id} className={`area-item ${esAreaActiva ? 'activa' : ''}`} style={{ borderLeftColor: area.color }} onClick={() => { setCodigoEscaneado(area.codigo); inputRef.current?.focus(); }}>
+                    <div className="area-icon-wrapper" style={{ background: area.color + '15' }}>
+                      <span className="area-icon">{area.icono}</span>
+                      {lotesEnArea > 0 && <span className="area-badge" style={{ background: area.color }}>{lotesEnArea}</span>}
                     </div>
                     <div className="area-details">
-                      <span className="area-name">{area.nombre}</span>
-                      <div className="area-code">
-                        <code>{area.codigo}</code>
-                        <span className="copy-hint">📋</span>
+                      <div className="area-header">
+                        <span className="area-name">{area.nombre}</span>
+                        <span className="area-code">{area.codigo}</span>
                       </div>
                       <div className="area-metrics">
-                        <span className="area-badge" style={{ background: area.color + '20', color: area.color }}>
-                          {lotesEnArea} lote{lotesEnArea !== 1 ? 's' : ''}
-                        </span>
-                        <div className="area-progress-mini">
-                          <div className="progress-mini-bar">
-                            <div className="progress-mini-fill" style={{ width: `${progresoArea}%`, background: area.color }}></div>
+                        <div className="metric">
+                          <span className="metric-label">Ocupación</span>
+                          <div className="metric-bar">
+                            <div className="metric-fill" style={{ width: `${Math.min(100, ocupacion)}%`, background: area.color }}></div>
                           </div>
-                          <span className="progress-mini-text">{progresoArea}%</span>
+                          <span className="metric-value">{Math.round(ocupacion)}%</span>
                         </div>
                       </div>
+                      <div className="area-footer">
+                        <span className="area-capacidad">{lotesEnArea}/{area.capacidad}</span>
+                      </div>
                     </div>
+                    {esAreaActiva && <span className="area-glow" style={{ background: area.color }}></span>}
                   </div>
                 );
               })}
             </div>
-
-            {/* Mapa de calor de áreas */}
-            <div className="heatmap-container">
-              <h4>Mapa de calor - Producción</h4>
-              <div className="heatmap-grid">
-                {areas.slice(0, 6).map(area => (
-                  <div key={area.id} className="heatmap-cell" style={{
-                    background: `${area.color}${Math.floor(Math.random() * 50 + 30)}`,
-                    opacity: 0.7
-                  }}>
-                    <span>{area.icono}</span>
-                    <small>{Math.floor(Math.random() * 20 + 80)}%</small>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Predicciones IA */}
-            <div className="predicciones-container">
-              <h4>🤖 Predicciones IA</h4>
-              <div className="prediccion-item">
-                <span>Producción esperada</span>
-                <span className="prediccion-valor">156 lotes</span>
-              </div>
-              <div className="prediccion-item">
-                <span>Cuello de botella</span>
-                <span className="prediccion-valor warning">Corte</span>
-              </div>
-              <div className="prediccion-item">
-                <span>Rendimiento estimado</span>
-                <span className="prediccion-valor positive">92%</span>
-              </div>
-            </div>
           </div>
 
-          {/* Columna central - Tracking */}
+          {/* COLUMNA TRACKING */}
           <div className="tracking-column">
-            <TrackingLote 
-              loteSeleccionado={loteSeleccionado}
-              areas={areas}
-              predicciones={predicciones}
-            />
-            
-            {loteSeleccionado && (
-              <div className="camera-preview">
-                <h4>📹 Vista en tiempo real - {loteSeleccionado.areaActual}</h4>
-                <div className="camera-placeholder">
-                  <span className="camera-icon">🎥</span>
-                  <span>Transmisión en vivo</span>
-                  <small>{loteSeleccionado.areaActual} - Estación {Math.floor(Math.random() * 5) + 1}</small>
-                </div>
-              </div>
-            )}
+            <TrackingLote loteSeleccionado={loteSeleccionado} areas={areas} />
           </div>
 
-          {/* Columna derecha - Eventos y análisis */}
+          {/* COLUMNA EVENTOS */}
           <div className="events-column">
             <div className="events-header">
-              <h2>Eventos en tiempo real</h2>
+              <h2><span className="title-icon">⚡</span> Eventos</h2>
               <span className="events-count">{eventos.length}</span>
             </div>
 
@@ -1045,24 +1018,29 @@ const TrazabilidadLotes = () => {
                 <div className="no-events">
                   <span>⚡</span>
                   <p>Esperando eventos...</p>
+                  <div className="pulse-dots"><span></span><span></span><span></span></div>
                 </div>
               ) : (
                 eventos.map(evento => (
                   <div key={evento.id} className={`event-item ${evento.tipo}`}>
-                    <div className="event-icon">
-                      {evento.tipo === 'exito' && '✅'}
-                      {evento.tipo === 'area' && '📍'}
-                      {evento.tipo === 'lote' && '📦'}
-                      {evento.tipo === 'error' && '❌'}
-                      {evento.tipo === 'warning' && '⚠️'}
-                      {evento.tipo === 'completado' && '🎉'}
-                      {evento.tipo === 'nuevo' && '🆕'}
-                      {evento.tipo === 'info' && 'ℹ️'}
+                    <div className="event-icon-wrapper">
+                      <span className="event-icon">
+                        {evento.tipo === 'success' && '✅'}
+                        {evento.tipo === 'area' && '📍'}
+                        {evento.tipo === 'lote' && '📦'}
+                        {evento.tipo === 'error' && '❌'}
+                        {evento.tipo === 'warning' && '⚠️'}
+                        {evento.tipo === 'info' && 'ℹ️'}
+                      </span>
                     </div>
                     <div className="event-content">
                       <span className="event-message">{evento.mensaje}</span>
-                      <span className="event-time">{evento.timestamp}</span>
+                      <div className="event-footer">
+                        <span className="event-time">{evento.timestamp}</span>
+                        {evento.loteRef && <span className="event-lote">{evento.loteRef}</span>}
+                      </div>
                     </div>
+                    {evento.tipo === 'warning' && <span className="event-pulse"></span>}
                   </div>
                 ))
               )}
@@ -1070,173 +1048,71 @@ const TrazabilidadLotes = () => {
 
             {ultimoEscaneo && (
               <div className="last-scan">
-                <h4>Último movimiento</h4>
+                <h4><span className="title-icon">🔄</span> Último movimiento</h4>
                 <div className="scan-card">
-                  <span className="scan-lote">{ultimoEscaneo.lote}</span>
+                  <div className="scan-lote-info">
+                    <span className="scan-lote">{ultimoEscaneo.lote}</span>
+                    <span className="scan-codigo">{ultimoEscaneo.codigoLote}</span>
+                  </div>
                   <span className="scan-arrow">→</span>
-                  <span className="scan-area">{ultimoEscaneo.area}</span>
-                  <span className="scan-time">{ultimoEscaneo.fecha}</span>
+                  <div className="scan-area-info">
+                    <span className="scan-area">{ultimoEscaneo.area}</span>
+                  </div>
+                  <span className="scan-time">{ultimoEscaneo.fecha.split(' ')[1]}</span>
                   {ultimoEscaneo.reingreso && (
-                    <span className="scan-reingreso" title={`${ultimoEscaneo.veces}ª vez en esta área`}>
-                      ↩️{ultimoEscaneo.veces > 1 ? ` x${ultimoEscaneo.veces}` : ''}
-                    </span>
+                    <span className="scan-reingreso" title={`${ultimoEscaneo.veces}ª vez`}>↩️{ultimoEscaneo.veces > 1 ? ` x${ultimoEscaneo.veces}` : ''}</span>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Gráfico de producción */}
-            <div className="grafico-container">
-              <h4>Producción por hora</h4>
-              <div className="grafico-barras">
-                {graficoData.map((item, idx) => (
-                  <div key={idx} className="barra-wrapper">
-                    <div className="barra" style={{ height: `${item.valor}px` }}>
-                      <span className="barra-valor">{item.valor}</span>
-                    </div>
-                    <span className="barra-hora">{item.hora}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="meta-line">Meta: 85</div>
-            </div>
-
             <div className="simulation-panel">
-              <h4>Simulador de escaneo</h4>
+              <h4><span className="title-icon">🎮</span> Simulador</h4>
               <div className="simulation-buttons">
-                <button onClick={() => {
-                  const areasDisponibles = areas.filter(a => a.id !== 'AREA-011');
-                  const randomArea = areasDisponibles[Math.floor(Math.random() * areasDisponibles.length)];
-                  setCodigoEscaneado(randomArea.codigo);
-                  setTimeout(() => procesarEscaneo(), 100);
-                }} className="btn-area">
-                  📍 Simular área
+                <button onClick={() => { const randomArea = areas[Math.floor(Math.random() * areas.length)]; setCodigoEscaneado(randomArea.codigo); setTimeout(() => procesarEscaneo(), 100); }} className="btn-area">
+                  <span>📍</span> Simular área
                 </button>
-                <button onClick={() => {
-                  const lotesActivos = lotes.filter(l => l.estado !== 'completado');
-                  if (lotesActivos.length > 0) {
-                    const randomLote = lotesActivos[Math.floor(Math.random() * lotesActivos.length)];
-                    setCodigoEscaneado(randomLote.codigo);
-                    setTimeout(() => procesarEscaneo(), 100);
-                  }
+                <button onClick={() => { 
+                  const formatos = [
+                    `V132274/IF2128`,
+                    `V134339/BV1012`,
+                    `NK-137`,
+                    `1001`,
+                    `LOTE-001`
+                  ];
+                  const codigoSimulado = formatos[Math.floor(Math.random() * formatos.length)];
+                  setCodigoEscaneado(codigoSimulado); 
+                  setTimeout(() => procesarEscaneo(), 100); 
                 }} className="btn-lote">
-                  📦 Simular lote
+                  <span>📦</span> Simular lote
                 </button>
               </div>
-            </div>
-
-            <div className="areas-summary">
-              <h4>Resumen por área</h4>
-              {areas.map(area => {
-                const count = lotes.filter(l => l.areaActual === area.nombre).length;
-                if (count === 0) return null;
-                return (
-                  <div key={area.id} className="summary-item">
-                    <span className="summary-area" style={{ color: area.color }}>
-                      {area.icono} {area.nombre}
-                    </span>
-                    <span className="summary-count">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Alertas activas */}
-            <div className="alertas-container">
-              <h4>Alertas activas</h4>
-              {lotes.filter(l => l.alertas?.length > 0).map(lote => (
-                <div key={lote.id} className="alerta-item">
-                  <span className="alerta-icono">⚠️</span>
-                  <div className="alerta-contenido">
-                    <span className="alerta-lote">{lote.id}</span>
-                    <span className="alerta-desc">
-                      {lote.alertas?.includes('materiales') ? 'Faltan materiales' : 
-                       lote.alertas?.includes('retraso') ? 'Retraso en Preparacion' : 
-                       'Atención requerida'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Incidencias recientes */}
-            <div className="incidencias-container">
-              <h4>Incidencias recientes</h4>
-              {incidencias.slice(0, 3).map(inc => (
-                <div key={inc.id} className="incidencia-item">
-                  <span className="incidencia-icono">📌</span>
-                  <div className="incidencia-contenido">
-                    <span className="incidencia-lote">{inc.loteId}</span>
-                    <span className="incidencia-desc">{inc.descripcion}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Configuración de alertas */}
-            <div className="alertas-config">
-              <h4>Notificaciones</h4>
-              <label>
-                <input 
-                  type="checkbox" 
-                  checked={alertasConfig.email}
-                  onChange={(e) => setAlertasConfig({...alertasConfig, email: e.target.checked})}
-                />
-                📧 Email
-              </label>
-              <label>
-                <input 
-                  type="checkbox" 
-                  checked={alertasConfig.sms}
-                  onChange={(e) => setAlertasConfig({...alertasConfig, sms: e.target.checked})}
-                />
-                📱 SMS
-              </label>
-              <label>
-                <input 
-                  type="checkbox" 
-                  checked={alertasConfig.telegram}
-                  onChange={(e) => setAlertasConfig({...alertasConfig, telegram: e.target.checked})}
-                />
-                📨 Telegram
-              </label>
             </div>
           </div>
         </div>
       </main>
 
-      {/* CSS para el indicador de servidor */}
-      <style jsx>{`
-        .server-status {
+      {/* BOTÓN VOLVER ARRIBA */}
+      <button className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`} onClick={scrollToTop} title="Volver arriba">↑</button>
+
+      {/* ESTILOS ADICIONALES */}
+      <style>{`
+        .formatos-ejemplos {
           display: flex;
-          align-items: center;
           gap: 8px;
-          padding: 4px 12px;
+          flex-wrap: wrap;
+          justify-content: center;
+          margin-top: 16px;
+        }
+        
+        .formatos-ejemplos code {
+          background: var(--bg-tertiary);
+          padding: 6px 12px;
           border-radius: 20px;
-          font-size: 13px;
-          margin-right: 10px;
-        }
-        .server-status.connected {
-          background: #10b98120;
-          color: #10b981;
-        }
-        .server-status.disconnected {
-          background: #ef444420;
-          color: #ef4444;
-        }
-        .status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          display: inline-block;
-        }
-        .connected .status-dot {
-          background: #10b981;
-          box-shadow: 0 0 10px #10b981;
-        }
-        .disconnected .status-dot {
-          background: #ef4444;
-          box-shadow: 0 0 10px #ef4444;
+          font-family: monospace;
+          font-size: 0.9rem;
+          color: var(--primary-600);
+          border: 1px solid var(--border);
         }
       `}</style>
     </div>

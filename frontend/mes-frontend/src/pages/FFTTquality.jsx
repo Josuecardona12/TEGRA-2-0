@@ -102,11 +102,11 @@ const FFTTquality = () => {
       sonido: true,
       vibracion: true,
       autoguardar: true,
-      validarFormato: true,
+      validarFormato: false, // AHORA ESTÁ EN FALSE PARA ACEPTAR CUALQUIER CÓDIGO
       duplicados: 'alertar',
-      prefijos: ['LOT', 'PO', 'BATCH'],
-      longitudMinima: 5,
-      longitudMaxima: 20
+      prefijos: ['LOT', 'PO', 'BATCH', 'V', 'NK', 'AD'], // Prefijos comunes
+      longitudMinima: 1,  // Mínimo 1 carácter
+      longitudMaxima: 50  // Máximo 50 caracteres
     }
   });
 
@@ -206,7 +206,7 @@ const FFTTquality = () => {
           
           if (data.data.ultimoMovimiento) {
             setUltimoMovimiento(data.data.ultimoMovimiento);
-            agregarNotificacion(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
+            agregarNotificacion('info', `🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`);
           }
           
           // Actualizar lotes con datos del servidor
@@ -366,14 +366,98 @@ const FFTTquality = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
+  // ================ VALIDAR FORMATO DE LOTE (AHORA ACEPTA CUALQUIER COSA) ================
+  const validarFormatoCodigo = (codigo) => {
+    // ¡AHORA ACEPTA CUALQUIER CÓDIGO!
+    // Solo verificamos que no esté vacío y tenga longitud razonable
+    if (!codigo) return false;
+    if (codigo.length < scannerState.configuracion.longitudMinima) return false;
+    if (codigo.length > scannerState.configuracion.longitudMaxima) return false;
+    
+    // Si la validación está desactivada, todo es válido
+    if (!scannerState.configuracion.validarFormato) return true;
+    
+    // Si está activada, verificamos prefijos (opcional)
+    const tienePrefijoValido = scannerState.configuracion.prefijos.some(
+      prefijo => codigo.startsWith(prefijo)
+    );
+    
+    return tienePrefijoValido;
+  };
+
+  const extraerInfoCodigo = (codigo) => {
+    // Extraer información básica del código
+    const info = {
+      codigoOriginal: codigo,
+      timestamp: Date.now()
+    };
+
+    // Detectar formato VXXXXXX/IFXXXX
+    if (codigo.includes('/')) {
+      const partes = codigo.split('/');
+      if (partes.length === 2) {
+        info.formato = 'compuesto';
+        info.prefijo = partes[0];
+        info.sufijo = partes[1];
+        
+        // Intentar extraer fecha si tiene formato V + 6 dígitos
+        const matchV = partes[0].match(/^V(\d{6})$/);
+        if (matchV) {
+          const año = matchV[1].substring(0, 2);
+          const mes = matchV[1].substring(2, 4);
+          const dia = matchV[1].substring(4, 6);
+          info.fecha = `20${año}-${mes}-${dia}`;
+          info.numeroV = matchV[1];
+        }
+      }
+    }
+
+    // Detectar formato con guiones (NK-137)
+    if (codigo.includes('-')) {
+      const partes = codigo.split('-');
+      if (partes.length === 2) {
+        info.formato = 'guion';
+        info.prefijo = partes[0];
+        info.numero = partes[1];
+      }
+    }
+
+    // Si es solo números
+    if (/^\d+$/.test(codigo)) {
+      info.formato = 'numerico';
+      info.numero = codigo;
+    }
+
+    return info;
+  };
+
+  const verificarDuplicado = (codigo) => {
+    return historialEscaneos.some(e => e.codigoEscaneado === codigo);
+  };
+
+  const actualizarEstadisticasEscaneo = (codigo) => {
+    setEstadisticasEscaneo(prev => ({
+      ...prev,
+      totalEscaneos: prev.totalEscaneos + 1,
+      escaneosExitosos: prev.escaneosExitosos + 1,
+      ultimoEscaneo: new Date(),
+      lotesUnicos: new Set([...historialEscaneos.map(e => e.numeroLote), scannerData.numeroLote]).size
+    }));
+  };
+
   const procesarCodigoEscaneado = (codigo) => {
+    const codigoLimpio = codigo.trim().toUpperCase();
+    
     setScannerData(prev => ({
       ...prev,
-      codigoEscaneado: codigo
+      codigoEscaneado: codigoLimpio
     }));
 
+    // Extraer información del código
+    const infoCodigo = extraerInfoCodigo(codigoLimpio);
+    
     // Buscar si el código corresponde a un lote existente
-    const loteExistente = lotes.find(l => l.lote === codigo);
+    const loteExistente = lotes.find(l => l.lote === codigoLimpio);
     if (loteExistente) {
       setScannerData(prev => ({
         ...prev,
@@ -383,10 +467,18 @@ const FFTTquality = () => {
         operador: loteExistente.operador,
         turno: loteExistente.turno
       }));
+    } else {
+      // Si no existe, autocompletar con información extraída
+      setScannerData(prev => ({
+        ...prev,
+        numeroLote: codigoLimpio,
+        tipoProducto: infoCodigo.prefijo || 'Producto',
+        observaciones: `Código escaneado: ${codigoLimpio}`
+      }));
     }
 
-    // Analizar formato del código
-    const formatoValido = validarFormatoCodigo(codigo);
+    // Analizar formato del código (ya no rechaza nada)
+    const formatoValido = validarFormatoCodigo(codigoLimpio);
     
     if (!formatoValido && scannerState.configuracion.validarFormato) {
       agregarNotificacion('error', 'Formato de código inválido');
@@ -394,16 +486,16 @@ const FFTTquality = () => {
       return;
     }
 
-    // Verificar duplicados
-    const esDuplicado = verificarDuplicado(codigo);
+    // Verificar duplicados (solo alerta, no bloquea)
+    const esDuplicado = verificarDuplicado(codigoLimpio);
     
     if (esDuplicado) {
       switch (scannerState.configuracion.duplicados) {
         case 'alertar':
-          agregarNotificacion('alerta', 'Código ya escaneado anteriormente');
+          agregarNotificacion('alerta', '⚠️ Código ya escaneado anteriormente');
           break;
         case 'bloquear':
-          agregarNotificacion('error', 'Código duplicado - No permitido');
+          agregarNotificacion('error', '❌ Código duplicado - No permitido');
           return;
         default:
           break;
@@ -419,39 +511,10 @@ const FFTTquality = () => {
     
     setScannerState(prev => ({
       ...prev,
-      ultimoCodigo: codigo
+      ultimoCodigo: codigoLimpio
     }));
 
-    actualizarEstadisticasEscaneo(codigo);
-  };
-
-  const validarFormatoCodigo = (codigo) => {
-    if (!codigo) return false;
-    
-    if (codigo.length < scannerState.configuracion.longitudMinima ||
-        codigo.length > scannerState.configuracion.longitudMaxima) {
-      return false;
-    }
-    
-    const tienePrefijoValido = scannerState.configuracion.prefijos.some(
-      prefijo => codigo.startsWith(prefijo)
-    );
-    
-    return tienePrefijoValido;
-  };
-
-  const verificarDuplicado = (codigo) => {
-    return historialEscaneos.some(e => e.codigoEscaneado === codigo);
-  };
-
-  const actualizarEstadisticasEscaneo = (codigo) => {
-    setEstadisticasEscaneo(prev => ({
-      ...prev,
-      totalEscaneos: prev.totalEscaneos + 1,
-      escaneosExitosos: prev.escaneosExitosos + 1,
-      ultimoEscaneo: new Date(),
-      lotesUnicos: new Set([...historialEscaneos.map(e => e.numeroLote), scannerData.numeroLote]).size
-    }));
+    actualizarEstadisticasEscaneo(codigoLimpio);
   };
 
   const cargarHistorialEscaneos = () => {
@@ -582,13 +645,14 @@ const FFTTquality = () => {
             ? { ...l, totalMuestras: l.totalMuestras + scannerData.cantidad }
             : l
         ));
+        agregarNotificacion('exito', `✅ Lote ${scannerData.numeroLote} actualizado`);
       } else {
         // Crear nuevo lote
         const nuevoLote = {
           id: Date.now() + 1,
           lote: scannerData.numeroLote,
           po: `PO-${new Date().getFullYear()}-${String(lotes.length + 1).padStart(3, '0')}`,
-          sport: scannerData.tipoProducto || 'Baseball',
+          sport: scannerData.tipoProducto || 'Producto Genérico',
           fecha: scannerData.fechaEscaneo,
           horaInicio: scannerData.horaEscaneo,
           horaFin: '',
@@ -616,17 +680,16 @@ const FFTTquality = () => {
             proveedor: '',
             certificado: ''
           },
-          observaciones: scannerData.observaciones || 'Lote creado desde escáner',
+          observaciones: scannerData.observaciones || `Lote creado desde escáner - Código: ${scannerData.codigoEscaneado}`,
           acciones: [],
           gravedad: 'baja',
           estado: 'nuevo',
           alertas: []
         };
         setLotes([nuevoLote, ...lotes]);
+        agregarNotificacion('exito', `✅ Nuevo lote ${scannerData.numeroLote} creado`);
       }
     }
-
-    agregarNotificacion('exito', '✅ Escaneo guardado correctamente');
 
     setScannerData(prev => ({
       ...prev,
@@ -1520,7 +1583,7 @@ const FFTTquality = () => {
               </button>
 
               <button className="filtro-selector" onClick={seleccionarTodos}>
-                {loteSeleccionados.length === lotesFiltrados.length ? 'Deseleccionar' : 'Seleccionar'}
+                {loteSeleccionados.length === lotesFiltrados.length ? 'Deseleccionar' : 'Seleccionar Todos'}
               </button>
             </div>
 
@@ -1634,6 +1697,9 @@ const FFTTquality = () => {
                           <div className="empty-icon">📭</div>
                           <h3>No hay lotes</h3>
                           <p>Comienza escaneando un lote o creando uno nuevo</p>
+                          <button className="btn-primary" onClick={() => setVista('scanner')}>
+                            Ir al Escáner
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1648,7 +1714,7 @@ const FFTTquality = () => {
           </div>
         )}
 
-        {/* ================ VISTA DE ESCÁNER ================ */}
+        {/* ================ VISTA DE ESCÁNER (AHORA ACEPTA CUALQUIER CÓDIGO) ================ */}
         {vista === 'scanner' && (
           <div className="scanner-panel-premium">
             <div className="scanner-header-premium">
@@ -1673,6 +1739,19 @@ const FFTTquality = () => {
                     <option value="auto">📷 Modo Auto</option>
                   </select>
                 </div>
+              </div>
+            </div>
+
+            {/* Información de formatos aceptados */}
+            <div className="formatos-aceptados-banner">
+              <span className="formatos-titulo">✅ Formatos aceptados:</span>
+              <div className="formatos-lista">
+                <span className="formato-item">V132274/IF2128</span>
+                <span className="formato-item">V134339/BV1012</span>
+                <span className="formato-item">NK-137</span>
+                <span className="formato-item">1001</span>
+                <span className="formato-item">LOTE-001</span>
+                <span className="formato-item">¡CUALQUIER CÓDIGO!</span>
               </div>
             </div>
 
@@ -1734,7 +1813,7 @@ const FFTTquality = () => {
                         type="text"
                         value={scannerData.numeroLote}
                         onChange={(e) => setScannerData({...scannerData, numeroLote: e.target.value})}
-                        placeholder="Ej: L2401-001"
+                        placeholder="Se auto-completa al escanear"
                         list="lotes-sugeridos"
                       />
                       <datalist id="lotes-sugeridos">
@@ -1745,21 +1824,24 @@ const FFTTquality = () => {
                     </div>
 
                     <div className="form-group">
-                      <label>🏷️ Tipo de Tallas</label>
+                      <label>🏷️ Tipo de Producto</label>
                       <select
                         value={scannerData.tipoProducto}
                         onChange={(e) => setScannerData({...scannerData, tipoProducto: e.target.value})}
                       >
                         <option value="">Seleccionar...</option>
-                        <option value="LGT"> LGT</option>
-                        <option value="MED"> MED</option>
-                        <option value="XL"> XL</option>
-                        <option value="3XL"> 3XL</option>
-                        <option value="LRG"> LRG</option>
-                        <option value="XLT"> XLT</option>
-                        <option value="XSM"> XSM</option>
-                        <option value="3LT"> 3LT</option>
-
+                        <option value="LGT">LGT</option>
+                        <option value="MED">MED</option>
+                        <option value="XL">XL</option>
+                        <option value="3XL">3XL</option>
+                        <option value="LRG">LRG</option>
+                        <option value="XLT">XLT</option>
+                        <option value="XSM">XSM</option>
+                        <option value="3LT">3LT</option>
+                        <option value="Baseball">Baseball</option>
+                        <option value="Soccer">Soccer</option>
+                        <option value="Basketball">Basketball</option>
+                        <option value="Football">Football</option>
                       </select>
                     </div>
 
@@ -1846,15 +1928,15 @@ const FFTTquality = () => {
                   <div className="form-actions-premium">
                     <button className="btn-guardar premium" onClick={handleGuardarEscaneo}>
                       <span className="btn-icon">💾</span>
-                      <span>Guardar</span>
+                      <span>Guardar Escaneo</span>
                     </button>
                     <button className="btn-limpiar premium" onClick={handleLimpiarEscaneo}>
                       <span className="btn-icon">🧹</span>
-                      <span>Limpiar</span>
+                      <span>Limpiar Formulario</span>
                     </button>
                     <button className="btn-exportar premium" onClick={() => handleExportarEscaneos('excel')}>
                       <span className="btn-icon">📥</span>
-                      <span>Exportar</span>
+                      <span>Exportar Historial</span>
                     </button>
                   </div>
                 </div>
@@ -1945,14 +2027,14 @@ const FFTTquality = () => {
                 <div className="step-number">2</div>
                 <div className="step-content">
                   <h4>Escanear</h4>
-                  <p>Usa el teclado o escáner</p>
+                  <p>Usa el teclado o escáner físico</p>
                 </div>
               </div>
               <div className="instruction-step">
                 <div className="step-number">3</div>
                 <div className="step-content">
                   <h4>Completar</h4>
-                  <p>Agrega información</p>
+                  <p>Agrega información adicional</p>
                 </div>
               </div>
               <div className="instruction-step">
@@ -2149,6 +2231,7 @@ const FFTTquality = () => {
                 <div className="detalle-grid">
                   <div className="detalle-seccion">
                     <h4>Información General</h4>
+                    <p><strong>Lote:</strong> {selectedLote.lote}</p>
                     <p><strong>PO:</strong> {selectedLote.po}</p>
                     <p><strong>Producto:</strong> {selectedLote.sport}</p>
                     <p><strong>Fecha:</strong> {selectedLote.fecha}</p>

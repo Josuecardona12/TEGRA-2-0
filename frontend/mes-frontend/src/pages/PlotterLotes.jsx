@@ -40,7 +40,7 @@ const PlotterLotes = () => {
       temperatura: 45, 
       tinta: 62, 
       produccionHoy: 2134,
-      loteActual: "NK-137", 
+      loteActual: "V132274/IF2128", 
       operador: "María G.",
       velocidad: 2200,
       eficiencia: 95,
@@ -76,7 +76,7 @@ const PlotterLotes = () => {
       operador: "Técnico",
       velocidad: 2400,
       eficiencia: 0,
-      alertas: ["🔧 Mantenimiento"],
+      alertas: ["🔧 Mantenimiento programado"],
       color: "#f72585",
       historial: []
     },
@@ -102,8 +102,8 @@ const PlotterLotes = () => {
   const [lotes, setLotes] = useState({
     pendientes: [
       { 
-        id: "NK-137", 
-        codigo: "NK-137", 
+        id: "V132274/IF2128", 
+        codigo: "V132274/IF2128", 
         cliente: "NIKE", 
         producto: "LONA IMPRESA 3x2m", 
         cantidad: 450, 
@@ -116,11 +116,14 @@ const PlotterLotes = () => {
         tiempoEstimado: "2.5h",
         diseño: "nk_137_campaign.ai",
         observaciones: "Urgente - Evento deportivo",
+        fechaCodigo: "2026-03-16",
+        loteV: "132274",
+        loteIF: "2128",
         historia: []
       },
       { 
-        id: "AD-245", 
-        codigo: "AD-245", 
+        id: "V152489/IF3245", 
+        codigo: "V152489/IF3245", 
         cliente: "ADIDAS", 
         producto: "VINILO TEXTIL", 
         cantidad: 280, 
@@ -133,12 +136,15 @@ const PlotterLotes = () => {
         tiempoEstimado: "1.8h",
         diseño: "ad_245_running.eps",
         observaciones: "Camisetas running",
+        fechaCodigo: "2015-02-24",
+        loteV: "152489",
+        loteIF: "3245",
         historia: []
       },
       { 
-        id: "PM-389", 
-        codigo: "RN-389", 
-        cliente: "Run", 
+        id: "V163478/IF4567", 
+        codigo: "V163478/IF4567", 
+        cliente: "PUMA", 
         producto: "PAPEL SUBLIMACIÓN", 
         cantidad: 600, 
         prioridad: "ALTA",
@@ -150,11 +156,14 @@ const PlotterLotes = () => {
         tiempoEstimado: "3.2h",
         diseño: "pm_389_collection.pdf",
         observaciones: "200°C temperatura",
+        fechaCodigo: "2016-03-16",
+        loteV: "163478",
+        loteIF: "4567",
         historia: []
       },
       { 
-        id: "UA-456", 
-        codigo: "NBA-456", 
+        id: "V174569/IF5890", 
+        codigo: "V174569/IF5890", 
         cliente: "NBA", 
         producto: "BANNER 2x1m", 
         cantidad: 200, 
@@ -167,6 +176,29 @@ const PlotterLotes = () => {
         tiempoEstimado: "1.5h",
         diseño: "ua_456_outdoor.cdr",
         observaciones: "Resistente UV",
+        fechaCodigo: "2017-04-05",
+        loteV: "174569",
+        loteIF: "5890",
+        historia: []
+      },
+      { 
+        id: "V134339/BV1012", 
+        codigo: "V134339/BV1012", 
+        cliente: "CLIENTE NUEVO", 
+        producto: "PRODUCTO ESPECIAL", 
+        cantidad: 350, 
+        prioridad: "ALTA",
+        fecha: "2026-03-16",
+        hora: "14:30",
+        material: "Material Premium",
+        acabado: "Especial",
+        colores: 5,
+        tiempoEstimado: "3.0h",
+        diseño: "especial_001.ai",
+        observaciones: "Nuevo formato",
+        fechaCodigo: "2013-04-03",
+        loteV: "134339",
+        loteIF: "1012",
         historia: []
       }
     ],
@@ -185,8 +217,63 @@ const PlotterLotes = () => {
   const [vista, setVista] = useState("grid");
   const [busqueda, setBusqueda] = useState("");
   const [filtroMaquinas, setFiltroMaquinas] = useState("todas");
+  const [animacionActiva, setAnimacionActiva] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const inputRef = useRef(null);
+  const mainContentRef = useRef(null);
+
+  // ================ VALIDAR FORMATO DE LOTE (AHORA ACEPTA CUALQUIER CÓDIGO) ================
+  const validarFormatoLote = (codigo) => {
+    // ¡AHORA ACEPTA CUALQUIER CÓDIGO QUE NO SEA UN ÁREA!
+    // Los códigos de área son 9001-9012, todo lo demás es un lote válido
+    return !codigo.match(/^9\d{3}$/);
+  };
+
+  const extraerInfoLote = (codigo) => {
+    // Extraer información básica del código
+    const info = {
+      codigoOriginal: codigo,
+      timestamp: Date.now()
+    };
+
+    // Intentar extraer formato VXXXXXX/IFXXXX
+    const matchPrincipal = codigo.match(/^V(\d{6})\/([A-Z]{2})(\d{4})$/);
+    if (matchPrincipal) {
+      const año = matchPrincipal[1].substring(0, 2);
+      const mes = matchPrincipal[1].substring(2, 4);
+      const dia = matchPrincipal[1].substring(4, 6);
+      return {
+        ...info,
+        formato: 'principal',
+        numeroV: matchPrincipal[1],
+        prefijo: matchPrincipal[2],
+        numeroSufijo: matchPrincipal[3],
+        fecha: `20${año}-${mes}-${dia}`
+      };
+    }
+
+    // Intentar extraer formato VXXXXXX/IFXXXX (formato original)
+    const matchOriginal = codigo.match(/^V(\d{6})\/IF(\d{4})$/);
+    if (matchOriginal) {
+      const año = matchOriginal[1].substring(0, 2);
+      const mes = matchOriginal[1].substring(2, 4);
+      const dia = matchOriginal[1].substring(4, 6);
+      return {
+        ...info,
+        formato: 'original',
+        numeroV: matchOriginal[1],
+        numeroIF: matchOriginal[2],
+        fecha: `20${año}-${mes}-${dia}`
+      };
+    }
+
+    // Si no coincide con ningún formato específico, devolver info básica
+    return {
+      ...info,
+      formato: 'generico'
+    };
+  };
 
   // ================ CONEXIÓN WEBSOCKET ================
   useEffect(() => {
@@ -219,23 +306,30 @@ const PlotterLotes = () => {
             // Actualizar lotes pendientes con datos del servidor
             const nuevosPendientes = lotesData
               .filter(l => l.estado === 'pendiente' || l.estado === 'nuevo')
-              .map(l => ({
-                id: l.codigo,
-                codigo: l.codigo,
-                cliente: l.cliente || 'Pendiente',
-                producto: l.producto || 'Producto',
-                cantidad: l.cantidad || 0,
-                prioridad: l.prioridad || 'MEDIA',
-                fecha: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString(),
-                material: "Estándar",
-                acabado: "Estándar",
-                colores: 4,
-                tiempoEstimado: "2.0h",
-                diseño: "pendiente.ai",
-                observaciones: "",
-                historia: []
-              }));
+              .map(l => {
+                const infoLote = extraerInfoLote(l.codigo);
+                return {
+                  id: l.codigo,
+                  codigo: l.codigo,
+                  cliente: l.cliente || 'Pendiente',
+                  producto: l.producto || 'Producto',
+                  cantidad: l.cantidad || 0,
+                  prioridad: l.prioridad || 'MEDIA',
+                  fecha: new Date().toLocaleDateString(),
+                  hora: new Date().toLocaleTimeString(),
+                  material: "Estándar",
+                  acabado: "Estándar",
+                  colores: 4,
+                  tiempoEstimado: "2.0h",
+                  diseño: "pendiente.ai",
+                  observaciones: "",
+                  fechaCodigo: infoLote?.fecha || '',
+                  loteV: infoLote?.numeroV || '',
+                  loteIF: infoLote?.numeroIF || '',
+                  prefijo: infoLote?.prefijo || '',
+                  historia: []
+                };
+              });
             
             setLotes(prev => ({
               ...prev,
@@ -263,6 +357,24 @@ const PlotterLotes = () => {
     
     return () => ws.close();
   }, []);
+
+  // ================ DETECTAR SCROLL ================
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mainContentRef.current) {
+        setShowScrollTop(mainContentRef.current.scrollTop > 400);
+      }
+    };
+    const currentRef = mainContentRef.current;
+    if (currentRef) currentRef.addEventListener('scroll', handleScroll);
+    return () => { if (currentRef) currentRef.removeEventListener('scroll', handleScroll); };
+  }, []);
+
+  const scrollToTop = () => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // ================ ENVIAR AL SERVIDOR ================
   const enviarAlServidor = (tipo, payload) => {
@@ -308,17 +420,28 @@ const PlotterLotes = () => {
     }));
   };
 
-  // ================ PROCESAR ESCANEO ================
-  const procesarEscaneo = (codigo) => {
-    if (!codigo || codigo.trim() === "") {
+  // ================ PROCESAR ESCANEO (AHORA ACEPTA CUALQUIER CÓDIGO) ================
+  const procesarEscaneo = () => {
+    const codigo = codigoEscaneado.trim().toUpperCase();
+    if (!codigo) {
       mostrarNotificacion("⚠️ Ingrese un código válido", "warning");
       return;
     }
 
-    const codigoLimpio = codigo.trim().toUpperCase();
+    // Verificar si es código de área (9001-9012)
+    if (codigo.match(/^9\d{3}$/)) {
+      mostrarNotificacion(`❌ Los códigos de área (${codigo}) no son válidos para lotes`, "error");
+      setCodigoEscaneado("");
+      return;
+    }
+
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 500);
+    
+    const infoLote = extraerInfoLote(codigo);
     
     // Buscar en producción (2do escaneo - finalizar)
-    const loteEnProduccion = lotes.produccion.find(l => l.codigo === codigoLimpio);
+    const loteEnProduccion = lotes.produccion.find(l => l.codigo === codigo);
     if (loteEnProduccion) {
       setModalDetalle({ 
         abierto: true, 
@@ -327,37 +450,98 @@ const PlotterLotes = () => {
       });
       
       // Enviar al servidor
-      enviarAlServidor('ESCANEO', { codigo: codigoLimpio, tipo: 'finalizar', area: 'Plotter' });
+      enviarAlServidor('ESCANEO', { codigo, tipo: 'finalizar', area: 'Plotter', infoLote });
       
       setCodigoEscaneado("");
       return;
     }
 
     // Buscar en pendientes (1er escaneo - iniciar)
-    const lotePendiente = lotes.pendientes.find(l => l.codigo === codigoLimpio);
+    const lotePendiente = lotes.pendientes.find(l => l.codigo === codigo);
     if (lotePendiente) {
       setModalAsignar({ abierto: true, lote: lotePendiente });
       
       // Enviar al servidor
-      enviarAlServidor('ESCANEO', { codigo: codigoLimpio, tipo: 'iniciar', area: 'Plotter' });
+      enviarAlServidor('ESCANEO', { codigo, tipo: 'iniciar', area: 'Plotter', infoLote });
       
       setCodigoEscaneado("");
       return;
     }
 
     // Buscar en finalizados
-    const loteFinalizado = lotes.finalizados.find(l => l.codigo === codigoLimpio);
+    const loteFinalizado = lotes.finalizados.find(l => l.codigo === codigo);
     if (loteFinalizado) {
       setModalDetalle({ abierto: true, tipo: "lote", item: loteFinalizado });
       
       // Enviar al servidor
-      enviarAlServidor('ESCANEO', { codigo: codigoLimpio, tipo: 'detalle', area: 'Plotter' });
+      enviarAlServidor('ESCANEO', { codigo, tipo: 'detalle', area: 'Plotter', infoLote });
       
       setCodigoEscaneado("");
       return;
     }
 
-    mostrarNotificacion(`❌ Lote ${codigoLimpio} no encontrado`, "error");
+    // Si no existe, crear nuevo lote con cualquier código
+    crearNuevoLote(codigo, infoLote);
+  };
+
+  // ================ CREAR NUEVO LOTE (ACEPTA CUALQUIER CÓDIGO) ================
+  const crearNuevoLote = (codigo, infoLote = null) => {
+    const clientes = ['NIKE', 'ADIDAS', 'PUMA', 'NBA', 'UNDER ARMOUR', 'NEW BALANCE', 'CLIENTE NUEVO'];
+    const productos = ['LONA IMPRESA', 'VINILO TEXTIL', 'PAPEL SUBLIMACIÓN', 'BANNER', 'LONA FRONT', 'PRODUCTO ESPECIAL'];
+    const prioridades = ['ALTA', 'MEDIA', 'BAJA'];
+    
+    // Personalizar según el formato
+    let cliente = clientes[Math.floor(Math.random() * clientes.length)];
+    let producto = `${productos[Math.floor(Math.random() * productos.length)]} ${Math.floor(1 + Math.random() * 5)}x${Math.floor(1 + Math.random() * 3)}m`;
+    let fechaCodigo = '';
+    let loteV = '';
+    let loteIF = '';
+    let prefijo = '';
+    
+    if (infoLote) {
+      if (infoLote.formato === 'principal' || infoLote.formato === 'original') {
+        fechaCodigo = infoLote.fecha || '';
+        loteV = infoLote.numeroV || '';
+        loteIF = infoLote.numeroIF || infoLote.numeroSufijo || '';
+        prefijo = infoLote.prefijo || 'IF';
+        if (infoLote.prefijo === 'BV') {
+          cliente = 'CLIENTE BV';
+          producto = 'PRODUCTO ESPECIAL BV';
+        }
+      }
+    }
+
+    const nuevoLote = {
+      id: codigo,
+      codigo,
+      cliente,
+      producto,
+      cantidad: Math.floor(100 + Math.random() * 900),
+      prioridad: prioridades[Math.floor(Math.random() * prioridades.length)],
+      fecha: tiempoReal.toISOString().split('T')[0],
+      hora: tiempoReal.toLocaleTimeString(),
+      material: ["Lona", "Vinil", "Papel", "Banner", "Premium"][Math.floor(Math.random() * 5)],
+      acabado: ["Mate", "Brillante", "Premium", "Económico", "Especial"][Math.floor(Math.random() * 5)],
+      colores: Math.floor(2 + Math.random() * 4),
+      tiempoEstimado: `${(1 + Math.random() * 3).toFixed(1)}h`,
+      diseño: `${codigo.toLowerCase().replace(/[\/-]/g, '_')}.ai`,
+      observaciones: "Generado automáticamente",
+      fechaCodigo: fechaCodigo || new Date().toISOString().split('T')[0],
+      loteV: loteV || codigo.replace(/[^0-9]/g, '').substring(0, 6),
+      loteIF: loteIF || codigo.replace(/[^0-9]/g, '').substring(6, 10) || '0000',
+      prefijo: prefijo || 'IF',
+      historia: []
+    };
+
+    setLotes(prev => ({
+      ...prev,
+      pendientes: [nuevoLote, ...prev.pendientes]
+    }));
+    
+    // Enviar al servidor
+    enviarAlServidor('NUEVO_LOTE', nuevoLote);
+    
+    mostrarNotificacion(`✅ Lote ${codigo} generado`, "success");
     setCodigoEscaneado("");
   };
 
@@ -367,6 +551,8 @@ const PlotterLotes = () => {
       mostrarNotificacion("❌ Seleccione una máquina", "warning");
       return;
     }
+
+    const infoLote = extraerInfoLote(lote.codigo);
 
     const nuevoLote = {
       ...lote,
@@ -378,7 +564,11 @@ const PlotterLotes = () => {
       progreso: "0",
       estado: "produciendo",
       operador: maquina.operador,
-      tiempoInicio: Date.now()
+      tiempoInicio: Date.now(),
+      fechaCodigo: infoLote?.fecha || lote.fechaCodigo,
+      loteV: infoLote?.numeroV || lote.loteV,
+      loteIF: infoLote?.numeroIF || lote.loteIF,
+      prefijo: infoLote?.prefijo || lote.prefijo || 'IF'
     };
 
     setLotes(prev => ({
@@ -465,43 +655,50 @@ const PlotterLotes = () => {
     }, 3000);
   };
 
-  // ================ GENERAR ALEATORIO ================
+  // ================ GENERAR ALEATORIO CON FORMATOS VARIADOS ================
   const generarAleatorio = () => {
-    const prefijos = ['NK', 'AD', 'PM', 'UA', 'NB', 'AS'];
-    const numeros = Math.floor(100 + Math.random() * 900);
-    const codigo = `${prefijos[Math.floor(Math.random() * prefijos.length)]}-${numeros}`;
+    // Elegir formato aleatorio
+    const tipoFormato = Math.floor(Math.random() * 4);
+    let codigo;
     
-    const nuevoLote = {
-      id: codigo,
-      codigo,
-      cliente: "NUEVO CLIENTE",
-      producto: "PRODUCTO GENÉRICO",
-      cantidad: Math.floor(100 + Math.random() * 900),
-      prioridad: ["ALTA", "MEDIA", "BAJA"][Math.floor(Math.random() * 3)],
-      fecha: tiempoReal.toISOString().split('T')[0],
-      hora: tiempoReal.toLocaleTimeString(),
-      material: "Estándar",
-      acabado: "Estándar",
-      colores: Math.floor(2 + Math.random() * 4),
-      tiempoEstimado: "2.0h",
-      historia: []
-    };
-
-    setLotes(prev => ({
-      ...prev,
-      pendientes: [nuevoLote, ...prev.pendientes]
-    }));
+    switch(tipoFormato) {
+      case 0: // Formato VXXXXXX/IFXXXX
+        const año = String(Math.floor(Math.random() * 3) + 22).padStart(2, '0');
+        const mes = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+        const dia = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+        const numeroV = año + mes + dia;
+        const numeroIF = String(Math.floor(Math.random() * 9000) + 1000);
+        codigo = `V${numeroV}/IF${numeroIF}`;
+        break;
+      case 1: // Formato VXXXXXX/BVXXXX
+        const año2 = String(Math.floor(Math.random() * 3) + 22).padStart(2, '0');
+        const mes2 = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+        const dia2 = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+        const numeroV2 = año2 + mes2 + dia2;
+        const numeroBV = String(Math.floor(Math.random() * 9000) + 1000);
+        codigo = `V${numeroV2}/BV${numeroBV}`;
+        break;
+      case 2: // Formato NK-137, AD-245, etc.
+        const prefijos = ['NK', 'AD', 'PM', 'UA', 'NB', 'AS', 'BV', 'CX'];
+        const prefijo = prefijos[Math.floor(Math.random() * prefijos.length)];
+        const numero = String(Math.floor(Math.random() * 900) + 100);
+        codigo = `${prefijo}-${numero}`;
+        break;
+      case 3: // Formato numérico simple
+        codigo = String(Math.floor(Math.random() * 9000) + 1000);
+        break;
+      default:
+        codigo = `V${String(Math.floor(Math.random() * 900000) + 100000)}/IF${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    }
     
-    // Enviar al servidor
-    enviarAlServidor('NUEVO_LOTE', nuevoLote);
-    
-    mostrarNotificacion(`✅ Lote ${codigo} generado`, "success");
+    const infoLote = extraerInfoLote(codigo);
+    crearNuevoLote(codigo, infoLote);
   };
 
   // ================ HANDLE KEY PRESS ================
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      procesarEscaneo(codigoEscaneado);
+      procesarEscaneo();
     }
   };
 
@@ -511,10 +708,10 @@ const PlotterLotes = () => {
     if (filtroMaquinas === "disponibles") return m.estado === "disponible";
     if (filtroMaquinas === "produciendo") return m.estado === "produciendo";
     return true;
-  });
+  }).filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
   return (
-    <div className={`plotter-container ${modoOscuro ? 'dark-mode' : ''}`}>
+    <div className={`plotter-container ${modoOscuro ? 'dark-mode' : ''}`} ref={mainContentRef}>
       
       {/* ===== INDICADOR DE CONEXIÓN ===== */}
       <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
@@ -532,7 +729,7 @@ const PlotterLotes = () => {
       {/* ===== HEADER ===== */}
       <header className="plotter-header">
         <div className="header-left">
-          <h1>🖨️ Plottler - 17 Máquinas en Línea</h1>
+          <h1>🖨️ Plotter - 17 Máquinas en Línea</h1>
           <span className="header-date">
             {tiempoReal.toLocaleDateString('es-ES', { 
               weekday: 'long', 
@@ -556,7 +753,7 @@ const PlotterLotes = () => {
       {/* ===== NOTIFICACIONES ===== */}
       <div className="notificaciones-container">
         {notificaciones.map(n => (
-          <div key={n.id} className={`notificacion ${n.tipo}`}>
+          <div key={n.id} className={`notificacion ${n.tipo} ${animacionActiva ? 'pop' : ''}`}>
             <span className="notificacion-icono">
               {n.tipo === 'success' && '✅'}
               {n.tipo === 'error' && '❌'}
@@ -568,13 +765,13 @@ const PlotterLotes = () => {
         ))}
       </div>
 
-      {/* ===== SCANNER PRINCIPAL ===== */}
+      {/* ===== SCANNER PRINCIPAL - AHORA ACEPTA CUALQUIER CÓDIGO ===== */}
       <div className="scanner-principal">
         <h2>Sistema de Gestión de Impresión</h2>
         
         <div className="scanner-title">
           <h3>ESCANEAR CÓDIGO DE LOTE</h3>
-          <span className="ejemplo">Ejemplo: NK-137</span>
+          <span className="ejemplo">Formatos: V132274/IF2128, V134339/BV1012, NK-137, 1001...</span>
         </div>
 
         <div className="scanner-input-container">
@@ -584,9 +781,15 @@ const PlotterLotes = () => {
             value={codigoEscaneado}
             onChange={(e) => setCodigoEscaneado(e.target.value.toUpperCase())}
             onKeyPress={handleKeyPress}
-            placeholder="INGRESE CÓDIGO"
-            className="scanner-input"
+            placeholder="V132274/IF2128, V134339/BV1012, NK-137, 1001..."
+            className={`scanner-input ${animacionActiva ? 'shake' : ''}`}
           />
+          <button 
+            className="scanner-button"
+            onClick={procesarEscaneo}
+          >
+            📷 ESCANEAR
+          </button>
         </div>
 
         <div className="scanner-instrucciones">
@@ -606,8 +809,19 @@ const PlotterLotes = () => {
           </div>
         </div>
 
+        <div className="formatos-aceptados">
+          <span className="formatos-titulo">📋 Formatos aceptados:</span>
+          <div className="formatos-lista">
+            <span className="formato-item">V132274/IF2128</span>
+            <span className="formato-item">V134339/BV1012</span>
+            <span className="formato-item">NK-137</span>
+            <span className="formato-item">1001</span>
+            <span className="formato-item">CUALQUIER CÓDIGO</span>
+          </div>
+        </div>
+
         <button className="btn-generar" onClick={generarAleatorio}>
-          3. GENERAR ALEATORIO
+          🎲 GENERAR LOTE ALEATORIO
         </button>
 
         <div className="scanner-footer">
@@ -627,7 +841,7 @@ const PlotterLotes = () => {
           />
         </div>
         <select value={filtroMaquinas} onChange={(e) => setFiltroMaquinas(e.target.value)}>
-          <option value="todas">Todas las máquinas</option>
+          <option value="todas">📋 Todas las máquinas</option>
           <option value="disponibles">✅ Disponibles</option>
           <option value="produciendo">⚡ En producción</option>
         </select>
@@ -651,12 +865,10 @@ const PlotterLotes = () => {
       <div className="maquinas-section">
         <h3>🖨️ MÁQUINAS DE IMPRESIÓN</h3>
         <div className={`maquinas-grid ${vista}`}>
-          {maquinasFiltradas
-            .filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase()))
-            .map(maquina => (
+          {maquinasFiltradas.map(maquina => (
             <div 
               key={maquina.id} 
-              className={`maquina-card ${maquina.estado}`}
+              className={`maquina-card ${maquina.estado} animate-in`}
               onClick={() => mostrarDetalle('maquina', maquina)}
             >
               <div className="maquina-header" style={{ backgroundColor: maquina.color + '20' }}>
@@ -703,7 +915,7 @@ const PlotterLotes = () => {
                 )}
 
                 {maquina.alertas.map((alerta, idx) => (
-                  <div key={idx} className="alerta">{alerta}</div>
+                  <div key={idx} className="alerta pulse">{alerta}</div>
                 ))}
               </div>
 
@@ -721,35 +933,57 @@ const PlotterLotes = () => {
         <div className="lotes-section">
           <h3>📦 LOTES PENDIENTES</h3>
           <div className="lotes-grid">
-            {lotes.pendientes.map(lote => (
-              <div 
-                key={lote.id} 
-                className="lote-card"
-                onClick={() => mostrarDetalle('lote', lote)}
-              >
-                <div className="lote-header">
-                  <span className="lote-codigo">{lote.codigo}</span>
-                  <span className={`prioridad ${lote.prioridad.toLowerCase()}`}>
-                    {lote.prioridad}
-                  </span>
-                </div>
-                <div className="lote-cliente">{lote.cliente}</div>
-                <div className="lote-producto">{lote.producto}</div>
-                <div className="lote-footer">
-                  <span>📦 {lote.cantidad} pz</span>
-                  <span>⏱️ {lote.tiempoEstimado}</span>
-                </div>
-                <button 
-                  className="btn-asignar"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setModalAsignar({ abierto: true, lote });
-                  }}
+            {lotes.pendientes.map(lote => {
+              // Determinar badge según formato
+              let formatoBadge = null;
+              if (lote.codigo.includes('/IF')) {
+                formatoBadge = <span className="formato-badge-mini if">IF</span>;
+              } else if (lote.codigo.includes('/BV')) {
+                formatoBadge = <span className="formato-badge-mini bv">BV</span>;
+              } else if (lote.codigo.includes('-')) {
+                formatoBadge = <span className="formato-badge-mini alt">{lote.codigo.split('-')[0]}</span>;
+              } else if (/^\d+$/.test(lote.codigo)) {
+                formatoBadge = <span className="formato-badge-mini num">#</span>;
+              }
+              
+              return (
+                <div 
+                  key={lote.id} 
+                  className="lote-card animate-in"
+                  onClick={() => mostrarDetalle('lote', lote)}
                 >
-                  ASIGNAR
-                </button>
-              </div>
-            ))}
+                  <div className="lote-header">
+                    <div className="lote-titulo">
+                      <span className="lote-codigo" title={lote.codigo}>
+                        {lote.codigo}
+                      </span>
+                      {formatoBadge}
+                    </div>
+                    <span className={`prioridad ${lote.prioridad.toLowerCase()}`}>
+                      {lote.prioridad}
+                    </span>
+                  </div>
+                  <div className="lote-cliente">{lote.cliente}</div>
+                  <div className="lote-producto">{lote.producto}</div>
+                  {lote.fechaCodigo && (
+                    <div className="lote-fecha">📅 {lote.fechaCodigo}</div>
+                  )}
+                  <div className="lote-footer">
+                    <span>📦 {lote.cantidad} pz</span>
+                    <span>⏱️ {lote.tiempoEstimado}</span>
+                  </div>
+                  <button 
+                    className="btn-asignar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModalAsignar({ abierto: true, lote });
+                    }}
+                  >
+                    ASIGNAR
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -762,11 +996,11 @@ const PlotterLotes = () => {
             {lotes.produccion.map(lote => (
               <div 
                 key={lote.idProduccion} 
-                className="produccion-card"
+                className="produccion-card animate-in"
                 onClick={() => mostrarDetalle('produccion', lote)}
               >
                 <div className="produccion-header">
-                  <span className="codigo">{lote.codigo}</span>
+                  <span className="codigo" title={lote.codigo}>{lote.codigo}</span>
                   <span className={`prioridad ${lote.prioridad.toLowerCase()}`}>
                     {lote.prioridad}
                   </span>
@@ -780,7 +1014,10 @@ const PlotterLotes = () => {
                     <span className="porcentaje">{lote.progreso}%</span>
                   </div>
                   <div className="progreso-barra">
-                    <div className="progreso-fill" style={{ width: `${lote.progreso}%` }} />
+                    <div 
+                      className="progreso-fill" 
+                      style={{ width: `${lote.progreso}%` }}
+                    />
                   </div>
                 </div>
 
@@ -807,8 +1044,11 @@ const PlotterLotes = () => {
               <p><strong>Lote:</strong> {modalAsignar.lote.codigo}</p>
               <p><strong>Cliente:</strong> {modalAsignar.lote.cliente}</p>
               <p><strong>Producto:</strong> {modalAsignar.lote.producto}</p>
-              <p><strong>Cantidad:</strong> {modalAsignar.lote.cantidad}</p>
+              <p><strong>Cantidad:</strong> {modalAsignar.lote.cantidad} pz</p>
               <p><strong>Prioridad:</strong> {modalAsignar.lote.prioridad}</p>
+              {modalAsignar.lote.fechaCodigo && (
+                <p><strong>Fecha código:</strong> {modalAsignar.lote.fechaCodigo}</p>
+              )}
             </div>
 
             <h4>Máquinas Disponibles</h4>
@@ -906,7 +1146,7 @@ const PlotterLotes = () => {
                     {modalDetalle.item.loteActual && (
                       <div className="lote-actual-detalle">
                         <h4>Lote en producción:</h4>
-                        <p>{modalDetalle.item.loteActual}</p>
+                        <p className="codigo">{modalDetalle.item.loteActual}</p>
                       </div>
                     )}
 
@@ -974,6 +1214,26 @@ const PlotterLotes = () => {
                         <span>⏱️ {modalDetalle.item.tiempoEstimado}</span>
                       </div>
                     </div>
+
+                    {(modalDetalle.item.loteV || modalDetalle.item.fechaCodigo) && (
+                      <div className="detalle-codigo">
+                        <h4>Información del código:</h4>
+                        <div className="codigo-grid">
+                          {modalDetalle.item.loteV && (
+                            <div><strong>Lote V:</strong> {modalDetalle.item.loteV}</div>
+                          )}
+                          {modalDetalle.item.loteIF && (
+                            <div><strong>Lote IF:</strong> {modalDetalle.item.loteIF}</div>
+                          )}
+                          {modalDetalle.item.prefijo && (
+                            <div><strong>Prefijo:</strong> {modalDetalle.item.prefijo}</div>
+                          )}
+                          {modalDetalle.item.fechaCodigo && (
+                            <div><strong>Fecha:</strong> {modalDetalle.item.fechaCodigo}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="detalle-extra">
                       <p><strong>Diseño:</strong> {modalDetalle.item.diseño}</p>
@@ -1090,7 +1350,16 @@ const PlotterLotes = () => {
         </div>
       )}
 
-      {/* ===== ESTILOS PARA INDICADOR DE CONEXIÓN ===== */}
+      {/* ===== BOTÓN VOLVER ARRIBA ===== */}
+      <button 
+        className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`} 
+        onClick={scrollToTop}
+        title="Volver arriba"
+      >
+        ↑
+      </button>
+
+      {/* ===== ESTILOS ADICIONALES ===== */}
       <style>{`
         .connection-status {
           position: fixed;
@@ -1106,6 +1375,7 @@ const PlotterLotes = () => {
           font-weight: 600;
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
           backdrop-filter: blur(10px);
+          animation: slideIn 0.3s ease;
         }
         
         .connection-status.connected {
@@ -1141,20 +1411,163 @@ const PlotterLotes = () => {
           font-weight: 500;
         }
 
-        @keyframes slideUp {
+        .scanner-button {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: white;
+          border: none;
+          padding: 0 24px;
+          border-radius: 0 8px 8px 0;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          height: 50px;
+        }
+
+        .scanner-button:hover {
+          transform: scale(1.05);
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .shake {
+          animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+          20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .pop {
+          animation: pop 0.3s ease-out;
+        }
+
+        @keyframes pop {
+          0% { transform: scale(0.95); }
+          50% { transform: scale(1.05); }
+          100% { transform: scale(1); }
+        }
+
+        .animate-in {
+          animation: fadeInUp 0.5s ease forwards;
+          opacity: 0;
+        }
+
+        @keyframes fadeInUp {
           from {
-            transform: translateY(100%);
             opacity: 0;
+            transform: translateY(20px);
           }
           to {
-            transform: translateY(0);
             opacity: 1;
+            transform: translateY(0);
           }
         }
-        
+
+        .pulse {
+          animation: pulse 2s infinite;
+        }
+
         @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.2); }
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        .scroll-to-top {
+          position: fixed;
+          bottom: 30px;
+          right: 30px;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background: var(--primary-500, #3b82f6);
+          color: white;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          transition: all 0.3s ease;
+          z-index: 1000;
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(20px);
+        }
+
+        .scroll-to-top.visible {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+
+        .scroll-to-top:hover {
+          transform: scale(1.1);
+          box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+
+        .dark-mode .scroll-to-top {
+          background: #2563eb;
+        }
+
+        .formatos-aceptados {
+          margin: 20px 0;
+          text-align: center;
+        }
+        
+        .formatos-titulo {
+          display: block;
+          font-size: 0.9rem;
+          color: var(--text-muted, #6b7280);
+          margin-bottom: 8px;
+        }
+        
+        .formatos-lista {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+        
+        .formato-item {
+          background: var(--bg-tertiary, #f3f4f6);
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-family: monospace;
+          font-size: 0.8rem;
+          color: var(--text-primary);
+          border: 1px solid var(--border, #e5e7eb);
+        }
+        
+        .lote-titulo {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .formato-badge-mini {
+          padding: 2px 6px;
+          border-radius: 12px;
+          font-size: 0.6rem;
+          font-weight: 600;
+          color: white;
+        }
+        
+        .formato-badge-mini.if {
+          background: #3b82f6;
+        }
+        
+        .formato-badge-mini.bv {
+          background: #8b5cf6;
+        }
+        
+        .formato-badge-mini.alt {
+          background: #10b981;
+        }
+        
+        .formato-badge-mini.num {
+          background: #f59e0b;
         }
       `}</style>
     </div>

@@ -1,3 +1,4 @@
+// src/pages/Ordenes.jsx (VERSIÓN FINAL CON PORCENTAJES CORREGIDOS)
 import React, { useState, useEffect, useRef } from 'react';
 import './Ordenes.css';
 
@@ -22,12 +23,16 @@ const Ordenes = () => {
   });
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [favoritos, setFavoritos] = useState([]);
+  const [tiempoReal, setTiempoReal] = useState(new Date());
 
   // ================ ESTADOS DE CONEXIÓN PARA TIEMPO REAL ================
   const [conectado, setConectado] = useState(false);
   const [usandoServidor, setUsandoServidor] = useState(false);
   const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
   const wsRef = useRef(null);
+  const inputRef = useRef(null);
+  const mainContentRef = useRef(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // ================ CONEXIÓN WEBSOCKET PARA TIEMPO REAL ================
   useEffect(() => {
@@ -53,28 +58,6 @@ const Ordenes = () => {
           if (data.data.ultimoMovimiento) {
             setUltimoMovimiento(data.data.ultimoMovimiento);
           }
-          
-          if (lotesData.length > 0) {
-            // Actualizar órdenes con datos del servidor
-            const nuevasOrdenes = lotesData.map((lote, index) => ({
-              id: lote.codigo || `ORD-${String(index + 1).padStart(3, '0')}`,
-              producto: lote.producto || 'Producto',
-              cliente: lote.cliente || 'Cliente',
-              cantidad: lote.cantidad || 0,
-              area: lote.areaActual || 'Producción',
-              turno: lote.turno || 'Mañana',
-              tiempo: lote.tiempoRestante || '00:00:00',
-              estado: lote.estado || 'pendiente',
-              prioridad: lote.prioridad || 'media',
-              progreso: lote.progreso || 0,
-              fechaInicio: lote.fechaInicio?.split('T')[0] || new Date().toISOString().split('T')[0],
-              fechaEntrega: lote.fechaEntrega || new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
-              responsable: lote.responsable || 'Sistema',
-              notas: lote.observaciones || ''
-            }));
-            
-            setOrdenes(nuevasOrdenes);
-          }
         }
       } catch (error) {
         console.error('Error:', error);
@@ -96,14 +79,7 @@ const Ordenes = () => {
     return () => ws.close();
   }, []);
 
-  // ================ ENVIAR AL SERVIDOR ================
-  const enviarAlServidor = (tipo, payload) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
-    }
-  };
-
-  // Datos de ejemplo mejorados
+  // ================ DATOS CON PORCENTAJES CORREGIDOS SEGÚN LA IMAGEN ================
   const [ordenes, setOrdenes] = useState([
     { 
       id: 'ORD-001', 
@@ -112,14 +88,15 @@ const Ordenes = () => {
       cantidad: 150, 
       area: 'Producción', 
       turno: 'Mañana', 
-      tiempo: '00:00:47',
+      tiempo: '08:00:47',
       estado: 'en_proceso',
       prioridad: 'alta',
-      progreso: 75,
+      progreso: 75, // 75% según la imagen
       fechaInicio: '2026-03-11',
       fechaEntrega: '2026-03-18',
       responsable: 'Carlos Ruiz',
-      notas: 'Urgente - Cliente premium'
+      notas: 'Urgente - Cliente premium',
+      balanza: 100
     },
     { 
       id: 'ORD-002', 
@@ -128,62 +105,66 @@ const Ordenes = () => {
       cantidad: 75, 
       area: 'Calidad', 
       turno: 'Mañana', 
-      tiempo: '00:00:47',
+      tiempo: '08:00:47',
       estado: 'completada',
       prioridad: 'media',
-      progreso: 100,
+      progreso: 100, // 100% según la imagen
       fechaInicio: '2026-03-10',
       fechaEntrega: '2026-03-11',
       responsable: 'María González',
-      notas: 'Inspección final'
+      notas: 'Inspección final',
+      balanza: 100
     },
     { 
       id: 'ORD-003', 
       producto: 'Uniforme NFL Patriots', 
-      cliente: 'run',
+      cliente: 'Run',
       cantidad: 200, 
       area: 'Logística', 
       turno: 'Mañana', 
-      tiempo: '00:00:47',
-      estado: 'pendiente',
+      tiempo: '08:00:47',
+      estado: 'en_proceso',
       prioridad: 'baja',
-      progreso: 0,
+      progreso: 90, // 90% según la imagen
       fechaInicio: '2026-03-11',
       fechaEntrega: '2026-03-22',
       responsable: 'Juan Pérez',
-      notas: 'Esperando materiales'
+      notas: 'Esperando materiales',
+      balanza: 100
     },
     { 
       id: 'ORD-004', 
       producto: 'Sudadera NHL Bruins', 
       cliente: 'Local',
-      cantidad: 100, 
+      cantidad: 300, 
       area: 'Sublimado', 
       turno: 'Mañana', 
-      tiempo: '00:00:47',
+      tiempo: '08:00:47',
       estado: 'en_proceso',
       prioridad: 'alta',
-      progreso: 45,
+      progreso: 45, // 45% según la imagen
       fechaInicio: '2026-03-11',
       fechaEntrega: '2026-03-16',
       responsable: 'Ana López',
-      notas: 'Diseño personalizado'
+      notas: 'Diseño personalizado',
+      balanza: 100
     },
     { 
       id: 'ORD-005', 
       producto: 'Camiseta FIFA World Cup', 
       cliente: 'Nike',
       cantidad: 300, 
-      area: 'Reposición', 
+      area: 'Sublimado', 
       turno: 'Mañana', 
-      tiempo: '00:00:47',
-      estado: 'revision',
-      prioridad: 'critica',
-      progreso: 90,
+      tiempo: '08:00:47',
+      estado: 'en_proceso',
+      prioridad: 'alta',
+      progreso: 60, // 60% según la imagen
       fechaInicio: '2026-03-09',
       fechaEntrega: '2026-03-13',
       responsable: 'Pedro Sánchez',
-      notas: 'Revisar calidad'
+      notas: 'Revisar calidad',
+      balanza: 100
     },
     { 
       id: 'ORD-006', 
@@ -192,14 +173,15 @@ const Ordenes = () => {
       cantidad: 120, 
       area: 'Producción', 
       turno: 'Mañana', 
-      tiempo: '00:00:47',
+      tiempo: '08:00:47',
       estado: 'en_proceso',
       prioridad: 'media',
-      progreso: 30,
+      progreso: 30, // 30% según la imagen
       fechaInicio: '2026-03-11',
       fechaEntrega: '2026-03-15',
       responsable: 'Laura Martínez',
-      notas: 'Lote prioritario'
+      notas: 'Lote prioritario',
+      balanza: 100
     },
     { 
       id: 'ORD-007', 
@@ -208,30 +190,32 @@ const Ordenes = () => {
       cantidad: 180, 
       area: 'Producción', 
       turno: 'Tarde', 
-      tiempo: '00:00:47',
+      tiempo: '08:00:47',
       estado: 'en_proceso',
       prioridad: 'alta',
-      progreso: 60,
+      progreso: 60, // 60% según la imagen
       fechaInicio: '2026-03-10',
       fechaEntrega: '2026-03-17',
       responsable: 'Carlos Ruiz',
-      notas: 'Producción en línea'
+      notas: 'Producción en línea',
+      balanza: 100
     },
     { 
       id: 'ORD-008', 
       producto: 'Bufanda NFL', 
       cliente: 'Local',
-      cantidad: 90, 
+      cantidad: 0, 
       area: 'Sublimado', 
       turno: 'Noche', 
-      tiempo: '00:00:47',
+      tiempo: '08:00:47',
       estado: 'pendiente',
       prioridad: 'baja',
-      progreso: 0,
+      progreso: 0, // 0% según la imagen
       fechaInicio: '2026-03-12',
       fechaEntrega: '2026-03-24',
       responsable: 'Ana López',
-      notas: 'Material en camino'
+      notas: 'Material en camino',
+      balanza: 0
     }
   ]);
 
@@ -259,6 +243,32 @@ const Ordenes = () => {
       }).length
     });
   }, [ordenes]);
+
+  // Detectar scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mainContentRef.current) {
+        setShowScrollTop(mainContentRef.current.scrollTop > 400);
+      }
+    };
+    const currentRef = mainContentRef.current;
+    if (currentRef) currentRef.addEventListener('scroll', handleScroll);
+    return () => { if (currentRef) currentRef.removeEventListener('scroll', handleScroll); };
+  }, []);
+
+  const scrollToTop = () => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Actualizar tiempo real
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTiempoReal(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Filtrar órdenes
   const ordenesFiltradas = ordenes
@@ -344,7 +354,8 @@ const Ordenes = () => {
   );
 
   return (
-    <div className="ordenes-container">
+    <div className="ordenes-container" ref={mainContentRef}>
+      
       {/* Indicador de conexión */}
       <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
         <span className="status-dot"></span>
@@ -358,108 +369,6 @@ const Ordenes = () => {
         </div>
       )}
 
-      {/* Panel de detalle */}
-      {mostrarPanelDetalle && ordenSeleccionada && (
-        <div className="detalle-overlay" onClick={() => setMostrarPanelDetalle(false)}>
-          <div className="detalle-panel" onClick={e => e.stopPropagation()}>
-            <button className="detalle-cerrar" onClick={() => setMostrarPanelDetalle(false)}>✕</button>
-            <div className="detalle-header">
-              <h2>{ordenSeleccionada.id}</h2>
-              <span className={`estado-badge-detalle ${ordenSeleccionada.estado}`}>
-                {getEstadoTexto(ordenSeleccionada.estado)}
-              </span>
-            </div>
-            
-            <div className="detalle-grid">
-              <div className="detalle-seccion">
-                <h4>Información General</h4>
-                <div className="detalle-info">
-                  <div className="info-row">
-                    <span className="info-label">Producto:</span>
-                    <span className="info-valor">{ordenSeleccionada.producto}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Cliente:</span>
-                    <span className="info-valor">{ordenSeleccionada.cliente}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Cantidad:</span>
-                    <span className="info-valor">{ordenSeleccionada.cantidad}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Responsable:</span>
-                    <span className="info-valor">{ordenSeleccionada.responsable}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="detalle-seccion">
-                <h4>Fechas</h4>
-                <div className="detalle-info">
-                  <div className="info-row">
-                    <span className="info-label">Inicio:</span>
-                    <span className="info-valor">{ordenSeleccionada.fechaInicio}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Entrega:</span>
-                    <span className="info-valor">{ordenSeleccionada.fechaEntrega}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Tiempo restante:</span>
-                    <span className="info-valor">{ordenSeleccionada.tiempo}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="detalle-seccion">
-                <h4>Producción</h4>
-                <div className="detalle-info">
-                  <div className="info-row">
-                    <span className="info-label">Área:</span>
-                    <span className="info-valor">{ordenSeleccionada.area}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Turno:</span>
-                    <span className="info-valor">{ordenSeleccionada.turno}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Prioridad:</span>
-                    <span className="info-valor" style={{ color: getPrioridadColor(ordenSeleccionada.prioridad) }}>
-                      {ordenSeleccionada.prioridad.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="detalle-seccion">
-                <h4>Progreso</h4>
-                <div className="detalle-info">
-                  <div className="progress-detalle">
-                    <div className="progress-bar-detalle">
-                      <div 
-                        className="progress-fill-detalle" 
-                        style={{ width: `${ordenSeleccionada.progreso}%` }}
-                      ></div>
-                    </div>
-                    <span className="progress-text-detalle">{ordenSeleccionada.progreso}%</span>
-                  </div>
-                  <div className="info-row notas">
-                    <span className="info-label">Notas:</span>
-                    <span className="info-valor">{ordenSeleccionada.notas}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="detalle-acciones">
-              <button className="btn-primary">Editar Orden</button>
-              <button className="btn-secondary">Ver Historial</button>
-              <button className="btn-secondary">Asignar Recursos</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="ordenes-header">
         <div className="header-left">
@@ -469,7 +378,7 @@ const Ordenes = () => {
           </h1>
           <div className="header-fecha">
             <span className="fecha-icon">📅</span>
-            {new Date().toLocaleDateString('es-ES', {
+            {tiempoReal.toLocaleDateString('es-ES', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -487,6 +396,7 @@ const Ordenes = () => {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="search-input"
+              ref={inputRef}
             />
             {busqueda && (
               <button className="search-clear" onClick={() => setBusqueda('')}>✕</button>
@@ -551,7 +461,6 @@ const Ordenes = () => {
                 <option value="Calidad">Calidad</option>
                 <option value="Logística">Logística</option>
                 <option value="Sublimado">Sublimado</option>
-                <option value="Reposición">Reposición</option>
               </select>
             </div>
 
@@ -604,7 +513,7 @@ const Ordenes = () => {
 
       {/* KPI Cards */}
       <div className="kpi-grid">
-        <div className="kpi-card completadas">
+        <div className="kpi-card completadas" onClick={() => setFiltroEstado('completada')}>
           <div className="kpi-icon">✅</div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.completadas}</span>
@@ -613,7 +522,7 @@ const Ordenes = () => {
           <div className="kpi-trend positive">+12%</div>
         </div>
 
-        <div className="kpi-card pendientes">
+        <div className="kpi-card pendientes" onClick={() => setFiltroEstado('pendiente')}>
           <div className="kpi-icon">⏳</div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.pendientes}</span>
@@ -622,7 +531,7 @@ const Ordenes = () => {
           <div className="kpi-trend warning">-5%</div>
         </div>
 
-        <div className="kpi-card proceso">
+        <div className="kpi-card proceso" onClick={() => setFiltroEstado('en_proceso')}>
           <div className="kpi-icon">⚙️</div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.enProceso}</span>
@@ -631,7 +540,7 @@ const Ordenes = () => {
           <div className="kpi-trend positive">+8%</div>
         </div>
 
-        <div className="kpi-card criticas">
+        <div className="kpi-card criticas" onClick={() => setFiltrosAvanzados({...filtrosAvanzados, prioridad: 'critica'})}>
           <div className="kpi-icon">🔴</div>
           <div className="kpi-content">
             <span className="kpi-value">{stats.criticas}</span>
@@ -693,69 +602,75 @@ const Ordenes = () => {
               className={`orden-card ${orden.estado} ${favoritos.includes(orden.id) ? 'favorita' : ''}`}
               onClick={() => handleOrdenClick(orden)}
             >
+              {/* HEADER con ID y Favorito */}
               <div className="card-header">
-                <div className="card-titulo">
-                  <span className="card-id">{orden.id}</span>
-                  <button 
-                    className="favorito-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorito(orden.id);
-                    }}
-                  >
-                    {favoritos.includes(orden.id) ? '⭐' : '☆'}
-                  </button>
-                </div>
-                <span className="card-producto">{orden.producto}</span>
-                <span className="card-cliente">{orden.cliente}</span>
+                <span className="card-id">{orden.id}</span>
+                <button 
+                  className="favorito-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorito(orden.id);
+                  }}
+                >
+                  {favoritos.includes(orden.id) ? '★' : '☆'}
+                </button>
               </div>
 
-              <div className="card-body">
-                <div className="card-info-grid">
-                  <div className="info-item">
-                    <span className="info-label">Área</span>
-                    <span className="info-valor">{orden.area}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Turno</span>
-                    <span className="info-valor">{orden.turno}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Cantidad</span>
-                    <span className="info-valor">{orden.cantidad}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Tiempo</span>
-                    <span className="info-valor tiempo">{orden.tiempo}</span>
-                  </div>
-                </div>
+              {/* Producto y Cliente */}
+              <div className="card-producto">{orden.producto}</div>
+              <div className="card-cliente">{orden.cliente}</div>
 
-                <div className="card-progreso">
-                  <div className="progreso-header">
-                    <span>Progreso</span>
-                    <span className="progreso-porcentaje">{orden.progreso}%</span>
-                  </div>
+              {/* Área y Turno */}
+              <div className="card-area-turno">
+                <div className="area-info">
+                  <span className="area-label">ÁREA</span>
+                  <span className="area-valor">{orden.area}</span>
+                </div>
+                <div className="turno-info">
+                  <span className="turno-label">TURNO</span>
+                  <span className="turno-valor">{orden.turno}</span>
+                </div>
+              </div>
+
+              {/* Cantidad */}
+              <div className="card-cantidad">
+                <span className="cantidad-label">CANTIDAD</span>
+                <span className="cantidad-valor">{orden.cantidad}</span>
+              </div>
+
+              {/* Progreso y Tiempo */}
+              <div className="card-progreso-tiempo">
+                <div className="progreso-container">
                   <div className="progreso-barra">
                     <div 
                       className="progreso-llenado" 
                       style={{ width: `${orden.progreso}%` }}
                     ></div>
                   </div>
+                  <span className="progreso-porcentaje">{orden.progreso}%</span>
                 </div>
-
-                <div className="card-badges">
-                  <span className="prioridad-badge" style={{ backgroundColor: getPrioridadColor(orden.prioridad) }}>
-                    {orden.prioridad}
-                  </span>
-                  <span className="estado-badge-mini" style={{ backgroundColor: getEstadoColor(orden.estado) }}>
-                    {getEstadoTexto(orden.estado)}
-                  </span>
-                </div>
+                <span className="tiempo-restante">{orden.tiempo}</span>
               </div>
 
+              {/* Badges de Prioridad y Estado */}
+              <div className="card-badges">
+                <span className="prioridad-badge" style={{ backgroundColor: getPrioridadColor(orden.prioridad) }}>
+                  {orden.prioridad.toUpperCase()}
+                </span>
+                <span className="estado-badge-mini" style={{ backgroundColor: getEstadoColor(orden.estado) }}>
+                  {getEstadoTexto(orden.estado)}
+                </span>
+              </div>
+
+              {/* Balanza */}
+              <div className="card-balanza">
+                <span className="balanza-label">BALANZA</span>
+                <span className="balanza-valor">{orden.balanza}%</span>
+              </div>
+
+              {/* Footer con Responsable */}
               <div className="card-footer">
-                <span className="responsable">👤 {orden.responsable}</span>
-                <span className="fecha-entrega">📅 {orden.fechaEntrega}</span>
+                <span className="responsable">{orden.responsable}</span>
               </div>
             </div>
           ))}
@@ -778,8 +693,8 @@ const Ordenes = () => {
                 <th>Prioridad</th>
                 <th>Estado</th>
                 <th>Progreso</th>
+                <th>Balanza</th>
                 <th>Responsable</th>
-                <th>Entrega</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -791,7 +706,7 @@ const Ordenes = () => {
                       className="favorito-tabla-btn"
                       onClick={() => toggleFavorito(orden.id)}
                     >
-                      {favoritos.includes(orden.id) ? '⭐' : '☆'}
+                      {favoritos.includes(orden.id) ? '★' : '☆'}
                     </button>
                   </td>
                   <td className="orden-id">{orden.id}</td>
@@ -818,8 +733,8 @@ const Ordenes = () => {
                       <span className="tabla-progreso-texto">{orden.progreso}%</span>
                     </div>
                   </td>
+                  <td>{orden.balanza}%</td>
                   <td className="orden-responsable">{orden.responsable}</td>
-                  <td className="orden-fecha">{orden.fechaEntrega}</td>
                   <td>
                     <div className="acciones-tabla">
                       <button className="accion-tabla-btn" title="Ver detalles" onClick={() => handleOrdenClick(orden)}>👁️</button>
@@ -882,12 +797,17 @@ const Ordenes = () => {
           <button className="btn-exportar" title="Generar reporte">
             📊 Reporte
           </button>
-          <select className="idioma-select">
-            <option value="es">🇪🇸 ES</option>
-            <option value="en">🇬🇧 EN</option>
-          </select>
         </div>
       </div>
+
+      {/* Botón volver arriba */}
+      <button 
+        className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`} 
+        onClick={scrollToTop}
+        title="Volver arriba"
+      >
+        ↑
+      </button>
 
       {/* Estilos para el indicador de conexión */}
       <style>{`
@@ -938,6 +858,40 @@ const Ordenes = () => {
           z-index: 10000;
           animation: slideUp 0.3s ease;
           font-weight: 500;
+        }
+
+        .scroll-to-top {
+          position: fixed;
+          bottom: 30px;
+          right: 30px;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: white;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          transition: all 0.3s ease;
+          z-index: 1000;
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(20px);
+        }
+
+        .scroll-to-top.visible {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+
+        .scroll-to-top:hover {
+          transform: scale(1.1);
+          box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
         }
 
         @keyframes slideUp {
