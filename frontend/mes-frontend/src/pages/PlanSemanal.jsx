@@ -7,12 +7,21 @@ import "./PlanSemanal.css";
 // ============================================
 const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
 
+// ============================================
+// CONFIGURACIÓN PARA SHAREPOINT
+// ============================================
+const SHAREPOINT_FILE_URL = 'https://artfxinc-my.sharepoint.com/personal/jensi_ulloa_tegraglobal_com/_layouts/15/download.aspx?SourceUrl=%2Fpersonal%2Fjensi_ulloa_tegraglobal_com%2FDocuments%2FTuArchivo.xlsx';
+
+// Proxy CORS gratuito para evitar problemas de CORS (en producción usarías tu propio backend)
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+
 const PlanSemanal = () => {
   // ================ ESTADOS DE CONEXIÓN PARA TIEMPO REAL ================
   const [conectado, setConectado] = useState(false);
   const [usandoServidor, setUsandoServidor] = useState(false);
   const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
   const wsRef = useRef(null);
+  const [cargandoExcel, setCargandoExcel] = useState(false);
 
   // ================ CONEXIÓN WEBSOCKET PARA TIEMPO REAL ================
   useEffect(() => {
@@ -91,6 +100,66 @@ const PlanSemanal = () => {
       wsRef.current.send(JSON.stringify({ type: tipo, payload }));
     }
   };
+
+  // ================ CARGA AUTOMÁTICA DESDE SHAREPOINT ================
+  useEffect(() => {
+    const cargarExcelAutomaticamente = async () => {
+      try {
+        setCargandoExcel(true);
+        console.log('📥 Cargando archivo Excel desde SharePoint...');
+        
+        // Usar un proxy CORS para evitar problemas (en producción usarías tu propio backend)
+        const response = await fetch(CORS_PROXY + SHAREPOINT_FILE_URL);
+        
+        if (!response.ok) {
+          throw new Error(`Error al cargar el archivo: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        
+        // Leer el archivo como array buffer
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          
+          // Leer como matriz
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          
+          procesarExcelReal(rows);
+          
+          setCargandoExcel(false);
+          console.log('✅ Archivo Excel cargado automáticamente');
+          
+          // Enviar al servidor que se cargó el plan
+          enviarAlServidor('PLAN_AUTOMATICO', { 
+            fecha: new Date().toISOString(),
+            filas: rows.length
+          });
+        };
+        
+        reader.readAsArrayBuffer(blob);
+        
+      } catch (error) {
+        console.error('❌ Error al cargar Excel automáticamente:', error);
+        setCargandoExcel(false);
+      }
+    };
+    
+    // Cargar automáticamente al iniciar el componente
+    cargarExcelAutomaticamente();
+    
+    // También puedes configurar un intervalo para recargar cada cierto tiempo
+    const intervalo = setInterval(() => {
+      console.log('🔄 Recargando Excel automáticamente...');
+      cargarExcelAutomaticamente();
+    }, 300000); // Cada 5 minutos
+    
+    return () => clearInterval(intervalo);
+  }, []);
 
   // Estados para Plan Semanal - NIKE (INICIALIZADOS EN 0)
   const [backlog, setBacklog] = useState(0);
@@ -259,116 +328,185 @@ const PlanSemanal = () => {
   // ================ FUNCIONES PARA IMPORTAR EXCEL ================
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
+
     const reader = new FileReader();
 
     reader.onload = (event) => {
       const data = new Uint8Array(event.target.result);
       const workbook = XLSX.read(data, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-      // Procesar los datos del Excel
-      const headers = jsonData[0];
-      const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== null && cell !== ""));
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      // 🔥 LEER COMO MATRIZ (clave para excel feo)
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      procesarExcelReal(rows);
       
-      // Mapear los datos al formato de lotes
-      const importedLotes = rows.map(row => {
-        const loteObj = {};
-        headers.forEach((header, index) => {
-          const value = row[index] || "";
-          
-          switch(header?.toLowerCase()) {
-            case 'lote':
-            case 'lote id':
-              loteObj.lote = `NK-${value}`.replace('NK-NK-', 'NK-');
-              break;
-            case 'area':
-            case 'área':
-              loteObj.area = value;
-              break;
-            case 'piezas':
-            case 'cantidad':
-              loteObj.piezas = parseInt(value) || 0;
-              break;
-            case 'fecha':
-            case 'fecha entrega':
-              loteObj.fecha = value instanceof Date ? value.toLocaleString() : value;
-              break;
-            case 'dias':
-            case 'días':
-              loteObj.dias = parseInt(value) || 0;
-              break;
-            case 'horas':
-              loteObj.horas = parseInt(value) || 0;
-              break;
-            case 'estado':
-              loteObj.estado = value;
-              break;
-            case 'prioridad':
-              loteObj.prioridad = value;
-              break;
-            case 'cliente':
-              loteObj.cliente = value;
-              break;
-            case 'progreso':
-            case '% progreso':
-              loteObj.progreso = parseFloat(value) || 0;
-              break;
-            case 'eficiencia':
-            case '% eficiencia':
-              loteObj.eficiencia = parseFloat(value) || 0;
-              break;
-            default:
-              break;
-          }
-        });
-
-        return {
-          lote: loteObj.lote || `NK-${Math.floor(Math.random() * 1000)}`,
-          area: loteObj.area || "Sin área",
-          piezas: loteObj.piezas || 0,
-          fecha: loteObj.fecha || new Date().toLocaleString(),
-          dias: loteObj.dias || 0,
-          horas: loteObj.horas || 0,
-          estado: loteObj.estado || "Medio",
-          prioridad: loteObj.prioridad || "Media",
-          cliente: loteObj.cliente || "Nike",
-          progreso: loteObj.progreso || 0,
-          eficiencia: loteObj.eficiencia || 0,
-          backlog: 0,
-          pull: 0
-        };
+      // Enviar al servidor que se importó un nuevo plan
+      enviarAlServidor('PLAN_IMPORTADO', { 
+        fecha: new Date().toISOString(),
+        filas: rows.length
       });
-
-      setImportPreview(importedLotes);
-      setImportData(importedLotes);
     };
 
     reader.readAsArrayBuffer(file);
   };
 
-  const applyImportedData = () => {
-    if (importData && importData.length > 0) {
-      setLotes(importData);
+  // 🔥 PARSER REAL (detecta ENTRADA / PROCESO / SALIDA)
+  const procesarExcelReal = (rows) => {
+    let seccion = "";
+
+    let totalEntrada = 0;
+    let totalProceso = 0;
+    let totalSalida = 0;
+
+    let lotesGenerados = [];
+
+    rows.forEach((row, index) => {
+      if (!row || row.length === 0) return;
       
-      const totalPiezas = importData.reduce((sum, lote) => sum + lote.piezas, 0);
-      setBacklog(Math.floor(totalPiezas * 0.15));
-      setPlan(totalPiezas);
-      setPull(0);
-      
-      // Enviar al servidor
-      enviarAlServidor('PLAN_IMPORTADO', { 
-        lotes: importData,
-        totalPiezas,
-        fecha: new Date().toISOString()
-      });
-      
-      setShowImportModal(false);
-      setImportPreview([]);
-      
-      alert(`✅ Plan importado exitosamente: ${importData.length} lotes cargados`);
-    }
+      const texto = row.join(" ").toUpperCase();
+
+      // Detectar bloques del Excel
+      if (texto.includes("ENTRADA")) seccion = "entrada";
+      if (texto.includes("PROCESO")) seccion = "proceso";
+      if (texto.includes("SALIDA")) seccion = "salida";
+
+      const numeros = row.filter(cell => typeof cell === "number");
+
+      if (numeros.length > 0) {
+        const suma = numeros.reduce((a, b) => a + b, 0);
+
+        // 🔥 ACUMULAR KPIs
+        if (seccion === "entrada") totalEntrada += suma;
+        if (seccion === "proceso") totalProceso += suma;
+        if (seccion === "salida") totalSalida += suma;
+
+        // 🔥 CREAR LOTES (para tu tabla)
+        lotesGenerados.push({
+          lote: `NK-${1000 + index}`,
+          area:
+            seccion === "entrada"
+              ? "Preparación"
+              : seccion === "proceso"
+              ? "Sublimado"
+              : seccion === "salida"
+              ? "Logística"
+              : "General",
+          piezas: suma,
+          fecha: new Date().toLocaleString(),
+          dias: Math.floor(Math.random() * 8),
+          horas: Math.floor(Math.random() * 5),
+          estado: suma > 1000 ? "Atraso Grave" : "Medio",
+          prioridad: suma > 1500 ? "Alta" : "Media",
+          cliente: "Nike",
+          progreso: Math.min(100, suma % 100),
+          eficiencia: 85 + Math.floor(Math.random() * 10),
+          backlog: Math.floor(suma * 0.1),
+          pull: 0
+        });
+      }
+    });
+
+    // ================= KPIs DASHBOARD =================
+    setProduccionData(prev => ({
+      ...prev,
+
+      make: totalEntrada,
+      in: totalEntrada,
+      on: totalProceso,
+      schd: totalProceso,
+      out: totalSalida,
+
+      total: totalEntrada + totalProceso + totalSalida,
+      totalSublimado: totalProceso,
+      entregadas: totalSalida,
+
+      makeBacklog: Math.floor(totalEntrada * 0.1),
+      inBacklog: Math.floor(totalEntrada * 0.1),
+      onBacklog: Math.floor(totalProceso * 0.1),
+      outBacklog: Math.floor(totalSalida * 0.1),
+
+      makeOnTime: totalEntrada,
+      inOnTime: totalEntrada,
+      onOnTime: totalProceso,
+      schdOnTime: totalProceso,
+      outOnTime: totalSalida,
+
+      makePending: totalEntrada > 0 ? 100 - Math.min(100, (totalSalida / totalEntrada) * 100) : 0,
+      inPending: totalEntrada > 0 ? 100 - Math.min(100, (totalSalida / totalEntrada) * 100) : 0,
+      onPending: totalProceso > 0 ? 100 - Math.min(100, (totalSalida / totalProceso) * 100) : 0,
+      schdPending: totalProceso > 0 ? 100 - Math.min(100, (totalSalida / totalProceso) * 100) : 0,
+      outPending: totalSalida > 0 ? 100 - Math.min(100, (totalSalida / totalEntrada) * 100) : 0,
+
+      makeCompleted: totalEntrada > 0 ? Math.min(100, (totalSalida / totalEntrada) * 100) : 0,
+      inCompleted: totalEntrada > 0 ? Math.min(100, (totalSalida / totalEntrada) * 100) : 0,
+      onCompleted: totalProceso > 0 ? Math.min(100, (totalSalida / totalProceso) * 100) : 0,
+      schdCompleted: totalProceso > 0 ? Math.min(100, (totalSalida / totalProceso) * 100) : 0,
+      outCompleted: totalSalida > 0 ? Math.min(100, (totalSalida / totalEntrada) * 100) : 0,
+
+      metaTotal: totalEntrada,
+      metaSublimado: totalProceso,
+      metaEntregadas: totalSalida,
+      adherencia: totalEntrada > 0 ? Math.min(100, (totalSalida / totalEntrada) * 100) : 0
+    }));
+
+    // ================= TABLA PRODUCCIÓN =================
+    setDataProduccion(prev =>
+      prev.map(item => {
+        if (item.area.includes("Logística")) {
+          return {
+            ...item,
+            total: totalSalida,
+            entregadas: totalSalida,
+            meta: totalEntrada,
+            cumplimiento: totalEntrada > 0 ? (totalSalida / totalEntrada) * 100 : 0,
+            backlog: Math.floor(totalSalida * 0.1),
+            onTime: totalSalida,
+            pending: totalEntrada > 0 ? 100 - Math.min(100, (totalSalida / totalEntrada) * 100) : 0,
+            completed: totalEntrada > 0 ? Math.min(100, (totalSalida / totalEntrada) * 100) : 0
+          };
+        }
+
+        if (item.area.includes("Preparación") || item.area.includes("Sublimado")) {
+          return {
+            ...item,
+            total: totalProceso,
+            meta: totalEntrada,
+            cumplimiento: totalEntrada > 0 ? (totalProceso / totalEntrada) * 100 : 0,
+            backlog: Math.floor(totalProceso * 0.1),
+            onTime: totalProceso,
+            pending: totalEntrada > 0 ? 100 - Math.min(100, (totalProceso / totalEntrada) * 100) : 0,
+            completed: totalEntrada > 0 ? Math.min(100, (totalProceso / totalEntrada) * 100) : 0
+          };
+        }
+
+        return item;
+      })
+    );
+
+    // ================= LOTES =================
+    setLotes(lotesGenerados);
+
+    // ================= KPIs GENERALES =================
+    const totalPiezas = lotesGenerados.reduce((sum, l) => sum + l.piezas, 0);
+
+    setBacklog(Math.floor(totalPiezas * 0.15));
+    setPlan(totalPiezas);
+    setPull(0);
+
+    // ================= PREVIEW =================
+    setImportPreview(lotesGenerados);
+    setImportData(lotesGenerados);
+    setShowImportModal(false);
+
+    console.log("🔥 PLAN SEMANAL ACTUALIZADO:", {
+      entrada: totalEntrada,
+      proceso: totalProceso,
+      salida: totalSalida,
+      lotes: lotesGenerados.length
+    });
   };
 
   const downloadTemplate = () => {
@@ -385,10 +523,7 @@ const PlanSemanal = () => {
   };
 
   const totalGeneral = dataProduccion.reduce((acc, item) => acc + item.total, 0);
-  const totalSublimado = produccionData.totalSublimado;
   const entregadas = dataProduccion[0].entregadas;
-  const porcentajeEntregadas = totalGeneral > 0 ? ((entregadas / totalGeneral) * 100).toFixed(1) : 0;
-  const adherencia = produccionData.adherencia;
 
   const lotesFiltrados = lotes
     .filter(l => filtroArea === "todas" || l.area === filtroArea)
@@ -401,11 +536,6 @@ const PlanSemanal = () => {
     });
 
   const total = backlog + plan + pull;
-
-  const chartData = lotes.reduce((acc, lote) => {
-    acc[lote.area] = (acc[lote.area] || 0) + lote.piezas;
-    return acc;
-  }, {});
 
   return (
     <div className={`plan-container ${modoOscuro ? 'dark-mode' : 'light-mode'}`}>
@@ -422,15 +552,51 @@ const PlanSemanal = () => {
         </div>
       )}
 
+      {/* Indicador de carga automática */}
+      {cargandoExcel && (
+        <div className="loading-indicator">
+          <div className="spinner"></div>
+          <span>Cargando plan desde SharePoint...</span>
+        </div>
+      )}
+
       {/* TOGGLE MODO OSCURO */}
       <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)}>
         {modoOscuro ? '☀️' : '🌙'}
       </button>
 
-      {/* BOTÓN DE IMPORTAR */}
+      {/* BOTÓN DE IMPORTAR MANUAL (OPCIONAL) */}
       <button className="import-btn" onClick={() => setShowImportModal(true)}>
-        📥 Importar Plan desde Excel
+        📥 Importar Plan Manualmente
       </button>
+
+      {/* MODAL DE IMPORTACIÓN MANUAL */}
+      {showImportModal && (
+        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
+          <div className="modal-content import-modal" onClick={e => e.stopPropagation()}>
+            <h3>Importar Plan desde Excel</h3>
+            
+            <div className="import-actions">
+              <button className="template-btn" onClick={downloadTemplate}>
+                📄 Descargar Plantilla
+              </button>
+              
+              <div className="file-upload">
+                <label htmlFor="excel-upload" className="upload-label">
+                  📁 Seleccionar Archivo Excel
+                </label>
+                <input
+                  type="file"
+                  id="excel-upload"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HEADER - ESTILO SUPPLY CHAIN APP */}
       <div className="app-header">
@@ -463,103 +629,6 @@ const PlanSemanal = () => {
           </div>
         </div>
       </div>
-
-      {/* MODAL DE IMPORTACIÓN */}
-      {showImportModal && (
-        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
-          <div className="modal-content import-modal" onClick={e => e.stopPropagation()}>
-            <h3>Importar Plan desde Excel</h3>
-            
-            <div className="import-actions">
-              <button className="template-btn" onClick={downloadTemplate}>
-                📄 Descargar Plantilla
-              </button>
-              
-              <div className="file-upload">
-                <label htmlFor="excel-upload" className="upload-label">
-                  📁 Seleccionar Archivo Excel
-                </label>
-                <input
-                  type="file"
-                  id="excel-upload"
-                  accept=".xlsx, .xls, .csv"
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
-              </div>
-            </div>
-
-            {importPreview.length > 0 && (
-              <div className="import-preview">
-                <h4>Vista Previa ({importPreview.length} lotes)</h4>
-                <div className="preview-table-container">
-                  <table className="preview-table">
-                    <thead>
-                      <tr>
-                        <th>Lote</th>
-                        <th>Área</th>
-                        <th>Piezas</th>
-                        <th>Días</th>
-                        <th>Estado</th>
-                        <th>Prioridad</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importPreview.slice(0, 5).map((lote, index) => (
-                        <tr key={index}>
-                          <td>{lote.lote}</td>
-                          <td>{lote.area}</td>
-                          <td>{lote.piezas.toLocaleString()}</td>
-                          <td>{lote.dias}</td>
-                          <td>
-                            <span className={`badge ${lote.estado === 'Atraso Grave' ? 'grave' : 'medio'}`}>
-                              {lote.estado}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`priority-${lote.prioridad.toLowerCase()}`}>
-                              {lote.prioridad}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {importPreview.length > 5 && (
-                    <p className="preview-more">... y {importPreview.length - 5} lotes más</p>
-                  )}
-                </div>
-
-                <div className="import-summary">
-                  <div className="summary-item">
-                    <span>Total lotes:</span>
-                    <strong>{importPreview.length}</strong>
-                  </div>
-                  <div className="summary-item">
-                    <span>Total piezas:</span>
-                    <strong>{importPreview.reduce((sum, l) => sum + l.piezas, 0).toLocaleString()}</strong>
-                  </div>
-                  <div className="summary-item">
-                    <span>Lotes críticos:</span>
-                    <strong className="critical">
-                      {importPreview.filter(l => l.estado === 'Atraso Grave').length}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="modal-actions">
-                  <button className="cancel-btn" onClick={() => setShowImportModal(false)}>
-                    Cancelar
-                  </button>
-                  <button className="apply-btn" onClick={applyImportedData}>
-                    Aplicar Importación
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* SECCIÓN 1: PRODUCCIÓN - ESTILO SUPPLY CHAIN APP */}
       <div className="produccion-section">
@@ -634,7 +703,7 @@ const PlanSemanal = () => {
           </div>
         </div>
 
-        {/* CARDS DE PROCESOS - TODOS EN 0 */}
+        {/* CARDS DE PROCESOS */}
         <div className="process-cards-grid">
           <div className="process-card make-card">
             <div className="process-header">
@@ -658,11 +727,11 @@ const PlanSemanal = () => {
             <div className="process-progress">
               <div className="progress-row">
                 <span>Pending</span>
-                <span>{produccionData.makePending}%</span>
+                <span>{produccionData.makePending.toFixed(1)}%</span>
               </div>
               <div className="progress-row">
                 <span>Completed</span>
-                <span>{produccionData.makeCompleted}%</span>
+                <span>{produccionData.makeCompleted.toFixed(1)}%</span>
               </div>
               <div className="progress-bar-container">
                 <div className="progress-bar-pending" style={{width: `${produccionData.makePending}%`}}></div>
@@ -693,11 +762,11 @@ const PlanSemanal = () => {
             <div className="process-progress">
               <div className="progress-row">
                 <span>Pending</span>
-                <span>{produccionData.inPending}%</span>
+                <span>{produccionData.inPending.toFixed(1)}%</span>
               </div>
               <div className="progress-row">
                 <span>Completed</span>
-                <span>{produccionData.inCompleted}%</span>
+                <span>{produccionData.inCompleted.toFixed(1)}%</span>
               </div>
               <div className="progress-bar-container">
                 <div className="progress-bar-pending" style={{width: `${produccionData.inPending}%`}}></div>
@@ -728,11 +797,11 @@ const PlanSemanal = () => {
             <div className="process-progress">
               <div className="progress-row">
                 <span>Pending</span>
-                <span>{produccionData.onPending}%</span>
+                <span>{produccionData.onPending.toFixed(1)}%</span>
               </div>
               <div className="progress-row">
                 <span>Completed</span>
-                <span>{produccionData.onCompleted}%</span>
+                <span>{produccionData.onCompleted.toFixed(1)}%</span>
               </div>
               <div className="progress-bar-container">
                 <div className="progress-bar-pending" style={{width: `${produccionData.onPending}%`}}></div>
@@ -763,11 +832,11 @@ const PlanSemanal = () => {
             <div className="process-progress">
               <div className="progress-row">
                 <span>Pending</span>
-                <span>{produccionData.schdPending}%</span>
+                <span>{produccionData.schdPending.toFixed(1)}%</span>
               </div>
               <div className="progress-row">
                 <span>Completed</span>
-                <span>{produccionData.schdCompleted}%</span>
+                <span>{produccionData.schdCompleted.toFixed(1)}%</span>
               </div>
               <div className="progress-bar-container">
                 <div className="progress-bar-pending" style={{width: `${produccionData.schdPending}%`}}></div>
@@ -798,11 +867,11 @@ const PlanSemanal = () => {
             <div className="process-progress">
               <div className="progress-row">
                 <span>Pending</span>
-                <span>{produccionData.outPending}%</span>
+                <span>{produccionData.outPending.toFixed(1)}%</span>
               </div>
               <div className="progress-row">
                 <span>Completed</span>
-                <span>{produccionData.outCompleted}%</span>
+                <span>{produccionData.outCompleted.toFixed(1)}%</span>
               </div>
               <div className="progress-bar-container">
                 <div className="progress-bar-pending" style={{width: `${produccionData.outPending}%`}}></div>
@@ -812,7 +881,7 @@ const PlanSemanal = () => {
           </div>
         </div>
 
-        {/* CARDS DE MÉTRICAS CLAVE - TODOS EN 0 */}
+        {/* CARDS DE MÉTRICAS CLAVE */}
         <div className="cards-grid meta-real-grid">
           <div className="card premium-card meta-real-card">
             <div className="card-header-meta">
@@ -827,10 +896,10 @@ const PlanSemanal = () => {
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaTotal.toLocaleString()}</span>
-                  <span>0%</span>
+                  <span>{produccionData.metaTotal > 0 ? ((produccionData.total / produccionData.metaTotal) * 100).toFixed(1) : 0}%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `0%`}}></div>
+                  <div className="barra-llenado" style={{width: `${produccionData.metaTotal > 0 ? (produccionData.total / produccionData.metaTotal) * 100 : 0}%`}}></div>
                 </div>
               </div>
             </div>
@@ -849,10 +918,10 @@ const PlanSemanal = () => {
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaSublimado.toLocaleString()}</span>
-                  <span>0%</span>
+                  <span>{produccionData.metaSublimado > 0 ? ((produccionData.totalSublimado / produccionData.metaSublimado) * 100).toFixed(1) : 0}%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `0%`}}></div>
+                  <div className="barra-llenado" style={{width: `${produccionData.metaSublimado > 0 ? (produccionData.totalSublimado / produccionData.metaSublimado) * 100 : 0}%`}}></div>
                 </div>
               </div>
             </div>
@@ -871,10 +940,10 @@ const PlanSemanal = () => {
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaEntregadas.toLocaleString()}</span>
-                  <span>0%</span>
+                  <span>{produccionData.metaEntregadas > 0 ? ((produccionData.entregadas / produccionData.metaEntregadas) * 100).toFixed(1) : 0}%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `0%`}}></div>
+                  <div className="barra-llenado" style={{width: `${produccionData.metaEntregadas > 0 ? (produccionData.entregadas / produccionData.metaEntregadas) * 100 : 0}%`}}></div>
                 </div>
               </div>
             </div>
@@ -888,22 +957,22 @@ const PlanSemanal = () => {
             <div className="card-content-meta">
               <div className="meta-real-valor">
                 <span className="valor-label">Adherencia Plan</span>
-                <span className="valor-numero">{produccionData.adherencia}%</span>
+                <span className="valor-numero">{produccionData.adherencia.toFixed(1)}%</span>
               </div>
               <div className="meta-real-barra">
                 <div className="barra-label">
                   <span>Meta: {produccionData.metaAdherencia}%</span>
-                  <span>0%</span>
+                  <span>{produccionData.adherencia.toFixed(1)}%</span>
                 </div>
                 <div className="barra-contenedor">
-                  <div className="barra-llenado" style={{width: `0%`}}></div>
+                  <div className="barra-llenado" style={{width: `${produccionData.adherencia}%`}}></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* TABLA DE ÁREAS - TODOS EN 0 */}
+        {/* TABLA DE ÁREAS */}
         <div className="dynamic-view">
           {vistaProduccion === 'tabla' && (
             <div className="table-container">
@@ -935,8 +1004,8 @@ const PlanSemanal = () => {
                         <td className="entregadas-valor">{item.entregadas.toLocaleString()} pz</td>
                         <td>{item.backlog}</td>
                         <td>{item.onTime.toLocaleString()}</td>
-                        <td>{item.pending}%</td>
-                        <td>{item.completed}%</td>
+                        <td>{item.pending.toFixed(1)}%</td>
+                        <td>{item.completed.toFixed(1)}%</td>
                         <td>
                           <div className="progress-bar-container">
                             <div className="progress-bar" style={{width: `${item.cumplimiento}%`, backgroundColor: item.color}}></div>
@@ -948,15 +1017,15 @@ const PlanSemanal = () => {
                   })}
                   <tr className="total-row">
                     <td><strong>Total / Promedio</strong></td>
-                    <td><strong>0</strong></td>
-                    <td><strong>0</strong></td>
-                    <td><strong>0 pz</strong></td>
-                    <td><strong>0</strong></td>
-                    <td><strong>0</strong></td>
-                    <td><strong>0%</strong></td>
-                    <td><strong>0%</strong></td>
+                    <td><strong>{dataProduccion.reduce((sum, item) => sum + item.meta, 0).toLocaleString()}</strong></td>
+                    <td><strong>{dataProduccion.reduce((sum, item) => sum + item.total, 0).toLocaleString()}</strong></td>
+                    <td><strong>{dataProduccion.reduce((sum, item) => sum + item.entregadas, 0).toLocaleString()} pz</strong></td>
+                    <td><strong>{dataProduccion.reduce((sum, item) => sum + item.backlog, 0)}</strong></td>
+                    <td><strong>{dataProduccion.reduce((sum, item) => sum + item.onTime, 0).toLocaleString()}</strong></td>
+                    <td><strong>{(dataProduccion.reduce((sum, item) => sum + item.pending, 0) / dataProduccion.length).toFixed(1)}%</strong></td>
+                    <td><strong>{(dataProduccion.reduce((sum, item) => sum + item.completed, 0) / dataProduccion.length).toFixed(1)}%</strong></td>
                     <td colSpan="1">
-                      <strong>Cumplimiento Promedio: 0%</strong>
+                      <strong>Cumplimiento Promedio: {(dataProduccion.reduce((sum, item) => sum + item.cumplimiento, 0) / dataProduccion.length).toFixed(1)}%</strong>
                     </td>
                   </tr>
                 </tbody>
@@ -972,47 +1041,47 @@ const PlanSemanal = () => {
                   <div className="meta-real-comparacion">
                     <div className="comparacion-item">
                       <span className="comparacion-label">Meta</span>
-                      <span className="comparacion-valor meta">0</span>
+                      <span className="comparacion-valor meta">{item.meta.toLocaleString()}</span>
                     </div>
                     <div className="comparacion-item">
                       <span className="comparacion-label">Real</span>
-                      <span className="comparacion-valor real">0</span>
+                      <span className="comparacion-valor real">{item.total.toLocaleString()}</span>
                     </div>
                     <div className="comparacion-item">
                       <span className="comparacion-label">Entregadas</span>
-                      <span className="comparacion-valor entregadas">0 pz</span>
+                      <span className="comparacion-valor entregadas">{item.entregadas.toLocaleString()} pz</span>
                     </div>
                   </div>
                   <div className="metrics-grid-small">
                     <div className="metric-small">
                       <span>Backlog</span>
-                      <strong>0</strong>
+                      <strong>{item.backlog}</strong>
                     </div>
                     <div className="metric-small">
                       <span>OnTime</span>
-                      <strong>0</strong>
+                      <strong>{item.onTime.toLocaleString()}</strong>
                     </div>
                     <div className="metric-small">
                       <span>Pendiente</span>
-                      <strong>0%</strong>
+                      <strong>{item.pending.toFixed(1)}%</strong>
                     </div>
                     <div className="metric-small">
                       <span>Completado</span>
-                      <strong>0%</strong>
+                      <strong>{item.completed.toFixed(1)}%</strong>
                     </div>
                   </div>
                   <div className="cumplimiento-bar">
                     <div className="barra-label">
                       <span>Cumplimiento</span>
-                      <span>0%</span>
+                      <span>{item.cumplimiento.toFixed(1)}%</span>
                     </div>
                     <div className="barra-contenedor">
-                      <div className="barra-llenado" style={{width: `0%`, backgroundColor: item.color}}></div>
+                      <div className="barra-llenado" style={{width: `${item.cumplimiento}%`, backgroundColor: item.color}}></div>
                     </div>
                   </div>
                   <div className="card-footer">
                     <span className={`variation-badge`}>
-                      ▶ 0%
+                      ▶ {item.variacion > 0 ? '+' : ''}{item.variacion.toFixed(1)}%
                     </span>
                     <button className="mini-btn">Ver detalles</button>
                   </div>
@@ -1032,7 +1101,7 @@ const PlanSemanal = () => {
         </div>
       </div>
 
-      {/* SECCIÓN 2: PLAN SEMANAL NIKE - VACÍO */}
+      {/* SECCIÓN 2: PLAN SEMANAL NIKE */}
       <div className="nike-section">
         <div className="plan-header">
           <div className="header-left">
@@ -1314,19 +1383,19 @@ const PlanSemanal = () => {
                 <div className="metrics-grid">
                   <div className="metric-item">
                     <span>Eficiencia Prom</span>
-                    <strong>0%</strong>
+                    <strong>{lotes.length > 0 ? (lotes.reduce((sum, l) => sum + l.eficiencia, 0) / lotes.length).toFixed(1) : 0}%</strong>
                   </div>
                   <div className="metric-item">
                     <span>Tiempo Promedio</span>
-                    <strong>0 días</strong>
+                    <strong>{lotes.length > 0 ? (lotes.reduce((sum, l) => sum + l.dias, 0) / lotes.length).toFixed(1) : 0} días</strong>
                   </div>
                   <div className="metric-item">
                     <span>Lotes Críticos</span>
-                    <strong className="critical">0</strong>
+                    <strong className="critical">{lotes.filter(l => l.estado === 'Atraso Grave').length}</strong>
                   </div>
                   <div className="metric-item">
                     <span>Cumplimiento</span>
-                    <strong>0%</strong>
+                    <strong>{lotes.length > 0 ? ((lotes.filter(l => l.progreso >= 80).length / lotes.length) * 100).toFixed(1) : 0}%</strong>
                   </div>
                 </div>
               </div>
@@ -1365,7 +1434,7 @@ const PlanSemanal = () => {
                   <>
                     <p><strong>Cliente:</strong> {lotes.find(l => l.lote === selectedLote).cliente}</p>
                     <p><strong>Área:</strong> {lotes.find(l => l.lote === selectedLote).area}</p>
-                    <p><strong>Piezas:</strong> {lotes.find(l => l.lote === selectedLote).piezas}</p>
+                    <p><strong>Piezas:</strong> {lotes.find(l => l.lote === selectedLote).piezas.toLocaleString()}</p>
                     <p><strong>Backlog:</strong> {lotes.find(l => l.lote === selectedLote).backlog}</p>
                     <p><strong>Progreso:</strong> {lotes.find(l => l.lote === selectedLote).progreso}%</p>
                     <p><strong>Eficiencia:</strong> {lotes.find(l => l.lote === selectedLote).eficiencia}%</p>
@@ -1378,106 +1447,48 @@ const PlanSemanal = () => {
         )}
       </div>
 
-      {/* Estilos para el indicador de conexión y estado vacío */}
+      {/* Estilos adicionales para el indicador de carga */}
       <style>{`
-        .connection-status {
+        .loading-indicator {
           position: fixed;
-          top: 10px;
-          right: 10px;
-          z-index: 9999;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 16px;
-          border-radius: 30px;
-          font-size: 13px;
-          font-weight: 600;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          backdrop-filter: blur(10px);
-        }
-        
-        .connection-status.connected {
-          background: #10b981;
-          color: white;
-        }
-        
-        .connection-status.disconnected {
-          background: #f59e0b;
-          color: white;
-        }
-        
-        .status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: white;
-          box-shadow: 0 0 10px white;
-          animation: pulse 2s infinite;
-        }
-
-        .movimiento-notificacion {
-          position: fixed;
-          bottom: 20px;
+          top: 60px;
           right: 20px;
           background: #3b82f6;
           color: white;
-          padding: 12px 20px;
-          border-radius: 10px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-          z-index: 10000;
-          animation: slideUp 0.3s ease;
-          font-weight: 500;
-        }
-
-        @keyframes slideUp {
-          from {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-          color: #6b7280;
-          background: white;
-          border-radius: 12px;
-          margin: 20px 0;
-        }
-
-        .empty-icon {
-          font-size: 48px;
-          margin-bottom: 16px;
-          opacity: 0.5;
-        }
-
-        .empty-state h3 {
-          font-size: 20px;
-          margin-bottom: 8px;
-          color: #374151;
-        }
-
-        .empty-state p {
+          padding: 10px 20px;
+          border-radius: 30px;
           font-size: 14px;
-        }
-
-        .empty-chart {
-          height: 200px;
+          font-weight: 500;
           display: flex;
           align-items: center;
-          justify-content: center;
-          color: #6b7280;
-          background: #f9fafb;
-          border-radius: 8px;
+          gap: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 9999;
+          animation: slideIn 0.3s ease;
         }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.2); }
+
+        .spinner {
+          width: 18px;
+          height: 18px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
       `}</style>
     </div>

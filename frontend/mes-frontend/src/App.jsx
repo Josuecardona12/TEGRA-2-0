@@ -17,17 +17,19 @@ import PlanSemanal from "./pages/PlanSemanal";
 import Login from "./pages/Login";
 import Ordenes from "./pages/Ordenes";
 import Configuracion from "./pages/Configuracion";
-import ScanMovimiento from "./pages/ScanMovimiento";
+import ScanMovimiento from "../../../django_old/ScanMovimiento";
 import Reportes from "./pages/Reportes";
 import ReporteRH from "./pages/ReporteRH";
 import MaquinasTiempoReal from "./pages/MaquinasTiempoReal";
 import TrazabilidadLotes from "./trazabilidad-dashboard/TrazabilidadLotes";
 import FFTTquality from "./pages/FFTTquality";
 import PlotterLotes from "./pages/PlotterLotes";
+import DisenoProduccion from "./pages/DisenoProduccion";
+import Dashboard from "./pages/Dashboard"; // ✅ IMPORT CORREGIDO
 
 import "./App.css";
 
-// ===== LAYOUT PRINCIPAL ULTRA PREMIUM =====
+// ===== LAYOUT PRINCIPAL =====
 function AppLayout() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -48,17 +50,18 @@ function AppLayout() {
 
   // Datos de búsqueda
   const menuItems = [
-    { path: 'dashboard', name: 'Dashboard', icon: '📊', icon2: '✨', category: 'GENERAL', desc: 'Vista general del sistema' },
+    { path: 'dashboard', name: 'Dashboard', icon: '📊', icon2: '✨', category: 'GENERAL', desc: 'Dashboard principal', new: true },
     { path: 'atrasos', name: 'Atrasos', icon: '⚠️', icon2: '⏰', category: 'GENERAL', desc: 'Control de atrasos', badge: 3 },
     { path: 'plan-semanal', name: 'Plan Semanal', icon: '📅', icon2: '🗓️', category: 'OPERACIONES', desc: 'Planificación semanal' },
     { path: 'ordenes', name: 'Órdenes', icon: '📋', icon2: '📝', category: 'OPERACIONES', desc: 'Gestión de órdenes', badge: 12 },
     { path: 'maquinas', name: 'Máquinas', icon: '🚀', icon2: '⚡', category: 'OPERACIONES', desc: 'Monitoreo en vivo', live: true },
     { path: 'trazabilidad', name: 'Trazabilidad', icon: '📊', icon2: '🔍', category: 'OPERACIONES', desc: 'Seguimiento de lotes', new: true },
     { path: 'reporte-rh', name: 'Reporte RH', icon: '👥', icon2: '👤', category: 'OPERACIONES', desc: 'Reportes RH' },
-    { path: 'scan', name: 'Escaneo', icon: '📱', icon2: '📲', category: 'OPERACIONES', desc: 'Escaneo de códigos' },
+    
     { path: 'micelanios', name: 'Miceláneos', icon: '📦', icon2: '📦', category: 'OPERACIONES', desc: 'Productos varios' },
     { path: 'fftt-quality', name: 'FFTT Quality', icon: '🔬', icon2: '🧪', category: 'OPERACIONES', desc: 'Control calidad', premium: true },
     { path: 'plotter', name: 'Plotter 17', icon: '🖨️', icon2: '🖨️', category: 'OPERACIONES', desc: 'Control plotters', badge: 17 },
+    { path: 'diseno', name: 'Diseño', icon: '🎨', icon2: '🖌️', category: 'OPERACIONES', desc: 'Gestión de diseñadores', new: true },
     { path: 'reportes', name: 'Reportes', icon: '📈', icon2: '📊', category: 'SISTEMA', desc: 'Informes y análisis' },
     { path: 'configuracion', name: 'Configuración', icon: '⚙️', icon2: '🔧', category: 'SISTEMA', desc: 'Ajustes del sistema' },
   ];
@@ -71,7 +74,7 @@ function AppLayout() {
       )
     : [];
 
-  // Simular notificaciones en tiempo real
+  // Simular notificaciones
   useEffect(() => {
     const notifs = [
       { id: 1, message: "✅ Lote completado en Plotter #12", type: "success", time: "ahora", read: false },
@@ -82,7 +85,6 @@ function AppLayout() {
     setNotifications(notifs);
     setUnreadCount(notifs.filter(n => !n.read).length);
 
-    // Simular nuevas notificaciones cada 30 segundos
     const interval = setInterval(() => {
       const newNotif = {
         id: Date.now(),
@@ -102,17 +104,18 @@ function AppLayout() {
 
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path.includes('dashboard')) return 'Dashboard General';
+    if (path.includes('dashboard')) return 'Dashboard Principal';
     if (path.includes('atrasos')) return 'Control de Atrasos';
     if (path.includes('plan-semanal')) return 'Plan Semanal';
     if (path.includes('ordenes')) return 'Gestión de Órdenes';
     if (path.includes('maquinas')) return 'Máquinas en Tiempo Real';
     if (path.includes('trazabilidad')) return 'Trazabilidad de Lotes';
     if (path.includes('reporte-rh')) return 'Reportes de RH';
-    if (path.includes('scan')) return 'Escaneo de Movimiento';
+   
     if (path.includes('micelanios')) return 'Miceláneos';
     if (path.includes('fftt-quality')) return 'FFTT Quality Control';
     if (path.includes('plotter')) return 'Plotter - 17 Máquinas';
+    if (path.includes('diseno')) return 'Diseño & Producción';
     if (path.includes('reportes')) return 'Reportes';
     if (path.includes('configuracion')) return 'Configuración del Sistema';
     return 'TEGRA';
@@ -181,9 +184,10 @@ function AppLayout() {
               <span className="section-icon">⭐</span>
               <span>GENERAL</span>
             </div>
-            <Link to="dashboard" className={`nav-link ${isActive('dashboard') ? 'active' : ''}`}>
+            <Link to="dashboard" className={`nav-link destacado ${isActive('dashboard') ? 'active' : ''}`}>
               <span className="nav-icon">📊</span>
               <span className="nav-text">Dashboard</span>
+              <span className="nav-badge new">NUEVO</span>
               {isActive('dashboard') && <span className="nav-indicator"></span>}
             </Link>
             <Link to="atrasos" className={`nav-link ${isActive('atrasos') ? 'active' : ''}`}>
@@ -223,10 +227,7 @@ function AppLayout() {
               <span className="nav-icon">👥</span>
               <span className="nav-text">Reporte RH</span>
             </Link>
-            <Link to="scan" className={`nav-link ${isActive('scan') ? 'active' : ''}`}>
-              <span className="nav-icon">📱</span>
-              <span className="nav-text">Escaneo</span>
-            </Link>
+           
             <Link to="micelanios" className={`nav-link ${isActive('micelanios') ? 'active' : ''}`}>
               <span className="nav-icon">📦</span>
               <span className="nav-text">Miceláneos</span>
@@ -240,6 +241,11 @@ function AppLayout() {
               <span className="nav-icon">🖨️</span>
               <span className="nav-text">Plotter 17</span>
               <span className="nav-badge plotter">17</span>
+            </Link>
+            <Link to="diseno" className={`nav-link destacado ${isActive('diseno') ? 'active' : ''}`}>
+              <span className="nav-icon">🎨</span>
+              <span className="nav-text">Diseño</span>
+              <span className="nav-badge new">NUEVO</span>
             </Link>
           </div>
 
@@ -299,10 +305,10 @@ function AppLayout() {
             </div>
           </div>
 
-         <button className="theme-toggle" onClick={() => setDarkMode(!darkMode)}>
-  {darkMode ? '☀️' : '🌙'}
-  <span className="btn-text">{darkMode ? 'Claro' : 'Oscuro'}</span>
-</button>
+          <button className="theme-toggle" onClick={() => setDarkMode(!darkMode)}>
+            {darkMode ? '☀️' : '🌙'}
+            <span className="btn-text">{darkMode ? 'Claro' : 'Oscuro'}</span>
+          </button>
         </div>
       </aside>
 
@@ -366,61 +372,6 @@ function AppLayout() {
   );
 }
 
-// ===== DASHBOARD PREMIUM =====
-const DashboardPremium = () => {
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [animateNumbers, setAnimateNumbers] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    setAnimateNumbers(true);
-    setTimeout(() => setAnimateNumbers(false), 2000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const metrics = [
-    { icon: '⚙️', label: 'Máquinas', value: '12', trend: '+2 hoy', color: 'primary' },
-    { icon: '📋', label: 'Órdenes', value: '8', trend: '+3 activas', color: 'success' },
-    { icon: '👥', label: 'Personal', value: '145', trend: '+5 hoy', color: 'info' },
-    { icon: '📊', label: 'Producción', value: '10,880', trend: '+8.5%', color: 'warning' },
-  ];
-
-  return (
-    <div className="dashboard-premium">
-      <div className="metrics-grid">
-        {metrics.map((metric, index) => (
-          <div key={index} className={`metric-card ${metric.color} animate-fade-in`} style={{ animationDelay: `${index * 0.1}s` }}>
-            <div className="metric-icon">{metric.icon}</div>
-            <div className="metric-content">
-              <span className="metric-label">{metric.label}</span>
-              <span className={`metric-value ${animateNumbers ? 'animate-pop' : ''}`}>{metric.value}</span>
-              <span className="metric-trend positive">{metric.trend}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="recent-activity-card">
-        <h3>Actividad Reciente</h3>
-        <div className="activity-list">
-          <div className="activity-item">
-            <span className="activity-time">hace 2m</span>
-            <span className="activity-desc">✅ Lote #FF-234 completado</span>
-          </div>
-          <div className="activity-item">
-            <span className="activity-time">hace 5m</span>
-            <span className="activity-desc">⚠️ Alerta en Máquina 08</span>
-          </div>
-          <div className="activity-item">
-            <span className="activity-time">hace 8m</span>
-            <span className="activity-desc">📊 Nuevo escaneo</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ===== COMPONENTE PRINCIPAL =====
 function App() {
   return (
@@ -430,17 +381,18 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" />} />
         
         <Route path="/" element={<AppLayout />}>
-          <Route path="dashboard" element={<DashboardPremium />} />
+          <Route path="dashboard" element={<Dashboard />} /> {/* ✅ RUTA CORREGIDA */}
           <Route path="atrasos" element={<AtrasosDashboard />} />
           <Route path="plan-semanal" element={<PlanSemanal />} />
           <Route path="ordenes" element={<Ordenes />} />
           <Route path="maquinas" element={<MaquinasTiempoReal />} />
           <Route path="trazabilidad" element={<TrazabilidadLotes />} />
           <Route path="reporte-rh" element={<ReporteRH />} />
-          <Route path="scan" element={<ScanMovimiento />} />
+          
           <Route path="micelanios" element={<Micelanios />} />
           <Route path="fftt-quality" element={<FFTTquality />} />
           <Route path="plotter" element={<PlotterLotes />} />
+          <Route path="diseno" element={<DisenoProduccion />} />
           <Route path="reportes" element={<Reportes />} />
           <Route path="configuracion" element={<Configuracion />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
