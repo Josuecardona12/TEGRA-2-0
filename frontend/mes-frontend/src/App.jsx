@@ -17,7 +17,6 @@ import PlanSemanal from "./pages/PlanSemanal";
 import Login from "./pages/Login";
 import Ordenes from "./pages/Ordenes";
 import Configuracion from "./pages/Configuracion";
-import ScanMovimiento from "../../../django_old/ScanMovimiento";
 import Reportes from "./pages/Reportes";
 import ReporteRH from "./pages/ReporteRH";
 import MaquinasTiempoReal from "./pages/MaquinasTiempoReal";
@@ -25,9 +24,45 @@ import TrazabilidadLotes from "./trazabilidad-dashboard/TrazabilidadLotes";
 import FFTTquality from "./pages/FFTTquality";
 import PlotterLotes from "./pages/PlotterLotes";
 import DisenoProduccion from "./pages/DisenoProduccion";
-import Dashboard from "./pages/Dashboard"; // ✅ IMPORT CORREGIDO
+import Dashboard from "./pages/Dashboard";
 
 import "./App.css";
+
+// ===== COMPONENTE PARA PROTEGER RUTAS =====
+const ProtectedRoute = ({ children }) => {
+  const usuario = JSON.parse(localStorage.getItem('usuario'));
+  
+  if (!usuario) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+};
+
+// ===== COMPONENTE PARA VERIFICAR PERMISOS =====
+const RoleBasedRoute = ({ children, requiredPermissions = [] }) => {
+  const usuario = JSON.parse(localStorage.getItem('usuario'));
+  
+  if (!usuario) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Si no se requieren permisos específicos, permitir acceso
+  if (requiredPermissions.length === 0) {
+    return children;
+  }
+  
+  // Verificar si el usuario tiene al menos uno de los permisos requeridos
+  const hasPermission = requiredPermissions.some(permission => 
+    usuario.permisos?.includes(permission)
+  );
+  
+  if (!hasPermission) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return children;
+};
 
 // ===== LAYOUT PRINCIPAL =====
 function AppLayout() {
@@ -40,7 +75,14 @@ function AppLayout() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [weather, setWeather] = useState({ temp: 31, condition: "Mayormente soleado", icon: "☀️" });
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [usuario, setUsuario] = useState(null);
   const location = useLocation();
+
+  // Cargar usuario al iniciar
+  useEffect(() => {
+    const usuarioGuardado = JSON.parse(localStorage.getItem('usuario'));
+    setUsuario(usuarioGuardado);
+  }, []);
 
   // Reloj en tiempo real
   useEffect(() => {
@@ -48,26 +90,38 @@ function AppLayout() {
     return () => clearInterval(timer);
   }, []);
 
-  // Datos de búsqueda
+  // Función para cerrar sesión
+  const handleLogout = () => {
+    localStorage.removeItem('usuario');
+    window.location.href = '/login';
+  };
+
+  // Datos de búsqueda (filtrados por permisos)
   const menuItems = [
-    { path: 'dashboard', name: 'Dashboard', icon: '📊', icon2: '✨', category: 'GENERAL', desc: 'Dashboard principal', new: true },
-    { path: 'atrasos', name: 'Atrasos', icon: '⚠️', icon2: '⏰', category: 'GENERAL', desc: 'Control de atrasos', badge: 3 },
-    { path: 'plan-semanal', name: 'Plan Semanal', icon: '📅', icon2: '🗓️', category: 'OPERACIONES', desc: 'Planificación semanal' },
-    { path: 'ordenes', name: 'Órdenes', icon: '📋', icon2: '📝', category: 'OPERACIONES', desc: 'Gestión de órdenes', badge: 12 },
-    { path: 'maquinas', name: 'Máquinas', icon: '🚀', icon2: '⚡', category: 'OPERACIONES', desc: 'Monitoreo en vivo', live: true },
-    { path: 'trazabilidad', name: 'Trazabilidad', icon: '📊', icon2: '🔍', category: 'OPERACIONES', desc: 'Seguimiento de lotes', new: true },
-    { path: 'reporte-rh', name: 'Reporte RH', icon: '👥', icon2: '👤', category: 'OPERACIONES', desc: 'Reportes RH' },
-    
-    { path: 'micelanios', name: 'Miceláneos', icon: '📦', icon2: '📦', category: 'OPERACIONES', desc: 'Productos varios' },
-    { path: 'fftt-quality', name: 'FFTT Quality', icon: '🔬', icon2: '🧪', category: 'OPERACIONES', desc: 'Control calidad', premium: true },
-    { path: 'plotter', name: 'Plotter 17', icon: '🖨️', icon2: '🖨️', category: 'OPERACIONES', desc: 'Control plotters', badge: 17 },
-    { path: 'diseno', name: 'Diseño', icon: '🎨', icon2: '🖌️', category: 'OPERACIONES', desc: 'Gestión de diseñadores', new: true },
-    { path: 'reportes', name: 'Reportes', icon: '📈', icon2: '📊', category: 'SISTEMA', desc: 'Informes y análisis' },
-    { path: 'configuracion', name: 'Configuración', icon: '⚙️', icon2: '🔧', category: 'SISTEMA', desc: 'Ajustes del sistema' },
+    { path: 'dashboard', name: 'Dashboard', icon: '📊', icon2: '✨', category: 'GENERAL', desc: 'Dashboard principal', new: true, permission: 'dashboard' },
+    { path: 'atrasos', name: 'Atrasos', icon: '⚠️', icon2: '⏰', category: 'GENERAL', desc: 'Control de atrasos', badge: 3, permission: 'dashboard' },
+    { path: 'plan-semanal', name: 'Plan Semanal', icon: '📅', icon2: '🗓️', category: 'OPERACIONES', desc: 'Planificación semanal', permission: 'dashboard' },
+    { path: 'ordenes', name: 'Órdenes', icon: '📋', icon2: '📝', category: 'OPERACIONES', desc: 'Gestión de órdenes', badge: 12, permission: 'dashboard' },
+    { path: 'maquinas', name: 'Máquinas', icon: '🚀', icon2: '⚡', category: 'OPERACIONES', desc: 'Monitoreo en vivo', live: true, permission: 'maquinas' },
+    { path: 'trazabilidad', name: 'Trazabilidad', icon: '📊', icon2: '🔍', category: 'OPERACIONES', desc: 'Seguimiento de lotes', new: true, permission: 'trazabilidad' },
+    { path: 'reporte-rh', name: 'Reporte RH', icon: '👥', icon2: '👤', category: 'OPERACIONES', desc: 'Reportes RH', permission: 'reportes' },
+    { path: 'micelanios', name: 'Miceláneos', icon: '📦', icon2: '📦', category: 'OPERACIONES', desc: 'Productos varios', permission: 'dashboard' },
+    { path: 'fftt-quality', name: 'FFTT Quality', icon: '🔬', icon2: '🧪', category: 'OPERACIONES', desc: 'Control calidad', premium: true, permission: 'fftt-quality' },
+    { path: 'plotter', name: 'Plotter 17', icon: '🖨️', icon2: '🖨️', category: 'OPERACIONES', desc: 'Control plotters', badge: 17, permission: 'maquinas' },
+    { path: 'diseno', name: 'Diseño', icon: '🎨', icon2: '🖌️', category: 'OPERACIONES', desc: 'Gestión de diseñadores', new: true, permission: 'diseno' },
+    { path: 'reportes', name: 'Reportes', icon: '📈', icon2: '📊', category: 'SISTEMA', desc: 'Informes y análisis', permission: 'reportes' },
+    { path: 'configuracion', name: 'Configuración', icon: '⚙️', icon2: '🔧', category: 'SISTEMA', desc: 'Ajustes del sistema', permission: 'configuracion' },
   ];
 
+  // Filtrar menú según permisos del usuario
+  const menuItemsFiltrados = menuItems.filter(item => {
+    if (!usuario) return false;
+    if (item.permission === 'dashboard') return true; // Dashboard siempre visible
+    return usuario.permisos?.includes(item.permission);
+  });
+
   const filteredItems = searchTerm.length > 1 
-    ? menuItems.filter(item => 
+    ? menuItemsFiltrados.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.desc.toLowerCase().includes(searchTerm.toLowerCase())
@@ -111,7 +165,6 @@ function AppLayout() {
     if (path.includes('maquinas')) return 'Máquinas en Tiempo Real';
     if (path.includes('trazabilidad')) return 'Trazabilidad de Lotes';
     if (path.includes('reporte-rh')) return 'Reportes de RH';
-   
     if (path.includes('micelanios')) return 'Miceláneos';
     if (path.includes('fftt-quality')) return 'FFTT Quality Control';
     if (path.includes('plotter')) return 'Plotter - 17 Máquinas';
@@ -120,6 +173,10 @@ function AppLayout() {
     if (path.includes('configuracion')) return 'Configuración del Sistema';
     return 'TEGRA';
   };
+
+  if (!usuario) {
+    return null; // No mostrar nada mientras se carga
+  }
 
   return (
     <div className={`app-container ${darkMode ? 'dark' : 'light'}`}>
@@ -213,40 +270,51 @@ function AppLayout() {
               <span className="nav-text">Órdenes</span>
               <span className="nav-badge info">12</span>
             </Link>
-            <Link to="maquinas" className={`nav-link ${isActive('maquinas') ? 'active' : ''}`}>
-              <span className="nav-icon">🚀</span>
-              <span className="nav-text">Máquinas</span>
-              <span className="live-badge">LIVE</span>
-            </Link>
-            <Link to="trazabilidad" className={`nav-link destacado ${isActive('trazabilidad') ? 'active' : ''}`}>
-              <span className="nav-icon">📊</span>
-              <span className="nav-text">Trazabilidad</span>
-              <span className="nav-badge new">NUEVO</span>
-            </Link>
-            <Link to="reporte-rh" className={`nav-link ${isActive('reporte-rh') ? 'active' : ''}`}>
-              <span className="nav-icon">👥</span>
-              <span className="nav-text">Reporte RH</span>
-            </Link>
-           
+            {usuario.permisos?.includes('maquinas') && (
+              <Link to="maquinas" className={`nav-link ${isActive('maquinas') ? 'active' : ''}`}>
+                <span className="nav-icon">🚀</span>
+                <span className="nav-text">Máquinas</span>
+                <span className="live-badge">LIVE</span>
+              </Link>
+            )}
+            {usuario.permisos?.includes('trazabilidad') && (
+              <Link to="trazabilidad" className={`nav-link destacado ${isActive('trazabilidad') ? 'active' : ''}`}>
+                <span className="nav-icon">📊</span>
+                <span className="nav-text">Trazabilidad</span>
+                <span className="nav-badge new">NUEVO</span>
+              </Link>
+            )}
+            {usuario.permisos?.includes('reportes') && (
+              <Link to="reporte-rh" className={`nav-link ${isActive('reporte-rh') ? 'active' : ''}`}>
+                <span className="nav-icon">👥</span>
+                <span className="nav-text">Reporte RH</span>
+              </Link>
+            )}
             <Link to="micelanios" className={`nav-link ${isActive('micelanios') ? 'active' : ''}`}>
               <span className="nav-icon">📦</span>
               <span className="nav-text">Miceláneos</span>
             </Link>
-            <Link to="fftt-quality" className={`nav-link premium ${isActive('fftt-quality') ? 'active' : ''}`}>
-              <span className="nav-icon">🔬</span>
-              <span className="nav-text">FFTT Quality</span>
-              <span className="premium-badge">PREMIUM</span>
-            </Link>
-            <Link to="plotter" className={`nav-link plotter ${isActive('plotter') ? 'active' : ''}`}>
-              <span className="nav-icon">🖨️</span>
-              <span className="nav-text">Plotter 17</span>
-              <span className="nav-badge plotter">17</span>
-            </Link>
-            <Link to="diseno" className={`nav-link destacado ${isActive('diseno') ? 'active' : ''}`}>
-              <span className="nav-icon">🎨</span>
-              <span className="nav-text">Diseño</span>
-              <span className="nav-badge new">NUEVO</span>
-            </Link>
+            {usuario.permisos?.includes('fftt-quality') && (
+              <Link to="fftt-quality" className={`nav-link premium ${isActive('fftt-quality') ? 'active' : ''}`}>
+                <span className="nav-icon">🔬</span>
+                <span className="nav-text">FFTT Quality</span>
+                <span className="premium-badge">PREMIUM</span>
+              </Link>
+            )}
+            {usuario.permisos?.includes('maquinas') && (
+              <Link to="plotter" className={`nav-link plotter ${isActive('plotter') ? 'active' : ''}`}>
+                <span className="nav-icon">🖨️</span>
+                <span className="nav-text">Plotter 17</span>
+                <span className="nav-badge plotter">17</span>
+              </Link>
+            )}
+            {usuario.permisos?.includes('diseno') && (
+              <Link to="diseno" className={`nav-link destacado ${isActive('diseno') ? 'active' : ''}`}>
+                <span className="nav-icon">🎨</span>
+                <span className="nav-text">Diseño</span>
+                <span className="nav-badge new">NUEVO</span>
+              </Link>
+            )}
           </div>
 
           {/* SISTEMA */}
@@ -255,14 +323,18 @@ function AppLayout() {
               <span className="section-icon">🔧</span>
               <span>SISTEMA</span>
             </div>
-            <Link to="reportes" className={`nav-link ${isActive('reportes') ? 'active' : ''}`}>
-              <span className="nav-icon">📈</span>
-              <span className="nav-text">Reportes</span>
-            </Link>
-            <Link to="configuracion" className={`nav-link ${isActive('configuracion') ? 'active' : ''}`}>
-              <span className="nav-icon">⚙️</span>
-              <span className="nav-text">Configuración</span>
-            </Link>
+            {usuario.permisos?.includes('reportes') && (
+              <Link to="reportes" className={`nav-link ${isActive('reportes') ? 'active' : ''}`}>
+                <span className="nav-icon">📈</span>
+                <span className="nav-text">Reportes</span>
+              </Link>
+            )}
+            {usuario.permisos?.includes('configuracion') && (
+              <Link to="configuracion" className={`nav-link ${isActive('configuracion') ? 'active' : ''}`}>
+                <span className="nav-icon">⚙️</span>
+                <span className="nav-text">Configuración</span>
+              </Link>
+            )}
           </div>
         </nav>
 
@@ -276,16 +348,16 @@ function AppLayout() {
           </div>
 
           <div className="user-info" onClick={() => setShowUserMenu(!showUserMenu)}>
-            <div className="user-avatar">JC</div>
+            <div className="user-avatar">{usuario?.avatar || 'JC'}</div>
             <div className="user-details">
-              <span className="user-name">Josué Cardona</span>
-              <span className="user-role">Administrador</span>
+              <span className="user-name">{usuario?.nombre || 'Usuario'}</span>
+              <span className="user-role">{usuario?.rol || 'Rol'}</span>
             </div>
             {showUserMenu && (
               <div className="user-menu">
                 <Link to="/perfil">👤 Mi Perfil</Link>
                 <Link to="/ajustes">⚙️ Ajustes</Link>
-                <button>🔒 Cerrar Sesión</button>
+                <button onClick={handleLogout}>🔒 Cerrar Sesión</button>
               </div>
             )}
           </div>
@@ -344,7 +416,9 @@ function AppLayout() {
               <span className="btn-icon">⚡</span>
             </button>
             <div className="profile-menu">
-              <div className="profile-avatar" onClick={() => setShowUserMenu(!showUserMenu)}>JC</div>
+              <div className="profile-avatar" onClick={() => setShowUserMenu(!showUserMenu)}>
+                {usuario?.avatar || 'JC'}
+              </div>
             </div>
           </div>
         </div>
@@ -374,27 +448,124 @@ function AppLayout() {
 
 // ===== COMPONENTE PRINCIPAL =====
 function App() {
+  const [usuario, setUsuario] = useState(null);
+
+  useEffect(() => {
+    const usuarioGuardado = JSON.parse(localStorage.getItem('usuario'));
+    setUsuario(usuarioGuardado);
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
+        {/* Ruta pública - Login */}
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Navigate to="/dashboard" />} />
         
-        <Route path="/" element={<AppLayout />}>
-          <Route path="dashboard" element={<Dashboard />} /> {/* ✅ RUTA CORREGIDA */}
+        {/* Ruta raíz - Redirige a login si no hay sesión, a dashboard si hay */}
+        <Route 
+          path="/" 
+          element={
+            usuario ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+          } 
+        />
+        
+        {/* Rutas protegidas */}
+        <Route 
+          path="/" 
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="atrasos" element={<AtrasosDashboard />} />
           <Route path="plan-semanal" element={<PlanSemanal />} />
-          <Route path="ordenes" element={<Ordenes />} />
-          <Route path="maquinas" element={<MaquinasTiempoReal />} />
-          <Route path="trazabilidad" element={<TrazabilidadLotes />} />
-          <Route path="reporte-rh" element={<ReporteRH />} />
+          
+          {/* Rutas con permisos específicos */}
+          <Route 
+            path="ordenes" 
+            element={
+              <RoleBasedRoute requiredPermissions={['dashboard']}>
+                <Ordenes />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          <Route 
+            path="maquinas" 
+            element={
+              <RoleBasedRoute requiredPermissions={['maquinas']}>
+                <MaquinasTiempoReal />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          <Route 
+            path="trazabilidad" 
+            element={
+              <RoleBasedRoute requiredPermissions={['trazabilidad']}>
+                <TrazabilidadLotes />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          <Route 
+            path="reporte-rh" 
+            element={
+              <RoleBasedRoute requiredPermissions={['reportes']}>
+                <ReporteRH />
+              </RoleBasedRoute>
+            } 
+          />
           
           <Route path="micelanios" element={<Micelanios />} />
-          <Route path="fftt-quality" element={<FFTTquality />} />
-          <Route path="plotter" element={<PlotterLotes />} />
-          <Route path="diseno" element={<DisenoProduccion />} />
-          <Route path="reportes" element={<Reportes />} />
-          <Route path="configuracion" element={<Configuracion />} />
+          
+          <Route 
+            path="fftt-quality" 
+            element={
+              <RoleBasedRoute requiredPermissions={['fftt-quality']}>
+                <FFTTquality />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          <Route 
+            path="plotter" 
+            element={
+              <RoleBasedRoute requiredPermissions={['maquinas']}>
+                <PlotterLotes />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          <Route 
+            path="diseno" 
+            element={
+              <RoleBasedRoute requiredPermissions={['diseno']}>
+                <DisenoProduccion />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          <Route 
+            path="reportes" 
+            element={
+              <RoleBasedRoute requiredPermissions={['reportes']}>
+                <Reportes />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          <Route 
+            path="configuracion" 
+            element={
+              <RoleBasedRoute requiredPermissions={['configuracion']}>
+                <Configuracion />
+              </RoleBasedRoute>
+            } 
+          />
+          
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Route>
       </Routes>

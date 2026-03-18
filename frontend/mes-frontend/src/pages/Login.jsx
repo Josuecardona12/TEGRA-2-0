@@ -1,385 +1,416 @@
-// src/pages/Login.jsx
 import React, { useState, useEffect } from 'react';
 import './Login.css';
 
-// ============================================
-// CONFIGURACIÓN WEBSOCKET PARA VERIFICAR SERVIDOR
-// ============================================
-const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [modoOscuro, setModoOscuro] = useState(false);
+  const [animacionActiva, setAnimacionActiva] = useState(false);
+  const [rolSeleccionado, setRolSeleccionado] = useState('admin');
 
-function Login() {
-    const [form, setForm] = useState({
-        usuario: '',
-        password: ''
-    });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-    
-    // ================ ESTADO DE CONEXIÓN ================
-    const [conectado, setConectado] = useState(false);
-    const [lotesActivos, setLotesActivos] = useState(0);
+  // Efecto para animación inicial
+  useEffect(() => {
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 1000);
+  }, []);
 
-    // ================ VERIFICAR CONEXIÓN AL SERVIDOR ================
-    useEffect(() => {
-        const ws = new WebSocket(WS_URL);
-        
-        ws.onopen = () => {
-            console.log('✅ Login: Servidor conectado');
-            setConectado(true);
-        };
-        
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
-                    const lotes = data.data.lotes || [];
-                    setLotesActivos(lotes.length);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        };
-        
-        ws.onerror = () => {
-            console.log('❌ Login: Sin conexión al servidor');
-            setConectado(false);
-        };
-        
-        ws.onclose = () => {
-            setConectado(false);
-        };
-        
-        return () => ws.close();
-    }, []);
+  // Cargar modo oscuro guardado
+  useEffect(() => {
+    const modoGuardado = localStorage.getItem('modoOscuroLogin') === 'true';
+    setModoOscuro(modoGuardado);
+  }, []);
 
-    // Efecto de parallax en el fondo
-    useEffect(() => {
-        const handleMouseMove = (e) => {
-            setMousePosition({
-                x: (e.clientX / window.innerWidth - 0.5) * 20,
-                y: (e.clientY / window.innerHeight - 0.5) * 20
-            });
-        };
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => window.removeEventListener('mousemove', handleMouseMove);
-    }, []);
+  // Guardar modo oscuro
+  useEffect(() => {
+    localStorage.setItem('modoOscuroLogin', modoOscuro);
+  }, [modoOscuro]);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
+  // ================ ROLES Y USUARIOS DE EJEMPLO ================
+  const usuarios = [
+    { 
+      id: 1, 
+      email: 'admin@tegraglobal.com', 
+      password: 'admin123', 
+      rol: 'admin',
+      nombre: 'Administrador',
+      avatar: 'AD',
+      permisos: ['dashboard', 'reportes', 'usuarios', 'configuracion', 'trazabilidad', 'maquinas', 'diseno']
+    },
+    { 
+      id: 2, 
+      email: 'supervisor@tegraglobal.com', 
+      password: 'super123', 
+      rol: 'supervisor',
+      nombre: 'Supervisor',
+      avatar: 'SV',
+      permisos: ['dashboard', 'reportes', 'trazabilidad', 'maquinas']
+    },
+    { 
+      id: 3, 
+      email: 'operador@tegraglobal.com', 
+      password: 'operador123', 
+      rol: 'operador',
+      nombre: 'Operador',
+      avatar: 'OP',
+      permisos: ['dashboard', 'trazabilidad', 'maquinas']
+    },
+    { 
+      id: 4, 
+      email: 'calidad@tegraglobal.com', 
+      password: 'calidad123', 
+      rol: 'calidad',
+      nombre: 'Inspector de Calidad',
+      avatar: 'QC',
+      permisos: ['dashboard', 'fftt-quality', 'reportes']
+    },
+    { 
+      id: 5, 
+      email: 'disenador@tegraglobal.com', 
+      password: 'diseno123', 
+      rol: 'disenador',
+      nombre: 'Diseñador',
+      avatar: 'DS',
+      permisos: ['dashboard', 'diseno']
+    },
+    { 
+      id: 6, 
+      email: 'invitado@tegraglobal.com', 
+      password: 'invitado123', 
+      rol: 'invitado',
+      nombre: 'Invitado',
+      avatar: 'IN',
+      permisos: ['dashboard']
+    }
+  ];
+
+  // ================ ROLES DISPONIBLES ================
+  const roles = [
+    { 
+      id: 'admin', 
+      nombre: 'Administrador', 
+      icono: '👑', 
+      color: '#6366f1',
+      descripcion: 'Acceso completo al sistema',
+      nivel: 5
+    },
+    { 
+      id: 'supervisor', 
+      nombre: 'Supervisor', 
+      icono: '🔍', 
+      color: '#10b981',
+      descripcion: 'Supervisión de operaciones',
+      nivel: 4
+    },
+    { 
+      id: 'operador', 
+      nombre: 'Operador', 
+      icono: '⚙️', 
+      color: '#3b82f6',
+      descripcion: 'Operaciones de producción',
+      nivel: 3
+    },
+    { 
+      id: 'calidad', 
+      nombre: 'Calidad', 
+      icono: '✅', 
+      color: '#f59e0b',
+      descripcion: 'Control de calidad FFTT',
+      nivel: 3
+    },
+    { 
+      id: 'disenador', 
+      nombre: 'Diseñador', 
+      icono: '🎨', 
+      color: '#8b5cf6',
+      descripcion: 'Diseño y creatividad',
+      nivel: 2
+    },
+    { 
+      id: 'invitado', 
+      nombre: 'Invitado', 
+      icono: '👤', 
+      color: '#64748b',
+      descripcion: 'Acceso limitado',
+      nivel: 1
+    }
+  ];
+
+  // ================ MANEJADORES ================
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+
+    // Simular validación
+    setTimeout(() => {
+      const usuario = usuarios.find(u => u.email === email && u.password === password);
+
+      if (usuario) {
+        setSuccess(`✅ Bienvenido ${usuario.nombre}`);
         
-        // Simular validación
+        // Guardar usuario en localStorage
+        localStorage.setItem('usuario', JSON.stringify({
+          id: usuario.id,
+          email: usuario.email,
+          nombre: usuario.nombre,
+          rol: usuario.rol,
+          avatar: usuario.avatar,
+          permisos: usuario.permisos
+        }));
+
+        if (rememberMe) {
+          localStorage.setItem('rememberEmail', email);
+        } else {
+          localStorage.removeItem('rememberEmail');
+        }
+
+        // Redireccionar después de 1 segundo
         setTimeout(() => {
-            setLoading(false);
-            window.location.href = '/dashboard';
-        }, 1500);
-    };
+          window.location.href = '/dashboard';
+        }, 1000);
+      } else {
+        setError('❌ Credenciales incorrectas');
+      }
+      setIsLoading(false);
+    }, 1500);
+  };
 
-    return (
-        <div className="login-container">
-            {/* Fondo animado con gradientes */}
-            <div className="background-gradient"></div>
-            
-            {/* Capa de efecto glass */}
-            <div className="glass-overlay"></div>
-            
-            {/* Partículas animadas */}
-            <div className="particles">
-                {[...Array(50)].map((_, i) => (
-                    <div 
-                        key={i} 
-                        className="particle"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            top: `${Math.random() * 100}%`,
-                            animationDelay: `${Math.random() * 5}s`,
-                            width: `${Math.random() * 6 + 2}px`,
-                            height: `${Math.random() * 6 + 2}px`
-                        }}
-                    ></div>
-                ))}
-            </div>
+  // Cargar email guardado
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('rememberEmail');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
-            {/* Indicador de conexión del servidor */}
-            <div className={`server-status-indicator ${conectado ? 'connected' : 'disconnected'}`}>
-                <span className="status-dot"></span>
-                <span className="status-text">
-                    {conectado ? `Servidor OK • ${lotesActivos} lotes` : 'Servidor: Sin conexión'}
-                </span>
-            </div>
+  // ================ AUTOCOMPLETAR ROL (para demo) ================
+  const autocompletarRol = (rolId) => {
+    setRolSeleccionado(rolId);
+    const usuarioEjemplo = usuarios.find(u => u.rol === rolId);
+    if (usuarioEjemplo) {
+      setEmail(usuarioEjemplo.email);
+      setPassword(usuarioEjemplo.password);
+    }
+  };
 
-            {/* Círculos decorativos con efecto parallax */}
-            <div 
-                className="floating-circle circle-1"
-                style={{
-                    transform: `translate(${mousePosition.x * 0.5}px, ${mousePosition.y * 0.5}px)`
-                }}
-            ></div>
-            <div 
-                className="floating-circle circle-2"
-                style={{
-                    transform: `translate(${mousePosition.x * -0.3}px, ${mousePosition.y * -0.3}px)`
-                }}
-            ></div>
-            <div 
-                className="floating-circle circle-3"
-                style={{
-                    transform: `translate(${mousePosition.x * 0.2}px, ${mousePosition.y * -0.4}px)`
-                }}
-            ></div>
-
-            {/* Tarjeta de login con efecto 3D */}
-            <div 
-                className="login-card"
-                style={{
-                    transform: `perspective(1000px) rotateX(${mousePosition.y * 0.05}deg) rotateY(${mousePosition.x * 0.05}deg)`
-                }}
-            >
-                {/* Borde animado */}
-                <div className="card-border"></div>
-                
-                {/* Logo flotante con animación 3D */}
-                <div className="logo-container">
-                    <div className="logo-glow"></div>
-                    <div className="logo-3d">
-                        <div className="logo-face front">
-                            <span className="logo-icon">🏭</span>
-                        </div>
-                        <div className="logo-face back">
-                            <span className="logo-icon">⚙️</span>
-                        </div>
-                        <div className="logo-face right"></div>
-                        <div className="logo-face left"></div>
-                        <div className="logo-face top"></div>
-                        <div className="logo-face bottom"></div>
-                    </div>
-                </div>
-
-                {/* Texto de bienvenida con efecto glass */}
-                <div className="welcome-text">
-                    <h1 className="title">
-                        <span className="title-word">ERP</span>
-                        <span className="title-word">Gestión</span>
-                    </h1>
-                    <div className="subtitle-container">
-                        <p className="subtitle">Sistema de Control Empresarial</p>
-                        <div className="subtitle-line"></div>
-                    </div>
-                </div>
-
-                {/* Formulario premium */}
-                <form onSubmit={handleSubmit} className="login-form">
-                    {/* Campo usuario premium */}
-                    <div className="input-group">
-                        <label className="input-label">
-                            <span className="label-icon">👤</span>
-                            <span className="label-text">Usuario</span>
-                        </label>
-                        <div className="input-wrapper">
-                            <input
-                                type="text"
-                                value={form.usuario}
-                                onChange={(e) => setForm({...form, usuario: e.target.value})}
-                                placeholder="demo@tegra.com"
-                                className="premium-input"
-                                required
-                            />
-                            <div className="input-highlight"></div>
-                            <div className="input-focus-effect"></div>
-                        </div>
-                    </div>
-
-                    {/* Campo contraseña premium */}
-                    <div className="input-group">
-                        <label className="input-label">
-                            <span className="label-icon">🔒</span>
-                            <span className="label-text">Contraseña</span>
-                        </label>
-                        <div className="input-wrapper">
-                            <input
-                                type="password"
-                                value={form.password}
-                                onChange={(e) => setForm({...form, password: e.target.value})}
-                                placeholder="••••••••"
-                                className="premium-input"
-                                required
-                            />
-                            <div className="input-highlight"></div>
-                            <div className="input-focus-effect"></div>
-                        </div>
-                    </div>
-
-                    {/* Opciones extras */}
-                    <div className="login-options">
-                        <label className="remember-checkbox">
-                            <input type="checkbox" />
-                            <span className="checkmark"></span>
-                            <span>Recordarme</span>
-                        </label>
-                        <a href="#" className="forgot-link">¿Olvidaste tu contraseña?</a>
-                    </div>
-
-                    {/* Botón premium con efecto 3D */}
-                    <button 
-                        type="submit" 
-                        className={`premium-button ${loading ? 'loading' : ''}`}
-                        disabled={loading}
-                    >
-                        <div className="button-inner">
-                            {loading ? (
-                                <>
-                                    <div className="loader"></div>
-                                    <span>Procesando...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span className="button-text">Iniciar Sesión</span>
-                                    <span className="button-icon">→</span>
-                                </>
-                            )}
-                        </div>
-                        <div className="button-glow"></div>
-                        <div className="button-shine"></div>
-                    </button>
-
-                    {/* Mensaje de error */}
-                    {error && (
-                        <div className="error-message">
-                            <span className="error-icon">⚠️</span>
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    {/* Mensaje demo */}
-                    <div className="demo-badge">
-                        <div className="demo-badge-inner">
-                            <span className="demo-icon">⚡</span>
-                            <span>DEMO - Cualquier usuario funciona</span>
-                        </div>
-                    </div>
-
-                    {/* Acceso rápido */}
-                    <div className="quick-access">
-                        <p>Acceso rápido:</p>
-                        <div className="quick-buttons">
-                            <button 
-                                type="button" 
-                                className="quick-btn"
-                                onClick={() => setForm({ usuario: 'admin', password: 'admin123' })}
-                            >
-                                Admin
-                            </button>
-                            <button 
-                                type="button" 
-                                className="quick-btn"
-                                onClick={() => setForm({ usuario: 'supervisor', password: 'sup123' })}
-                            >
-                                Supervisor
-                            </button>
-                            <button 
-                                type="button" 
-                                className="quick-btn"
-                                onClick={() => setForm({ usuario: 'operador', password: 'op123' })}
-                            >
-                                Operador
-                            </button>
-                        </div>
-                    </div>
-                </form>
-
-                {/* Footer con enlaces */}
-                <div className="login-footer">
-                    <div className="footer-links">
-                        <a href="#">Términos</a>
-                        <span className="separator">•</span>
-                        <a href="#">Privacidad</a>
-                        <span className="separator">•</span>
-                        <a href="#">Soporte</a>
-                    </div>
-                    <p className="copyright">
-                        © 2026 TEGRA Manufacturing. Todos los derechos reservados.
-                    </p>
-                    <p className="version">
-                        Versión 3.2.0 • Build 2026.03.11
-                    </p>
-                </div>
-            </div>
-
-            {/* Estilos para el indicador de conexión */}
-            <style>{`
-                .server-status-indicator {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    z-index: 10000;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 10px 20px;
-                    border-radius: 40px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-                    backdrop-filter: blur(10px);
-                    -webkit-backdrop-filter: blur(10px);
-                    animation: slideDown 0.5s ease;
-                }
-                
-                .server-status-indicator.connected {
-                    background: rgba(16, 185, 129, 0.2);
-                    color: #10b981;
-                    border: 1px solid rgba(16, 185, 129, 0.3);
-                }
-                
-                .server-status-indicator.disconnected {
-                    background: rgba(239, 68, 68, 0.2);
-                    color: #ef4444;
-                    border: 1px solid rgba(239, 68, 68, 0.3);
-                }
-                
-                .status-dot {
-                    width: 8px;
-                    height: 8px;
-                    border-radius: 50%;
-                    display: inline-block;
-                }
-                
-                .connected .status-dot {
-                    background: #10b981;
-                    box-shadow: 0 0 15px #10b981;
-                    animation: pulse 2s infinite;
-                }
-                
-                .disconnected .status-dot {
-                    background: #ef4444;
-                    box-shadow: 0 0 15px #ef4444;
-                }
-                
-                .status-text {
-                    font-family: 'Inter', sans-serif;
-                    letter-spacing: 0.3px;
-                }
-                
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; transform: scale(1); }
-                    50% { opacity: 0.5; transform: scale(1.2); }
-                }
-                
-                @keyframes slideDown {
-                    from {
-                        transform: translateY(-100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateY(0);
-                        opacity: 1;
-                    }
-                }
-            `}</style>
+  return (
+    <div className={`login-ultra ${modoOscuro ? 'dark-mode' : ''}`}>
+      {/* ===== FONDO ANIMADO ===== */}
+      <div className="login-background">
+        <div className="gradient-orb orbe-1"></div>
+        <div className="gradient-orb orbe-2"></div>
+        <div className="gradient-orb orbe-3"></div>
+        <div className="grid-overlay"></div>
+        <div className="particles">
+          {[...Array(50)].map((_, i) => (
+            <div key={i} className="particle" style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              width: `${Math.random() * 6 + 2}px`,
+              height: `${Math.random() * 6 + 2}px`
+            }}></div>
+          ))}
         </div>
-    );
-}
+      </div>
+
+      {/* ===== CONTENEDOR PRINCIPAL ===== */}
+      <div className="login-container">
+        <div className={`login-card ${animacionActiva ? 'animate-in' : ''}`}>
+          
+          {/* ===== TOGGLE MODO OSCURO ===== */}
+          <button 
+            className="theme-toggle-login" 
+            onClick={() => setModoOscuro(!modoOscuro)}
+            title={modoOscuro ? 'Modo claro' : 'Modo oscuro'}
+          >
+            <span className="toggle-icon">{modoOscuro ? '☀️' : '🌙'}</span>
+          </button>
+
+          {/* ===== LOGO Y TÍTULO ===== */}
+          <div className="login-header">
+            <div className="logo-3d">
+              <span className="logo-icon">🏭</span>
+              <span className="logo-glow"></span>
+            </div>
+            <h1 className="login-title">
+              TEGRA ERP
+              <span className="title-badge">PRO</span>
+            </h1>
+            <p className="login-subtitle">Sistema de Gestión Empresarial</p>
+          </div>
+
+          {/* ===== SELECTOR DE ROLES (DEMO) ===== */}
+          <div className="roles-selector">
+            <h3 className="roles-title">
+              <span className="title-icon">👥</span>
+              Selecciona un rol para demo
+            </h3>
+            <div className="roles-grid">
+              {roles.map(rol => (
+                <button
+                  key={rol.id}
+                  className={`rol-btn ${rolSeleccionado === rol.id ? 'active' : ''}`}
+                  onClick={() => autocompletarRol(rol.id)}
+                  style={{ borderColor: rol.color }}
+                >
+                  <span className="rol-icon" style={{ backgroundColor: rol.color + '20', color: rol.color }}>
+                    {rol.icono}
+                  </span>
+                  <span className="rol-info">
+                    <span className="rol-nombre">{rol.nombre}</span>
+                    <span className="rol-desc">{rol.descripcion}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ===== FORMULARIO ===== */}
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="input-group">
+              <label htmlFor="email">
+                <span className="label-icon">📧</span>
+                Correo Electrónico
+              </label>
+              <div className="input-wrapper">
+                <span className="input-icon">📧</span>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ejemplo@tegraglobal.com"
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="password">
+                <span className="label-icon">🔒</span>
+                Contraseña
+              </label>
+              <div className="input-wrapper">
+                <span className="input-icon">🔒</span>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? "👁️" : "👁️‍🗨️"}
+                </button>
+              </div>
+            </div>
+
+            <div className="form-options">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span className="checkbox-custom"></span>
+                <span className="checkbox-text">Recordarme</span>
+              </label>
+
+              <a href="#" className="forgot-link">
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
+
+            {/* ===== MENSAJES ===== */}
+            {error && (
+              <div className="message error">
+                <span className="message-icon">❌</span>
+                <span className="message-text">{error}</span>
+              </div>
+            )}
+
+            {success && (
+              <div className="message success">
+                <span className="message-icon">✅</span>
+                <span className="message-text">{success}</span>
+              </div>
+            )}
+
+            {/* ===== BOTÓN DE INICIO ===== */}
+            <button
+              type="submit"
+              className={`login-button ${isLoading ? 'loading' : ''}`}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <span className="spinner"></span>
+                  <span>Iniciando sesión...</span>
+                </>
+              ) : (
+                <>
+                  <span className="btn-icon">🔓</span>
+                  <span>Iniciar Sesión</span>
+                </>
+              )}
+            </button>
+
+            {/* ===== ACCESOS RÁPIDOS ===== */}
+            <div className="quick-access">
+              <p className="quick-title">Acceso rápido para pruebas:</p>
+              <div className="quick-buttons">
+                <button 
+                  type="button" 
+                  className="quick-btn admin"
+                  onClick={() => autocompletarRol('admin')}
+                >
+                  <span className="quick-icon">👑</span>
+                  <span>Admin</span>
+                </button>
+                <button 
+                  type="button" 
+                  className="quick-btn supervisor"
+                  onClick={() => autocompletarRol('supervisor')}
+                >
+                  <span className="quick-icon">🔍</span>
+                  <span>Supervisor</span>
+                </button>
+                <button 
+                  type="button" 
+                  className="quick-btn operador"
+                  onClick={() => autocompletarRol('operador')}
+                >
+                  <span className="quick-icon">⚙️</span>
+                  <span>Operador</span>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {/* ===== FOOTER ===== */}
+          <div className="login-footer">
+            <p className="version">Versión 3.0.0 • Tiempo Real</p>
+            <p className="copyright">© 2026 TEGRA Global. Todos los derechos reservados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default Login;
