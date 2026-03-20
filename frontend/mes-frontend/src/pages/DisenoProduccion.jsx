@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './DisenoProduccion.css';
+import { useProduccion } from '../context/ProduccionContext';
 
 // ============================================
 // CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
@@ -7,6 +8,16 @@ import './DisenoProduccion.css';
 const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
 
 const DisenoProduccion = () => {
+  // ================ USAR CONTEXTO GLOBAL ================
+  const { 
+    lotes: lotesGlobal,
+    ultimoMovimiento: ultimoMovimientoGlobal,
+    conectado: wsConectado,
+    procesarEscaneo: procesarEscaneoGlobal,
+    agregarEvento: agregarEventoGlobal,
+    estadisticas: estadisticasGlobal
+  } = useProduccion();
+
   // ================ ESTADOS PRINCIPALES ================
   const [vista, setVista] = useState('tablero');
   const [periodo, setPeriodo] = useState('dia');
@@ -41,6 +52,30 @@ const DisenoProduccion = () => {
 
   const mainContentRef = useRef(null);
   const inputRef = useRef(null);
+
+  // ================ SINCRONIZAR CON CONTEXTO GLOBAL ================
+  useEffect(() => {
+    if (lotesGlobal && lotesGlobal.length > 0 && conectado) {
+      // Sincronizar lotes que están en área de diseño
+      const lotesDiseno = lotesGlobal.filter(l => l.areaActual === 'diseno');
+      if (lotesDiseno.length > 0 && !disenos.some(d => d.codigo === lotesDiseno[0]?.codigo)) {
+        agregarNotificacion(`📦 ${lotesDiseno.length} lotes sincronizados desde el servidor`, 'info');
+      }
+    }
+  }, [lotesGlobal, conectado]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoMovimiento(ultimoMovimientoGlobal);
+      agregarNotificacion(`🔄 ${ultimoMovimientoGlobal.lote} → ${ultimoMovimientoGlobal.area}`, 'info');
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  useEffect(() => {
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
+    }
+  }, [wsConectado]);
 
   // ================ CONEXIÓN WEBSOCKET ================
   useEffect(() => {
@@ -226,7 +261,6 @@ const DisenoProduccion = () => {
 
   // ================ DATOS DE DISEÑOS CON SOPORTE PARA DOBLE ESCANEO ================
   const [disenos, setDisenos] = useState([
-    // Ejemplos para pruebas con doble escaneo
     {
       id: 'DIS-001',
       codigo: 'DS-2403-001',
@@ -317,7 +351,6 @@ const DisenoProduccion = () => {
   const [produccionHora, setProduccionHora] = useState(
     Array.from({ length: 24 }, (_, i) => {
       const hora = i;
-      // Simular datos para las horas con actividad
       const diseñosPorHora = [0, 0, 0, 0, 0, 0, 2, 5, 8, 12, 15, 18, 16, 14, 12, 10, 8, 6, 4, 2, 1, 0, 0, 0];
       return {
         hora: i,
@@ -399,8 +432,8 @@ const DisenoProduccion = () => {
     return {
       totalDisenos: disenos.length,
       disenosHoy,
-      disenosSemana: disenos.length, // Simplificado
-      disenosMes: disenos.length, // Simplificado
+      disenosSemana: disenos.length,
+      disenosMes: disenos.length,
       tiempoPromedio,
       eficienciaGlobal: disenosCompletados > 0 
         ? Math.round((disenosCompletados / disenos.length) * 100) 
@@ -418,7 +451,6 @@ const DisenoProduccion = () => {
 
   const [stats, setStats] = useState(calcularStats());
 
-  // Actualizar stats cuando cambien los datos
   useEffect(() => {
     setStats(calcularStats());
   }, [disenos, disenadores, turnos, produccionHora]);
@@ -431,7 +463,6 @@ const DisenoProduccion = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Detectar scroll
   useEffect(() => {
     const handleScroll = () => {
       if (mainContentRef.current) {
@@ -449,7 +480,6 @@ const DisenoProduccion = () => {
     }
   };
 
-  // Cargar preferencias
   useEffect(() => {
     const modoGuardado = localStorage.getItem('modoOscuroDiseno') === 'true';
     setModoOscuro(modoGuardado);
@@ -459,7 +489,6 @@ const DisenoProduccion = () => {
     localStorage.setItem('modoOscuroDiseno', modoOscuro);
   }, [modoOscuro]);
 
-  // Enfocar input del escáner cuando está activo
   useEffect(() => {
     if (modoEscaner === 'activo' && inputEscanerRef.current) {
       inputEscanerRef.current.focus();
@@ -498,27 +527,28 @@ const DisenoProduccion = () => {
       return;
     }
 
+    // Usar procesador global si está disponible
+    if (procesarEscaneoGlobal && conectado) {
+      procesarEscaneoGlobal(codigo);
+    }
+
     setAnimacionActiva(true);
     setTimeout(() => setAnimacionActiva(false), 500);
     
-    // Buscar el diseño por código
     const disenoExistente = disenos.find(d => d.codigo === codigo);
 
     if (!disenoExistente) {
-      // PRIMER ESCANEO: Crear nuevo diseño
       const nuevoDiseno = crearNuevoDiseno(codigo);
       setMensajeEscaner(`✅ PRIMER ESCANEO: Diseño ${codigo} iniciado`);
       setTipoMensaje('success');
       setUltimoEscaneo({ codigo, tipo: 'primer', diseno: nuevoDiseno, hora: tiempoReal.toLocaleTimeString() });
       agregarNotificacion(`🎨 Diseño ${codigo} iniciado - Primer escaneo`, 'exito');
       enviarAlServidor('PRIMER_ESCANEO', { codigo, diseno: nuevoDiseno, timestamp: new Date().toISOString() });
-      
       setCodigoEscaneado('');
       return;
     }
 
     if (disenoExistente && disenoExistente.estado === 'en_proceso') {
-      // SEGUNDO ESCANEO: Finalizar diseño
       const disenoFinalizado = finalizarDiseno(disenoExistente);
       setMensajeEscaner(`✅ SEGUNDO ESCANEO: Diseño ${codigo} finalizado`);
       setTipoMensaje('success');
@@ -530,10 +560,8 @@ const DisenoProduccion = () => {
         timestamp: new Date().toISOString(),
         duracion: disenoFinalizado.tiempoReal 
       });
-      
       setCodigoEscaneado('');
     } else if (disenoExistente && disenoExistente.estado === 'completado') {
-      // Diseño ya finalizado - mostrar detalles
       setMensajeEscaner(`ℹ️ Diseño ${codigo} ya fue finalizado`);
       setTipoMensaje('info');
       setDisenoSeleccionado(disenoExistente);
@@ -548,12 +576,10 @@ const DisenoProduccion = () => {
     const fechaActual = tiempoReal.toISOString().split('T')[0];
     const turnoActual = determinarTurnoActual();
     
-    // Buscar diseñador disponible del turno actual
     let disenadorAsignado = disenadores.find(d => 
       d.estado === 'disponible' && d.turno === turnoActual
     );
     
-    // Si no hay disponible, asignar el primero del turno
     if (!disenadorAsignado) {
       disenadorAsignado = disenadores.find(d => d.turno === turnoActual) || disenadores[0];
     }
@@ -592,7 +618,6 @@ const DisenoProduccion = () => {
 
     setDisenos([nuevoDiseno, ...disenos]);
     
-    // Actualizar estadísticas del diseñador
     setDisenadores(prev => prev.map(d => 
       d.id === disenadorAsignado.id 
         ? { 
@@ -607,7 +632,6 @@ const DisenoProduccion = () => {
         : d
     ));
 
-    // Actualizar producción por hora
     const horaActualNum = tiempoReal.getHours();
     setProduccionHora(prev => prev.map((h, i) => 
       i === horaActualNum 
@@ -622,13 +646,9 @@ const DisenoProduccion = () => {
     const horaActual = tiempoReal.toLocaleTimeString();
     const fechaActual = tiempoReal.toISOString().split('T')[0];
     
-    // Calcular tiempo real en minutos
     const inicio = new Date(`${fechaActual}T${diseno.horaInicio}`);
     const fin = new Date(`${fechaActual}T${horaActual}`);
     const tiempoRealMinutos = Math.round((fin - inicio) / 60000);
-
-    const progresoFinal = 100;
-    const comentarioFinal = `Diseño finalizado a las ${horaActual}`;
 
     const disenoFinalizado = {
       ...diseno,
@@ -636,7 +656,7 @@ const DisenoProduccion = () => {
       fechaFin: fechaActual,
       estado: 'completado',
       tiempoReal: tiempoRealMinutos,
-      progreso: progresoFinal,
+      progreso: 100,
       segundoEscaneo: { 
         timestamp: new Date().toISOString(), 
         usuario: diseno.disenadorNombre,
@@ -644,7 +664,7 @@ const DisenoProduccion = () => {
       },
       comentarios: [
         ...diseno.comentarios,
-        { usuario: diseno.disenadorNombre, fecha: horaActual, texto: comentarioFinal }
+        { usuario: diseno.disenadorNombre, fecha: horaActual, texto: `Diseño finalizado a las ${horaActual}` }
       ]
     };
 
@@ -652,7 +672,6 @@ const DisenoProduccion = () => {
       d.id === diseno.id ? disenoFinalizado : d
     ));
 
-    // Liberar diseñador y actualizar métricas
     setDisenadores(prev => prev.map(d => {
       if (d.id === diseno.disenador) {
         const diseñosCompletados = (d.metricas?.diseñosCompletados || 0) + 1;
@@ -677,7 +696,6 @@ const DisenoProduccion = () => {
     return disenoFinalizado;
   };
 
-  // ================ FUNCIONES AUXILIARES ================
   const determinarTurnoActual = () => {
     const hora = tiempoReal.getHours();
     if (hora >= 6 && hora < 14) return 'mañana';
@@ -818,7 +836,7 @@ const DisenoProduccion = () => {
       {/* ===== NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO ===== */}
       {ultimoMovimiento && (
         <div className="movimiento-notificacion">
-          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+          🔄 {ultimoMovimiento.lote} → {ultimoMovimiento.area}
         </div>
       )}
 

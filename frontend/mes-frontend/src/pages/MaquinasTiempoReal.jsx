@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./MaquinasTiempoReal.css";
+import { useProduccion } from "../context/ProduccionContext";
 
 // ============================================
 // CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
@@ -7,6 +8,16 @@ import "./MaquinasTiempoReal.css";
 const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
 
 const MaquinasTiempoReal = () => {
+  // ================ USAR CONTEXTO GLOBAL ================
+  const { 
+    lotes: lotesGlobal,
+    ultimoMovimiento: ultimoMovimientoGlobal,
+    conectado: wsConectado,
+    procesarEscaneo: procesarEscaneoGlobal,
+    agregarEvento: agregarEventoGlobal,
+    estadisticas: estadisticasGlobal
+  } = useProduccion();
+
   // ================ ESTADOS PRINCIPALES ================
   const [loteEscaneado, setLoteEscaneado] = useState("");
   const [loteActivo, setLoteActivo] = useState(null);
@@ -56,7 +67,43 @@ const MaquinasTiempoReal = () => {
   const inputRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // ================ CONEXIÓN WEBSOCKET MEJORADA ================
+  // ================ SINCRONIZAR CON CONTEXTO GLOBAL ================
+  useEffect(() => {
+    if (lotesGlobal && lotesGlobal.length > 0 && conectado) {
+      // Sincronizar lotes que están en área de máquinas
+      const lotesMaquinas = lotesGlobal.filter(l => l.areaActual === 'maquinas' || l.areaActual === 'plotter');
+      if (lotesMaquinas.length > 0) {
+        const lotesEnProd = lotesMaquinas
+          .filter(l => l.estado === 'en_proceso')
+          .map(l => ({
+            ...l,
+            idProduccion: `PROD-${Date.now()}-${l.codigo}`,
+            cantidadProcesada: l.cantidadProcesada || 0,
+            progreso: l.progreso || 0,
+            piezasPorHora: Math.floor(Math.random() * 100) + 50
+          }));
+        
+        setLotesEnProduccion(prev => [...prev, ...lotesEnProd]);
+        
+        agregarNotificacion(`📦 ${lotesMaquinas.length} lotes sincronizados desde el servidor`, 'info');
+      }
+    }
+  }, [lotesGlobal, conectado]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoMovimiento(ultimoMovimientoGlobal);
+      agregarNotificacion(`🔄 ${ultimoMovimientoGlobal.lote} → ${ultimoMovimientoGlobal.area}`, 'info');
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  useEffect(() => {
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
+    }
+  }, [wsConectado]);
+
+  // ================ CONEXIÓN WEBSOCKET ================
   useEffect(() => {
     console.log('🔌 MaquinasTiempoReal conectando...');
     
@@ -115,7 +162,7 @@ const MaquinasTiempoReal = () => {
               piezasPorHora: Math.floor(Math.random() * 100) + 50
             }));
           
-          setLotesEnProduccion(enProduccion);
+          setLotesEnProduccion(prev => [...prev, ...enProduccion]);
           
           // Actualizar lotes finalizados
           const finalizados = lotesData
@@ -128,7 +175,7 @@ const MaquinasTiempoReal = () => {
               tiempoTotal: l.tiempoTotal || '02:30:00'
             }));
           
-          setLotesFinalizados(finalizados);
+          setLotesFinalizados(prev => [...prev, ...finalizados]);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -228,7 +275,7 @@ const MaquinasTiempoReal = () => {
     }
   }, []);
 
-  // ================ ACTUALIZACIÓN EN TIEMPO REAL (100ms) ================
+  // ================ ACTUALIZACIÓN EN TIEMPO REAL ================
   useEffect(() => {
     intervalRef.current = setInterval(() => {
       actualizarProduccion();
@@ -309,6 +356,11 @@ const MaquinasTiempoReal = () => {
     }
 
     const codigoLimpio = codigo.trim().toUpperCase();
+
+    // Usar procesador global si está disponible
+    if (procesarEscaneoGlobal && conectado) {
+      procesarEscaneoGlobal(codigoLimpio);
+    }
 
     // 1️⃣ SI YA ESTÁ EN PRODUCCIÓN → SEGUNDO ESCANEO: FINALIZAR
     const loteEnProduccion = lotesEnProduccion.find(l => l.codigo === codigoLimpio);
@@ -642,7 +694,7 @@ const MaquinasTiempoReal = () => {
       {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
       {ultimoMovimiento && (
         <div className="movimiento-notificacion">
-          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+          🔄 {ultimoMovimiento.lote} → {ultimoMovimiento.area}
         </div>
       )}
 

@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { USUARIOS, ROLES_CONFIG } from '../config/roles.config';
+import { useRole } from '../RoleContext';
 import './Login.css';
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { refreshUser } = useRole();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -13,156 +19,47 @@ const Login = () => {
   const [animacionActiva, setAnimacionActiva] = useState(false);
   const [rolSeleccionado, setRolSeleccionado] = useState('admin');
 
-  // Efecto para animación inicial
+  const rolesList = Object.values(ROLES_CONFIG);
+
   useEffect(() => {
     setAnimacionActiva(true);
     setTimeout(() => setAnimacionActiva(false), 1000);
   }, []);
 
-  // Cargar modo oscuro guardado
   useEffect(() => {
     const modoGuardado = localStorage.getItem('modoOscuroLogin') === 'true';
     setModoOscuro(modoGuardado);
   }, []);
 
-  // Guardar modo oscuro
   useEffect(() => {
     localStorage.setItem('modoOscuroLogin', modoOscuro);
   }, [modoOscuro]);
 
-  // ================ ROLES Y USUARIOS DE EJEMPLO ================
-  const usuarios = [
-    { 
-      id: 1, 
-      email: 'admin@tegraglobal.com', 
-      password: 'admin123', 
-      rol: 'admin',
-      nombre: 'Administrador',
-      avatar: 'AD',
-      permisos: ['dashboard', 'reportes', 'usuarios', 'configuracion', 'trazabilidad', 'maquinas', 'diseno']
-    },
-    { 
-      id: 2, 
-      email: 'supervisor@tegraglobal.com', 
-      password: 'super123', 
-      rol: 'supervisor',
-      nombre: 'Supervisor',
-      avatar: 'SV',
-      permisos: ['dashboard', 'reportes', 'trazabilidad', 'maquinas']
-    },
-    { 
-      id: 3, 
-      email: 'operador@tegraglobal.com', 
-      password: 'operador123', 
-      rol: 'operador',
-      nombre: 'Operador',
-      avatar: 'OP',
-      permisos: ['dashboard', 'trazabilidad', 'maquinas']
-    },
-    { 
-      id: 4, 
-      email: 'calidad@tegraglobal.com', 
-      password: 'calidad123', 
-      rol: 'calidad',
-      nombre: 'Inspector de Calidad',
-      avatar: 'QC',
-      permisos: ['dashboard', 'fftt-quality', 'reportes']
-    },
-    { 
-      id: 5, 
-      email: 'disenador@tegraglobal.com', 
-      password: 'diseno123', 
-      rol: 'disenador',
-      nombre: 'Diseñador',
-      avatar: 'DS',
-      permisos: ['dashboard', 'diseno']
-    },
-    { 
-      id: 6, 
-      email: 'invitado@tegraglobal.com', 
-      password: 'invitado123', 
-      rol: 'invitado',
-      nombre: 'Invitado',
-      avatar: 'IN',
-      permisos: ['dashboard']
-    }
-  ];
-
-  // ================ ROLES DISPONIBLES ================
-  const roles = [
-    { 
-      id: 'admin', 
-      nombre: 'Administrador', 
-      icono: '👑', 
-      color: '#6366f1',
-      descripcion: 'Acceso completo al sistema',
-      nivel: 5
-    },
-    { 
-      id: 'supervisor', 
-      nombre: 'Supervisor', 
-      icono: '🔍', 
-      color: '#10b981',
-      descripcion: 'Supervisión de operaciones',
-      nivel: 4
-    },
-    { 
-      id: 'operador', 
-      nombre: 'Operador', 
-      icono: '⚙️', 
-      color: '#3b82f6',
-      descripcion: 'Operaciones de producción',
-      nivel: 3
-    },
-    { 
-      id: 'calidad', 
-      nombre: 'Calidad', 
-      icono: '✅', 
-      color: '#f59e0b',
-      descripcion: 'Control de calidad FFTT',
-      nivel: 3
-    },
-    { 
-      id: 'disenador', 
-      nombre: 'Diseñador', 
-      icono: '🎨', 
-      color: '#8b5cf6',
-      descripcion: 'Diseño y creatividad',
-      nivel: 2
-    },
-    { 
-      id: 'invitado', 
-      nombre: 'Invitado', 
-      icono: '👤', 
-      color: '#64748b',
-      descripcion: 'Acceso limitado',
-      nivel: 1
-    }
-  ];
-
-  // ================ MANEJADORES ================
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     setSuccess('');
 
-    // Simular validación
     setTimeout(() => {
-      const usuario = usuarios.find(u => u.email === email && u.password === password);
+      const usuario = USUARIOS.find(u => u.email === email);
 
       if (usuario) {
-        setSuccess(`✅ Bienvenido ${usuario.nombre}`);
-        
-        // Guardar usuario en localStorage
-        localStorage.setItem('usuario', JSON.stringify({
+        const usuarioConMetadata = {
           id: usuario.id,
           email: usuario.email,
-          nombre: usuario.nombre,
           rol: usuario.rol,
+          nombre: usuario.nombre,
           avatar: usuario.avatar,
-          permisos: usuario.permisos
-        }));
+          ultimoAcceso: new Date().toISOString(),
+          sesionIniciada: true
+        };
+
+        localStorage.setItem('usuario', JSON.stringify(usuarioConMetadata));
+        
+        refreshUser();
+        
+        setSuccess(`✅ Bienvenido ${usuario.nombre}`);
 
         if (rememberMe) {
           localStorage.setItem('rememberEmail', email);
@@ -170,18 +67,16 @@ const Login = () => {
           localStorage.removeItem('rememberEmail');
         }
 
-        // Redireccionar después de 1 segundo
         setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1000);
+          navigate('/dashboard');
+        }, 500);
       } else {
-        setError('❌ Credenciales incorrectas');
+        setError('❌ Usuario no encontrado');
       }
       setIsLoading(false);
-    }, 1500);
+    }, 800);
   };
 
-  // Cargar email guardado
   useEffect(() => {
     const savedEmail = localStorage.getItem('rememberEmail');
     if (savedEmail) {
@@ -190,19 +85,27 @@ const Login = () => {
     }
   }, []);
 
-  // ================ AUTOCOMPLETAR ROL (para demo) ================
   const autocompletarRol = (rolId) => {
     setRolSeleccionado(rolId);
-    const usuarioEjemplo = usuarios.find(u => u.rol === rolId);
+    const usuarioEjemplo = USUARIOS.find(u => u.rol === rolId);
     if (usuarioEjemplo) {
       setEmail(usuarioEjemplo.email);
-      setPassword(usuarioEjemplo.password);
+      setPassword('');
+      setSuccess(`📋 Rol ${rolId} seleccionado - Ingresa tu contraseña`);
+      setTimeout(() => setSuccess(''), 3000);
     }
+  };
+
+  const limpiarFormulario = () => {
+    setEmail('');
+    setPassword('');
+    setError('');
+    setSuccess('');
+    setRolSeleccionado('');
   };
 
   return (
     <div className={`login-ultra ${modoOscuro ? 'dark-mode' : ''}`}>
-      {/* ===== FONDO ANIMADO ===== */}
       <div className="login-background">
         <div className="gradient-orb orbe-1"></div>
         <div className="gradient-orb orbe-2"></div>
@@ -221,11 +124,9 @@ const Login = () => {
         </div>
       </div>
 
-      {/* ===== CONTENEDOR PRINCIPAL ===== */}
       <div className="login-container">
         <div className={`login-card ${animacionActiva ? 'animate-in' : ''}`}>
           
-          {/* ===== TOGGLE MODO OSCURO ===== */}
           <button 
             className="theme-toggle-login" 
             onClick={() => setModoOscuro(!modoOscuro)}
@@ -234,7 +135,16 @@ const Login = () => {
             <span className="toggle-icon">{modoOscuro ? '☀️' : '🌙'}</span>
           </button>
 
-          {/* ===== LOGO Y TÍTULO ===== */}
+          {(email || password) && (
+            <button 
+              className="clear-button"
+              onClick={limpiarFormulario}
+              title="Limpiar formulario"
+            >
+              <span className="clear-icon">🗑️</span>
+            </button>
+          )}
+
           <div className="login-header">
             <div className="logo-3d">
               <span className="logo-icon">🏭</span>
@@ -247,14 +157,13 @@ const Login = () => {
             <p className="login-subtitle">Sistema de Gestión Empresarial</p>
           </div>
 
-          {/* ===== SELECTOR DE ROLES (DEMO) ===== */}
           <div className="roles-selector">
             <h3 className="roles-title">
               <span className="title-icon">👥</span>
-              Selecciona un rol para demo
+              Selecciona tu rol
             </h3>
             <div className="roles-grid">
-              {roles.map(rol => (
+              {rolesList.map(rol => (
                 <button
                   key={rol.id}
                   className={`rol-btn ${rolSeleccionado === rol.id ? 'active' : ''}`}
@@ -267,13 +176,15 @@ const Login = () => {
                   <span className="rol-info">
                     <span className="rol-nombre">{rol.nombre}</span>
                     <span className="rol-desc">{rol.descripcion}</span>
+                    <span className="rol-badge" style={{ backgroundColor: rol.color }}>
+                      {rol.modulos.length} módulos
+                    </span>
                   </span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* ===== FORMULARIO ===== */}
           <form onSubmit={handleSubmit} className="login-form">
             <div className="input-group">
               <label htmlFor="email">
@@ -331,12 +242,11 @@ const Login = () => {
                 <span className="checkbox-text">Recordarme</span>
               </label>
 
-              <a href="#" className="forgot-link">
+              <a href="#" className="forgot-link" onClick={(e) => e.preventDefault()}>
                 ¿Olvidaste tu contraseña?
               </a>
             </div>
 
-            {/* ===== MENSAJES ===== */}
             {error && (
               <div className="message error">
                 <span className="message-icon">❌</span>
@@ -351,7 +261,6 @@ const Login = () => {
               </div>
             )}
 
-            {/* ===== BOTÓN DE INICIO ===== */}
             <button
               type="submit"
               className={`login-button ${isLoading ? 'loading' : ''}`}
@@ -369,40 +278,8 @@ const Login = () => {
                 </>
               )}
             </button>
-
-            {/* ===== ACCESOS RÁPIDOS ===== */}
-            <div className="quick-access">
-              <p className="quick-title">Acceso rápido para pruebas:</p>
-              <div className="quick-buttons">
-                <button 
-                  type="button" 
-                  className="quick-btn admin"
-                  onClick={() => autocompletarRol('admin')}
-                >
-                  <span className="quick-icon">👑</span>
-                  <span>Admin</span>
-                </button>
-                <button 
-                  type="button" 
-                  className="quick-btn supervisor"
-                  onClick={() => autocompletarRol('supervisor')}
-                >
-                  <span className="quick-icon">🔍</span>
-                  <span>Supervisor</span>
-                </button>
-                <button 
-                  type="button" 
-                  className="quick-btn operador"
-                  onClick={() => autocompletarRol('operador')}
-                >
-                  <span className="quick-icon">⚙️</span>
-                  <span>Operador</span>
-                </button>
-              </div>
-            </div>
           </form>
 
-          {/* ===== FOOTER ===== */}
           <div className="login-footer">
             <p className="version">Versión 3.0.0 • Tiempo Real</p>
             <p className="copyright">© 2026 TEGRA Global. Todos los derechos reservados.</p>

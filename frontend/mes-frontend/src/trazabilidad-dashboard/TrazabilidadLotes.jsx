@@ -1,14 +1,27 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './TrazabilidadLotes.css';
 import TrackingLote from './TrackingLote';
-
-// ============================================
-// CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
-// ============================================
-const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+import { useProduccion } from '../context/ProduccionContext';
 
 const TrazabilidadLotes = () => {
-  // ===== ESTADOS PRINCIPALES =====
+  // ===== USAR CONTEXTO GLOBAL DE PRODUCCIÓN =====
+  const { 
+    lotes: lotesGlobal,
+    areas: areasGlobal,
+    ultimoMovimiento: ultimoMovimientoGlobal,
+    colaEscaneo: colaEscaneoGlobal,
+    estadisticas: estadisticasGlobal,
+    conectado: wsConectado,
+    procesarEscaneo: procesarEscaneoGlobal,
+    getLotesPorArea,
+    getTiempoEnArea,
+    moverLoteManual,
+    getAreaById,
+    eventos: eventosGlobal,
+    agregarEvento: agregarEventoGlobal
+  } = useProduccion();
+
+  // ===== ESTADOS LOCALES =====
   const [lotes, setLotes] = useState([]);
   const [areas, setAreas] = useState([]);
   const [ultimoEscaneo, setUltimoEscaneo] = useState(null);
@@ -60,7 +73,7 @@ const TrazabilidadLotes = () => {
   const mainContentRef = useRef(null);
 
   // ============================================
-  // CONFIGURACIÓN DE ÁREAS
+  // CONFIGURACIÓN DE ÁREAS (FALLBACK SI NO HAY CONTEXTO)
   // ============================================
   const areasProduccion = useMemo(() => [
     { id: 'AREA-001', codigo: '9001', nombre: 'Recepción', icono: '📦', color: '#3b82f6', orden: 1, capacidad: 50 },
@@ -78,11 +91,50 @@ const TrazabilidadLotes = () => {
   ], []);
 
   // ============================================
+  // SINCronizar CON CONTEXTO GLOBAL
+  // ============================================
+  useEffect(() => {
+    if (lotesGlobal && lotesGlobal.length > 0) {
+      setLotes(lotesGlobal);
+    }
+  }, [lotesGlobal]);
+
+  useEffect(() => {
+    if (areasGlobal && areasGlobal.length > 0) {
+      setAreas(areasGlobal);
+    } else {
+      setAreas(areasProduccion);
+    }
+  }, [areasGlobal, areasProduccion]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoEscaneo(ultimoMovimientoGlobal);
+      setMensajeEscaner(`✅ ${ultimoMovimientoGlobal.lote} → ${ultimoMovimientoGlobal.area}`);
+      setTipoMensaje('success');
+      if (navigator.vibrate) navigator.vibrate(100);
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  useEffect(() => {
+    if (colaEscaneoGlobal) {
+      setColaEscaneos(colaEscaneoGlobal);
+    }
+  }, [colaEscaneoGlobal]);
+
+  useEffect(() => {
+    if (eventosGlobal && eventosGlobal.length > 0) {
+      setEventos(eventosGlobal);
+    }
+  }, [eventosGlobal]);
+
+  // ============================================
   // CONEXIÓN WEBSOCKET PARA TIEMPO REAL
   // ============================================
   useEffect(() => {
     console.log('🔌 Trazabilidad conectando...');
     
+    const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
     
@@ -90,7 +142,7 @@ const TrazabilidadLotes = () => {
       console.log('✅ Trazabilidad conectado');
       setConectado(true);
       setUsandoServidor(true);
-      agregarEvento('success', '✅ Conectado al servidor - Tiempo Real');
+      agregarEventoLocal('success', '✅ Conectado al servidor - Tiempo Real');
     };
     
     ws.onmessage = (event) => {
@@ -99,7 +151,6 @@ const TrazabilidadLotes = () => {
         console.log('📦 Trazabilidad recibió:', data.type);
         
         if (data.type === 'INIT') {
-          // Datos iniciales del servidor
           const lotesServidor = data.data.lotes.map((l, index) => ({
             id: l.codigo || `LOTE-${String(index + 1).padStart(3, '0')}`,
             codigo: l.codigo || `V${String(Math.floor(Math.random() * 900000) + 100000)}/IF${String(Math.floor(Math.random() * 9000) + 1000)}`,
@@ -127,13 +178,12 @@ const TrazabilidadLotes = () => {
           }));
           
           setLotes(lotesServidor);
-          if (lotesServidor.length > 0) {
+          if (lotesServidor.length > 0 && !loteSeleccionado) {
             setLoteSeleccionado(lotesServidor[0]);
           }
         }
         
         if (data.type === 'ACTUALIZACION') {
-          // Actualización en tiempo real
           if (data.data.ultimoMovimiento) {
             const { loteId, area } = data.data.ultimoMovimiento;
             setUltimoEscaneo({
@@ -141,11 +191,9 @@ const TrazabilidadLotes = () => {
               area: area,
               fecha: new Date().toLocaleString()
             });
-            
             setMensajeEscaner(`✅ ${loteId} → ${area}`);
             setTipoMensaje('success');
-            agregarEvento('success', `✅ ${loteId} movido a ${area}`);
-            
+            agregarEventoLocal('success', `✅ ${loteId} movido a ${area}`);
             if (navigator.vibrate) navigator.vibrate(100);
           }
         }
@@ -158,14 +206,14 @@ const TrazabilidadLotes = () => {
       console.error('❌ Error WebSocket:', error);
       setConectado(false);
       setUsandoServidor(false);
-      agregarEvento('error', '❌ Error conectando al servidor - Usando modo local');
+      agregarEventoLocal('error', '❌ Error conectando al servidor - Usando modo local');
     };
     
     ws.onclose = () => {
       console.log('❌ Desconectado del servidor');
       setConectado(false);
       setUsandoServidor(false);
-      agregarEvento('info', 'ℹ️ Desconectado del servidor - Usando modo local');
+      agregarEventoLocal('info', 'ℹ️ Desconectado del servidor - Usando modo local');
     };
     
     return () => {
@@ -189,11 +237,10 @@ const TrazabilidadLotes = () => {
   // INICIALIZACIÓN LOCAL
   // ============================================
   useEffect(() => {
-    // Solo si no hay conexión WebSocket
-    if (!conectado) {
+    if (!conectado && areas.length === 0) {
       setAreas(areasProduccion);
     }
-  }, [conectado]);
+  }, [conectado, areas.length, areasProduccion]);
 
   // ============================================
   // GUARDAR PREFERENCIAS
@@ -236,34 +283,9 @@ const TrazabilidadLotes = () => {
   }, []);
 
   // ============================================
-  // ACTUALIZAR ESTADÍSTICAS
+  // FUNCIONES AUXILIARES LOCALES
   // ============================================
-  useEffect(() => {
-    const calcularEstadisticas = () => {
-      const lotesActivos = lotes.filter(l => l.estado !== 'completado').length;
-      const alertasActivas = lotes.filter(l => l.alertas?.length > 0).length;
-      let eficiencia = 0;
-      if (lotes.length > 0) {
-        const completados = lotes.filter(l => l.estado === 'completado').length;
-        eficiencia = Math.round((completados / lotes.length) * 100);
-      }
-      setStatsTiempoReal({
-        lotesPorHora: lotesActivos,
-        eficiencia: eficiencia,
-        tiempoPromedio: lotes.length > 0 ? Math.round(lotes.reduce((acc, l) => acc + (l.progreso || 0), 0) / lotes.length) : 0,
-        alertasActivas: alertasActivas,
-        wip: lotesActivos
-      });
-    };
-    calcularEstadisticas();
-    const intervalo = setInterval(calcularEstadisticas, 5000);
-    return () => clearInterval(intervalo);
-  }, [lotes]);
-
-  // ============================================
-  // FUNCIONES AUXILIARES
-  // ============================================
-  const agregarEvento = (tipo, mensaje, loteRef = '') => {
+  const agregarEventoLocal = (tipo, mensaje, loteRef = '') => {
     const nuevoEvento = {
       id: Date.now() + Math.random(),
       tipo,
@@ -291,16 +313,13 @@ const TrazabilidadLotes = () => {
   };
 
   // ============================================
-  // VALIDAR FORMATO DE LOTE (AHORA ACEPTA CUALQUIER COSA)
+  // VALIDAR FORMATO DE LOTE
   // ============================================
   const validarFormatoLote = (codigo) => {
-    // ¡AHORA ACEPTA CUALQUIER CÓDIGO QUE NO SEA UN ÁREA!
-    // Solo rechaza si es un código de área (9001-9012)
     return !codigo.match(/^9\d{3}$/);
   };
 
   const extraerInfoLote = (codigo) => {
-    // Extraer información básica del código (sin validación estricta)
     return {
       formato: 'generico',
       codigoOriginal: codigo,
@@ -309,7 +328,7 @@ const TrazabilidadLotes = () => {
   };
 
   // ============================================
-  // PROCESAR ESCANEO
+  // PROCESAR ESCANEO (USA CONTEXTO GLOBAL SI ESTÁ DISPONIBLE)
   // ============================================
   const procesarEscaneo = () => {
     const codigo = codigoEscaneado.trim().toUpperCase();
@@ -321,14 +340,31 @@ const TrazabilidadLotes = () => {
     setMensajeEscaner(`⏳ Procesando: ${codigo}...`);
     setTipoMensaje('info');
 
-    // Códigos de área (9001-9012)
-    if (codigo.match(/^9\d{3}$/)) {
-      procesarEscaneoArea(codigo);
+    // Si hay contexto global, usar su procesador
+    if (procesarEscaneoGlobal) {
+      const resultado = procesarEscaneoGlobal(codigo);
+      setTimeout(() => {
+        setCodigoEscaneado('');
+        if (resultado) {
+          setMensajeEscaner(`✅ ${resultado.nombre || resultado.codigo || 'Procesado'}`);
+          setTipoMensaje('success');
+        }
+        if (!colaEscaneos.area && !colaEscaneos.lote) {
+          setTimeout(() => {
+            setMensajeEscaner('📡 Esperando código...');
+            setTipoMensaje('info');
+          }, 1500);
+        }
+      }, 500);
+      return;
     }
-    else {
-      // ¡TODO LO DEMÁS SE TRATA COMO LOTE!
+
+    // Fallback: procesamiento local
+    if (codigo.match(/^9\d{3}$/)) {
+      procesarEscaneoAreaLocal(codigo);
+    } else {
       const infoLote = extraerInfoLote(codigo);
-      procesarEscaneoLote(codigo, infoLote);
+      procesarEscaneoLoteLocal(codigo, infoLote);
     }
 
     setTimeout(() => {
@@ -341,23 +377,20 @@ const TrazabilidadLotes = () => {
   };
 
   // ============================================
-  // PROCESAR ESCANEO DE ÁREA
+  // PROCESAR ESCANEO DE ÁREA (LOCAL)
   // ============================================
-  const procesarEscaneoArea = (codigoArea) => {
+  const procesarEscaneoAreaLocal = (codigoArea) => {
     const area = areas.find(a => a.codigo === codigoArea);
     if (area) {
       setMensajeEscaner(`✅ Área: ${area.nombre}`);
       setTipoMensaje('success');
-      agregarEvento('area', `📍 Área escaneada: ${area.nombre} [${area.codigo}]`);
-      
-      // Enviar al servidor
+      agregarEventoLocal('area', `📍 Área escaneada: ${area.nombre} [${area.codigo}]`);
       enviarAlServidor('ESCANEO', { codigo: codigoArea, tipo: 'area', area: area.nombre });
-      
       if (navigator.vibrate) navigator.vibrate(30);
       setColaEscaneos(prev => {
         const nuevaCola = { ...prev, area: area };
         if (prev.lote) {
-          procesarMovimiento(area, prev.lote);
+          procesarMovimientoLocal(area, prev.lote);
           return { area: null, lote: null };
         }
         setMensajeEscaner('⏳ Área guardada. Escanea el lote...');
@@ -366,15 +399,14 @@ const TrazabilidadLotes = () => {
     } else {
       setMensajeEscaner(`❌ Área no encontrada: ${codigoArea}`);
       setTipoMensaje('error');
-      agregarEvento('error', `❌ Área no encontrada: ${codigoArea}`);
+      agregarEventoLocal('error', `❌ Área no encontrada: ${codigoArea}`);
     }
   };
 
   // ============================================
-  // PROCESAR ESCANEO DE LOTE (ACEPTA CUALQUIER CÓDIGO)
+  // PROCESAR ESCANEO DE LOTE (LOCAL)
   // ============================================
-  const procesarEscaneoLote = (codigoLote, infoLote = null) => {
-    // Buscar el lote en la lista por cualquier coincidencia
+  const procesarEscaneoLoteLocal = (codigoLote, infoLote = null) => {
     const loteExistente = lotes.find(l => 
       l.codigo === codigoLote || 
       l.id === codigoLote
@@ -383,41 +415,35 @@ const TrazabilidadLotes = () => {
     if (loteExistente) {
       setMensajeEscaner(`✅ Lote encontrado: ${loteExistente.id}`);
       setTipoMensaje('success');
-      agregarEvento('lote', `📦 Lote escaneado: ${loteExistente.id}`, loteExistente.id);
+      agregarEventoLocal('lote', `📦 Lote escaneado: ${loteExistente.id}`, loteExistente.id);
       setLoteSeleccionado(loteExistente);
-      
-      // Enviar al servidor
       enviarAlServidor('ESCANEO', { codigo: codigoLote, tipo: 'lote', loteId: loteExistente.id });
-      
       if (navigator.vibrate) navigator.vibrate(30);
 
       setColaEscaneos(prev => {
         const nuevaCola = { ...prev, lote: loteExistente };
         if (prev.area) {
-          procesarMovimiento(prev.area, loteExistente);
+          procesarMovimientoLocal(prev.area, loteExistente);
           return { area: null, lote: null };
         }
         setMensajeEscaner('⏳ Lote guardado. Escanea el área...');
         return nuevaCola;
       });
     } else {
-      // Crear nuevo lote con cualquier código
-      crearNuevoLote(codigoLote, infoLote);
+      crearNuevoLoteLocal(codigoLote, infoLote);
     }
   };
 
   // ============================================
-  // CREAR NUEVO LOTE (ACEPTA CUALQUIER CÓDIGO)
+  // CREAR NUEVO LOTE (LOCAL)
   // ============================================
-  const crearNuevoLote = (codigo, infoLote = null) => {
+  const crearNuevoLoteLocal = (codigo, infoLote = null) => {
     const nuevoId = `LOTE-${String(lotes.length + 1).padStart(3, '0')}`;
     
-    // Detectar formato para personalizar el producto
     let producto = 'Producto Genérico';
     let cliente = 'Pendiente';
     let cantidad = Math.floor(Math.random() * 500) + 100;
     
-    // Personalizar según el formato
     if (codigo.includes('/')) {
       const partes = codigo.split('/');
       producto = `Producto ${partes[0]}`;
@@ -462,16 +488,10 @@ const TrazabilidadLotes = () => {
 
     setLotes(prev => [...prev, nuevoLote]);
     setLoteSeleccionado(nuevoLote);
-    
-    // Enviar al servidor
-    enviarAlServidor('NUEVO_LOTE', { 
-      lote: nuevoLote,
-      codigo: codigo
-    });
-    
+    enviarAlServidor('NUEVO_LOTE', { lote: nuevoLote, codigo: codigo });
     setMensajeEscaner(`🆕 Nuevo lote: ${codigo}`);
     setTipoMensaje('success');
-    agregarEvento('success', `🆕 Nuevo lote: ${codigo}`, nuevoId);
+    agregarEventoLocal('success', `🆕 Nuevo lote: ${codigo}`, nuevoId);
 
     setUltimoEscaneo({
       lote: nuevoId,
@@ -482,9 +502,9 @@ const TrazabilidadLotes = () => {
   };
 
   // ============================================
-  // PROCESAR MOVIMIENTO
+  // PROCESAR MOVIMIENTO (LOCAL)
   // ============================================
-  const procesarMovimiento = (area, lote) => {
+  const procesarMovimientoLocal = (area, lote) => {
     const vecesPasadas = lote.historial?.filter(h => h.codigoArea === area.codigo).length || 0;
     const esReingreso = vecesPasadas > 0;
     const nuevoHistorial = {
@@ -538,9 +558,8 @@ const TrazabilidadLotes = () => {
     
     setMensajeEscaner(mensaje);
     setTipoMensaje(esReingreso ? 'warning' : 'success');
-    agregarEvento(esReingreso ? 'warning' : 'success', mensaje, lote.id);
+    agregarEventoLocal(esReingreso ? 'warning' : 'success', mensaje, lote.id);
     
-    // Enviar al servidor
     enviarAlServidor('MOVIMIENTO', {
       loteId: lote.id,
       codigoLote: lote.codigo,
@@ -559,7 +578,7 @@ const TrazabilidadLotes = () => {
       veces: vecesPasadas + 1 
     });
     
-    if (area.id === 'AREA-011') agregarEvento('success', `🎉 ${lote.id} completado`, lote.id);
+    if (area.id === 'AREA-011') agregarEventoLocal('success', `🎉 ${lote.id} completado`, lote.id);
   };
 
   // ============================================
@@ -569,13 +588,35 @@ const TrazabilidadLotes = () => {
     if (window.confirm('¿Eliminar este lote?')) {
       setLotes(prev => prev.filter(l => l.id !== loteId));
       if (loteSeleccionado?.id === loteId) setLoteSeleccionado(lotes.length > 1 ? lotes[0] : null);
-      
-      // Enviar al servidor
       enviarAlServidor('ELIMINAR_LOTE', { loteId });
-      
-      agregarEvento('info', `🗑️ Lote ${loteId} eliminado`, loteId);
+      agregarEventoLocal('info', `🗑️ Lote ${loteId} eliminado`, loteId);
     }
   };
+
+  // ============================================
+  // ACTUALIZAR ESTADÍSTICAS
+  // ============================================
+  useEffect(() => {
+    const calcularEstadisticas = () => {
+      const lotesActivos = lotes.filter(l => l.estado !== 'completado').length;
+      const alertasActivas = lotes.filter(l => l.alertas?.length > 0).length;
+      let eficiencia = 0;
+      if (lotes.length > 0) {
+        const completados = lotes.filter(l => l.estado === 'completado').length;
+        eficiencia = Math.round((completados / lotes.length) * 100);
+      }
+      setStatsTiempoReal({
+        lotesPorHora: lotesActivos,
+        eficiencia: eficiencia,
+        tiempoPromedio: lotes.length > 0 ? Math.round(lotes.reduce((acc, l) => acc + (l.progreso || 0), 0) / lotes.length) : 0,
+        alertasActivas: alertasActivas,
+        wip: lotesActivos
+      });
+    };
+    calcularEstadisticas();
+    const intervalo = setInterval(calcularEstadisticas, 5000);
+    return () => clearInterval(intervalo);
+  }, [lotes]);
 
   // ============================================
   // FILTROS
@@ -609,9 +650,9 @@ const TrazabilidadLotes = () => {
     <div className={`trazabilidad-container ${modoOscuro ? 'dark-mode' : ''} ${vistaCompacta ? 'compact-view' : ''}`}>
       
       {/* INDICADOR DE CONEXIÓN WEBSOCKET */}
-      <div className={`connection-status ${conectado ? 'connected' : 'disconnected'}`}>
+      <div className={`connection-status ${conectado || wsConectado ? 'connected' : 'disconnected'}`}>
         <span className="status-dot"></span>
-        <span>{conectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
+        <span>{conectado || wsConectado ? '🟢 Servidor Conectado' : '🟡 Modo Demo Local'}</span>
       </div>
 
       {/* HEADER */}
@@ -715,7 +756,7 @@ const TrazabilidadLotes = () => {
           </div>
         </div>
 
-        {/* PANEL DE ESCANEO - AHORA ACEPTA CUALQUIER CÓDIGO */}
+        {/* PANEL DE ESCANEO */}
         <div className="scanner-panel">
           <div className="scanner-container">
             <div className="scanner-header">
@@ -1058,7 +1099,7 @@ const TrazabilidadLotes = () => {
                   <div className="scan-area-info">
                     <span className="scan-area">{ultimoEscaneo.area}</span>
                   </div>
-                  <span className="scan-time">{ultimoEscaneo.fecha.split(' ')[1]}</span>
+                  <span className="scan-time">{ultimoEscaneo.fecha?.split(' ')[1]}</span>
                   {ultimoEscaneo.reingreso && (
                     <span className="scan-reingreso" title={`${ultimoEscaneo.veces}ª vez`}>↩️{ultimoEscaneo.veces > 1 ? ` x${ultimoEscaneo.veces}` : ''}</span>
                   )}

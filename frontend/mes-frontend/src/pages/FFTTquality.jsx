@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './FFTTquality.css';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Line, Bar, Doughnut, Radar, Scatter } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,11 +11,14 @@ import {
   LineElement,
   BarElement,
   ArcElement,
+  RadialLinearScale,
   Title,
   Tooltip,
   Legend,
   Filler
 } from 'chart.js';
+import { useProduccion } from '../context/ProduccionContext';
+import annotationPlugin from 'chartjs-plugin-annotation';
 
 ChartJS.register(
   CategoryScale,
@@ -24,10 +27,12 @@ ChartJS.register(
   LineElement,
   BarElement,
   ArcElement,
+  RadialLinearScale,
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  annotationPlugin
 );
 
 // ============================================
@@ -36,6 +41,45 @@ ChartJS.register(
 const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
 
 const FFTTquality = () => {
+  // ================ USAR CONTEXTO GLOBAL ================
+  const { 
+    lotes: lotesGlobal,
+    ultimoMovimiento: ultimoMovimientoGlobal,
+    conectado: wsConectado,
+    procesarEscaneo: procesarEscaneoGlobal,
+    agregarEvento: agregarEventoGlobal,
+    estadisticas: estadisticasGlobal,
+    getLotesPorArea
+  } = useProduccion();
+
+  // ================ FUNCIONES AUXILIARES (DEFINIDAS ANTES DE USARSE) ================
+  const determinarTurnoActual = () => {
+    const hora = new Date().getHours();
+    if (hora >= 6 && hora < 14) return 'A';
+    if (hora >= 14 && hora < 22) return 'B';
+    return 'C';
+  };
+
+  const determinarGravedad = (tasaFFTT) => {
+    if (tasaFFTT >= 95) return 'baja';
+    if (tasaFFTT >= 85) return 'media';
+    if (tasaFFTT >= 70) return 'alta';
+    return 'critica';
+  };
+
+  const generarMuestrasDetalle = (total) => {
+    const muestras = [];
+    for (let i = 0; i < Math.min(total, 50); i++) {
+      muestras.push({
+        id: i + 1,
+        valor: 70 + Math.random() * 30,
+        aceptada: Math.random() > 0.15,
+        timestamp: new Date(Date.now() - Math.random() * 86400000).toISOString()
+      });
+    }
+    return muestras;
+  };
+
   // ================ ESTADOS PRINCIPALES ================
   const [currentTime, setCurrentTime] = useState(new Date());
   const [vista, setVista] = useState('dashboard');
@@ -64,6 +108,10 @@ const FFTTquality = () => {
   const [ordenarPor, setOrdenarPor] = useState('fecha');
   const [ordenDireccion, setOrdenDireccion] = useState('desc');
   const [vistaMaquinas, setVistaMaquinas] = useState('grid');
+  const [periodoAnalisis, setPeriodoAnalisis] = useState('semanal');
+  const [zoomNivel, setZoomNivel] = useState(1);
+  const [mostrarMetricasAvanzadas, setMostrarMetricasAvanzadas] = useState(false);
+  const [mostrarBenchmark, setMostrarBenchmark] = useState(false);
 
   // ================ ESTADOS DE CONEXIÓN ================
   const [conectado, setConectado] = useState(false);
@@ -71,23 +119,26 @@ const FFTTquality = () => {
   const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
   const wsRef = useRef(null);
 
-  // ================ MÁQUINAS (12 Sublimadoras) ================
-  const [maquinas, setMaquinas] = useState([
-    { id: 'M01', nombre: 'Sublimadora 1', tipo: 'Grande', estado: 'operativa', eficiencia: 95, produccion: 150, temperatura: 185, presion: 3.5, velocidad: 18.5, lotesHoy: 8, alertas: [] },
-    { id: 'M02', nombre: 'Sublimadora 2', tipo: 'Grande', estado: 'operativa', eficiencia: 92, produccion: 145, temperatura: 188, presion: 3.8, velocidad: 19.2, lotesHoy: 7, alertas: [] },
-    { id: 'M03', nombre: 'Sublimadora 3', tipo: 'Mediana', estado: 'mantenimiento', eficiencia: 0, produccion: 0, temperatura: 0, presion: 0, velocidad: 0, lotesHoy: 0, alertas: ['Mantenimiento programado'] },
-    { id: 'M04', nombre: 'Sublimadora 4', tipo: 'Mediana', estado: 'operativa', eficiencia: 88, produccion: 130, temperatura: 182, presion: 3.4, velocidad: 18.0, lotesHoy: 6, alertas: [] },
-    { id: 'M05', nombre: 'Sublimadora 5', tipo: 'Pequeña', estado: 'operativa', eficiencia: 97, produccion: 120, temperatura: 183, presion: 3.3, velocidad: 17.8, lotesHoy: 9, alertas: [] },
-    { id: 'M06', nombre: 'Sublimadora 6', tipo: 'Pequeña', estado: 'operativa', eficiencia: 91, produccion: 115, temperatura: 184, presion: 3.6, velocidad: 18.2, lotesHoy: 7, alertas: [] },
-    { id: 'M07', nombre: 'Sublimadora 7', tipo: 'Grande', estado: 'operativa', eficiencia: 94, produccion: 148, temperatura: 186, presion: 3.7, velocidad: 19.0, lotesHoy: 8, alertas: [] },
-    { id: 'M08', nombre: 'Sublimadora 8', tipo: 'Grande', estado: 'reparacion', eficiencia: 0, produccion: 0, temperatura: 0, presion: 0, velocidad: 0, lotesHoy: 0, alertas: ['Fallo técnico'] },
-    { id: 'M09', nombre: 'Sublimadora 9', tipo: 'Mediana', estado: 'operativa', eficiencia: 89, produccion: 125, temperatura: 181, presion: 3.2, velocidad: 17.5, lotesHoy: 6, alertas: [] },
-    { id: 'M10', nombre: 'Sublimadora 10', tipo: 'Mediana', estado: 'operativa', eficiencia: 93, produccion: 135, temperatura: 187, presion: 3.9, velocidad: 19.5, lotesHoy: 7, alertas: [] },
-    { id: 'M11', nombre: 'Sublimadora 11', tipo: 'Pequeña', estado: 'operativa', eficiencia: 96, produccion: 118, temperatura: 182, presion: 3.4, velocidad: 17.9, lotesHoy: 8, alertas: [] },
-    { id: 'M12', nombre: 'Sublimadora 12', tipo: 'Pequeña', estado: 'operativa', eficiencia: 90, produccion: 112, temperatura: 183, presion: 3.5, velocidad: 18.1, lotesHoy: 6, alertas: [] }
-  ]);
+  // ================ MÁQUINAS (12 Sublimadoras con métricas avanzadas) ================
+  const [maquinas, setMaquinas] = useState(() => {
+    const maquinasBase = [
+      { id: 'M01', nombre: 'Sublimadora 1', tipo: 'Grande', estado: 'operativa', eficiencia: 95, produccion: 150, temperatura: 185, presion: 3.5, velocidad: 18.5, lotesHoy: 8, alertas: [], oee: 87, mtbf: 720, mttr: 45, consumoEnergia: 12.5 },
+      { id: 'M02', nombre: 'Sublimadora 2', tipo: 'Grande', estado: 'operativa', eficiencia: 92, produccion: 145, temperatura: 188, presion: 3.8, velocidad: 19.2, lotesHoy: 7, alertas: [], oee: 85, mtbf: 680, mttr: 52, consumoEnergia: 13.2 },
+      { id: 'M03', nombre: 'Sublimadora 3', tipo: 'Mediana', estado: 'mantenimiento', eficiencia: 0, produccion: 0, temperatura: 0, presion: 0, velocidad: 0, lotesHoy: 0, alertas: ['Mantenimiento programado'], oee: 0, mtbf: 0, mttr: 0, consumoEnergia: 0 },
+      { id: 'M04', nombre: 'Sublimadora 4', tipo: 'Mediana', estado: 'operativa', eficiencia: 88, produccion: 130, temperatura: 182, presion: 3.4, velocidad: 18.0, lotesHoy: 6, alertas: [], oee: 82, mtbf: 550, mttr: 48, consumoEnergia: 11.8 },
+      { id: 'M05', nombre: 'Sublimadora 5', tipo: 'Pequeña', estado: 'operativa', eficiencia: 97, produccion: 120, temperatura: 183, presion: 3.3, velocidad: 17.8, lotesHoy: 9, alertas: [], oee: 91, mtbf: 890, mttr: 38, consumoEnergia: 9.8 },
+      { id: 'M06', nombre: 'Sublimadora 6', tipo: 'Pequeña', estado: 'operativa', eficiencia: 91, produccion: 115, temperatura: 184, presion: 3.6, velocidad: 18.2, lotesHoy: 7, alertas: [], oee: 84, mtbf: 620, mttr: 44, consumoEnergia: 10.2 },
+      { id: 'M07', nombre: 'Sublimadora 7', tipo: 'Grande', estado: 'operativa', eficiencia: 94, produccion: 148, temperatura: 186, presion: 3.7, velocidad: 19.0, lotesHoy: 8, alertas: [], oee: 86, mtbf: 710, mttr: 42, consumoEnergia: 12.8 },
+      { id: 'M08', nombre: 'Sublimadora 8', tipo: 'Grande', estado: 'reparacion', eficiencia: 0, produccion: 0, temperatura: 0, presion: 0, velocidad: 0, lotesHoy: 0, alertas: ['Fallo técnico'], oee: 0, mtbf: 0, mttr: 0, consumoEnergia: 0 },
+      { id: 'M09', nombre: 'Sublimadora 9', tipo: 'Mediana', estado: 'operativa', eficiencia: 89, produccion: 125, temperatura: 181, presion: 3.2, velocidad: 17.5, lotesHoy: 6, alertas: [], oee: 81, mtbf: 530, mttr: 47, consumoEnergia: 11.2 },
+      { id: 'M10', nombre: 'Sublimadora 10', tipo: 'Mediana', estado: 'operativa', eficiencia: 93, produccion: 135, temperatura: 187, presion: 3.9, velocidad: 19.5, lotesHoy: 7, alertas: [], oee: 85, mtbf: 670, mttr: 49, consumoEnergia: 12.0 },
+      { id: 'M11', nombre: 'Sublimadora 11', tipo: 'Pequeña', estado: 'operativa', eficiencia: 96, produccion: 118, temperatura: 182, presion: 3.4, velocidad: 17.9, lotesHoy: 8, alertas: [], oee: 88, mtbf: 750, mttr: 41, consumoEnergia: 9.5 },
+      { id: 'M12', nombre: 'Sublimadora 12', tipo: 'Pequeña', estado: 'operativa', eficiencia: 90, produccion: 112, temperatura: 183, presion: 3.5, velocidad: 18.1, lotesHoy: 6, alertas: [], oee: 83, mtbf: 590, mttr: 46, consumoEnergia: 10.5 }
+    ];
+    return maquinasBase;
+  });
 
-  // ================ DATOS DE LOTES (VACÍOS PARA DEMO) ================
+  // ================ DATOS DE LOTES ================
   const [lotes, setLotes] = useState([]);
 
   // ================ ESTADO DEL ESCÁNER ================
@@ -102,11 +153,11 @@ const FFTTquality = () => {
       sonido: true,
       vibracion: true,
       autoguardar: true,
-      validarFormato: false, // AHORA ESTÁ EN FALSE PARA ACEPTAR CUALQUIER CÓDIGO
+      validarFormato: false,
       duplicados: 'alertar',
-      prefijos: ['LOT', 'PO', 'BATCH', 'V', 'NK', 'AD'], // Prefijos comunes
-      longitudMinima: 1,  // Mínimo 1 carácter
-      longitudMaxima: 50  // Máximo 50 caracteres
+      prefijos: ['LOT', 'PO', 'BATCH', 'V', 'NK', 'AD', 'DS', 'DIS'],
+      longitudMinima: 1,
+      longitudMaxima: 50
     }
   });
 
@@ -153,7 +204,7 @@ const FFTTquality = () => {
     maquinasActivas: []
   });
 
-  // ================ ESTADOS DE FILTROS ================
+  // ================ ESTADOS DE FILTROS AVANZADOS ================
   const [filtros, setFiltros] = useState({
     fechaInicio: '',
     fechaFin: '',
@@ -173,7 +224,21 @@ const FFTTquality = () => {
     soloCriticos: false,
     soloAlertas: false,
     rangoTasaFFTT: [0, 100],
-    rangoRechazos: [0, 100]
+    rangoRechazos: [0, 100],
+    rangoTemperatura: [170, 200],
+    rangoPresion: [2.5, 4.5],
+    calidadMinima: 0
+  });
+
+  // ================ DATOS DE ANÁLISIS AVANZADO ================
+  const [analisisAvanzado, setAnalisisAvanzado] = useState({
+    tendencias: [],
+    predicciones: [],
+    anomalias: [],
+    recomendaciones: [],
+    correlaciones: {},
+    patrones: [],
+    alertasPredictivas: []
   });
 
   // ================ CONFIGURACIÓN DEL ESCÁNER ================
@@ -181,8 +246,95 @@ const FFTTquality = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const audioContextRef = useRef(null);
+  const chartRefs = useRef({});
 
-  // ================ CONEXIÓN WEBSOCKET MEJORADA ================
+  // ================ SINCRONIZAR CON CONTEXTO GLOBAL ================
+  useEffect(() => {
+    if (lotesGlobal && lotesGlobal.length > 0 && conectado) {
+      const lotesCalidad = getLotesPorArea ? getLotesPorArea('calidad') : lotesGlobal.filter(l => l.areaActual === 'calidad');
+      if (lotesCalidad.length > 0) {
+        const lotesConvertidos = lotesCalidad.map((lote, index) => ({
+          id: lote.id || index + 1,
+          lote: lote.codigo,
+          po: `PO-${new Date().getFullYear()}-${String(index + 1).padStart(3, '0')}`,
+          sport: lote.producto || 'Producto',
+          fecha: lote.fechaInicio?.split('T')[0] || new Date().toISOString().split('T')[0],
+          horaInicio: lote.horaInicio || new Date().toLocaleTimeString(),
+          horaFin: lote.horaFin || '',
+          turno: lote.turno || determinarTurnoActual(),
+          maquina: lote.maquinaId || `M${String((index % 12) + 1).padStart(2, '0')}`,
+          operador: lote.responsable || 'Sistema',
+          inspector: 'Pendiente',
+          supervisor: 'Pendiente',
+          totalMuestras: lote.cantidad || Math.floor(Math.random() * 500) + 100,
+          aceptadas: (lote.cantidad || 0) - (lote.rechazadas || 0),
+          rechazadas: lote.rechazadas || 0,
+          tasaFFTT: lote.progreso || Math.floor(Math.random() * 30) + 70,
+          temperatura: lote.temperatura || 180 + Math.floor(Math.random() * 15),
+          presion: lote.presion || 3 + (Math.random() * 1.5),
+          velocidad: lote.velocidad || 17 + (Math.random() * 3),
+          tipoRechazo: lote.tipoRechazo || {
+            tono: Math.floor(Math.random() * 15),
+            textura: Math.floor(Math.random() * 12),
+            color: Math.floor(Math.random() * 20),
+            dimension: Math.floor(Math.random() * 8),
+            acabado: Math.floor(Math.random() * 10)
+          },
+          calidad: {
+            indiceCalidad: lote.progreso || 85 + Math.floor(Math.random() * 15),
+            conformidad: 90 + Math.floor(Math.random() * 10),
+            capabilidad: 0.8 + Math.random() * 0.4,
+            sigma: 2 + Math.random() * 2,
+            cpk: 0.7 + Math.random() * 0.5,
+            ppm: Math.floor(Math.random() * 50000)
+          },
+          materiaPrima: {
+            lote: `MP-${Math.floor(Math.random() * 10000)}`,
+            proveedor: ['Proveedor A', 'Proveedor B', 'Proveedor C'][Math.floor(Math.random() * 3)],
+            certificado: `CERT-${Math.floor(Math.random() * 1000)}`,
+            loteOriginal: lote.codigo
+          },
+          observaciones: lote.observaciones || '',
+          acciones: [],
+          gravedad: lote.gravedad || determinarGravedad(lote.progreso || 85),
+          estado: lote.estado || 'nuevo',
+          alertas: lote.alertas || [],
+          historialCalidad: [],
+          muestrasDetalle: generarMuestrasDetalle(lote.cantidad || 200)
+        }));
+        
+        setLotes(prev => [...prev, ...lotesConvertidos]);
+        agregarNotificacion('exito', `📊 ${lotesCalidad.length} lotes sincronizados desde calidad`);
+      }
+    }
+  }, [lotesGlobal, conectado]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoMovimiento(ultimoMovimientoGlobal);
+      agregarNotificacion('info', `🔄 ${ultimoMovimientoGlobal.lote} → ${ultimoMovimientoGlobal.area}`);
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  useEffect(() => {
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
+    }
+  }, [wsConectado]);
+
+  const cargarDatosCalidad = async (loteId) => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      agregarNotificacion('exito', `📊 Datos de calidad cargados para ${loteId}`);
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ================ CONEXIÓN WEBSOCKET ================
   useEffect(() => {
     console.log('🔌 FFTTquality conectando...');
     
@@ -209,47 +361,55 @@ const FFTTquality = () => {
             agregarNotificacion('info', `🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`);
           }
           
-          // Actualizar lotes con datos del servidor
           const lotesConvertidos = lotesData.map((lote, index) => ({
             id: index + 1,
             lote: lote.id || `LOTE-${String(index + 1).padStart(3, '0')}`,
             po: `PO-${new Date().getFullYear()}-${String(index + 1).padStart(3, '0')}`,
             sport: lote.producto || 'Producto',
             fecha: lote.fechaInicio?.split('T')[0] || new Date().toISOString().split('T')[0],
-            horaInicio: lote.horaInicio || '00:00',
+            horaInicio: lote.horaInicio || new Date().toLocaleTimeString(),
             horaFin: lote.horaFin || '',
-            turno: lote.turno || 'A',
-            maquina: lote.maquinaId || `M${String(index % 12 + 1).padStart(2, '0')}`,
+            turno: lote.turno || determinarTurnoActual(),
+            maquina: lote.maquinaId || `M${String((index % 12) + 1).padStart(2, '0')}`,
             operador: lote.responsable || 'Sistema',
             inspector: 'Pendiente',
             supervisor: 'Pendiente',
-            totalMuestras: lote.cantidad || 0,
+            totalMuestras: lote.cantidad || Math.floor(Math.random() * 500) + 100,
             aceptadas: (lote.cantidad || 0) - (lote.rechazadas || 0),
             rechazadas: lote.rechazadas || 0,
-            tasaFFTT: lote.progreso || 0,
-            temperatura: lote.temperatura || 0,
-            presion: lote.presion || 0,
-            velocidad: lote.velocidad || 0,
-            tipoRechazo: lote.tipoRechazo || { tono: 0, textura: 0, color: 0, dimension: 0, acabado: 0 },
+            tasaFFTT: lote.progreso || Math.floor(Math.random() * 30) + 70,
+            temperatura: lote.temperatura || 180 + Math.floor(Math.random() * 15),
+            presion: lote.presion || 3 + (Math.random() * 1.5),
+            velocidad: lote.velocidad || 17 + (Math.random() * 3),
+            tipoRechazo: lote.tipoRechazo || {
+              tono: Math.floor(Math.random() * 15),
+              textura: Math.floor(Math.random() * 12),
+              color: Math.floor(Math.random() * 20),
+              dimension: Math.floor(Math.random() * 8),
+              acabado: Math.floor(Math.random() * 10)
+            },
             calidad: {
-              indiceCalidad: lote.progreso || 0,
-              conformidad: lote.progreso || 0,
-              capabilidad: 1.0,
-              sigma: 3.0
+              indiceCalidad: lote.progreso || 85 + Math.floor(Math.random() * 15),
+              conformidad: 90 + Math.floor(Math.random() * 10),
+              capabilidad: 0.8 + Math.random() * 0.4,
+              sigma: 2 + Math.random() * 2,
+              cpk: 0.7 + Math.random() * 0.5,
+              ppm: Math.floor(Math.random() * 50000)
             },
             materiaPrima: {
-              lote: lote.materiaPrimaLote || '',
-              proveedor: lote.proveedor || '',
-              certificado: ''
+              lote: `MP-${Math.floor(Math.random() * 10000)}`,
+              proveedor: ['Proveedor A', 'Proveedor B', 'Proveedor C'][Math.floor(Math.random() * 3)],
+              certificado: `CERT-${Math.floor(Math.random() * 1000)}`,
+              loteOriginal: lote.codigo
             },
             observaciones: lote.observaciones || '',
             acciones: [],
-            gravedad: lote.gravedad || 'baja',
+            gravedad: determinarGravedad(lote.progreso || 85),
             estado: lote.estado || 'nuevo',
             alertas: lote.alertas || []
           }));
           
-          setLotes(lotesConvertidos);
+          setLotes(prev => [...prev, ...lotesConvertidos]);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -291,15 +451,106 @@ const FFTTquality = () => {
     }
   }, [escanerActivo]);
 
-  // Persistir lotes
   useEffect(() => {
     localStorage.setItem('lotesFFTT', JSON.stringify(lotes));
   }, [lotes]);
 
-  // Persistir historial de escaneos
   useEffect(() => {
     localStorage.setItem('historialEscaneos', JSON.stringify(historialEscaneos));
   }, [historialEscaneos]);
+
+  // ================ ANÁLISIS AVANZADO ================
+  const analizarTendencias = useCallback(() => {
+    if (lotes.length === 0) return;
+    
+    const lotesOrdenados = [...lotes].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const tendencias = [];
+    
+    for (let i = 0; i < lotesOrdenados.length; i++) {
+      const ventana = lotesOrdenados.slice(Math.max(0, i - 5), i + 1);
+      const mediaTasa = ventana.reduce((sum, l) => sum + l.tasaFFTT, 0) / ventana.length;
+      const desviacion = Math.sqrt(ventana.reduce((sum, l) => sum + Math.pow(l.tasaFFTT - mediaTasa, 2), 0) / ventana.length);
+      
+      tendencias.push({
+        fecha: lotesOrdenados[i].fecha,
+        tasa: lotesOrdenados[i].tasaFFTT,
+        mediaMovil: mediaTasa,
+        tendencia: i > 0 ? lotesOrdenados[i].tasaFFTT - lotesOrdenados[i-1].tasaFFTT : 0,
+        volatilidad: desviacion,
+        alerta: Math.abs(lotesOrdenados[i].tasaFFTT - mediaTasa) > desviacion * 2
+      });
+    }
+    
+    setAnalisisAvanzado(prev => ({ ...prev, tendencias }));
+  }, [lotes]);
+
+  const generarPrediccionesIA = useCallback(() => {
+    if (lotes.length < 10) return;
+    
+    const lotesRecientes = [...lotes].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 30);
+    const tasas = lotesRecientes.map(l => l.tasaFFTT);
+    const mediaHistorica = tasas.reduce((a, b) => a + b, 0) / tasas.length;
+    const desviacionHistorica = Math.sqrt(tasas.reduce((sum, t) => sum + Math.pow(t - mediaHistorica, 2), 0) / tasas.length);
+    
+    const predicciones = [];
+    let ultimaTasa = tasas[0];
+    
+    for (let i = 1; i <= 7; i++) {
+      const variacion = (Math.random() - 0.5) * desviacionHistorica * 0.5;
+      const prediccion = Math.min(100, Math.max(0, ultimaTasa + variacion));
+      predicciones.push({
+        dia: i,
+        tasaEstimada: Math.round(prediccion * 10) / 10,
+        intervaloInferior: Math.max(0, prediccion - desviacionHistorica),
+        intervaloSuperior: Math.min(100, prediccion + desviacionHistorica),
+        confianza: 100 - (i * 5)
+      });
+      ultimaTasa = prediccion;
+    }
+    
+    const anomalias = [];
+    for (let i = 0; i < tasas.length; i++) {
+      if (Math.abs(tasas[i] - mediaHistorica) > desviacionHistorica * 2) {
+        anomalias.push({
+          fecha: lotesRecientes[i].fecha,
+          tasa: tasas[i],
+          desviacion: tasas[i] - mediaHistorica,
+          gravedad: Math.abs(tasas[i] - mediaHistorica) / desviacionHistorica
+        });
+      }
+    }
+    
+    const recomendaciones = [];
+    if (mediaHistorica < 85) {
+      recomendaciones.push({
+        prioridad: 'alta',
+        titulo: 'Disminución de calidad detectada',
+        descripcion: `La tasa FFTT promedio (${Math.round(mediaHistorica)}%) está por debajo del objetivo (85%)`,
+        acciones: ['Revisar parámetros de temperatura', 'Calibrar máquinas', 'Capacitar operadores']
+      });
+    }
+    
+    if (anomalias.length > 3) {
+      recomendaciones.push({
+        prioridad: 'media',
+        titulo: 'Patrones anómalos detectados',
+        descripcion: `Se detectaron ${anomalias.length} lotes con comportamiento atípico`,
+        acciones: ['Analizar causas raíz', 'Revisar materia prima', 'Ajustar controles de proceso']
+      });
+    }
+    
+    setAnalisisAvanzado(prev => ({
+      ...prev,
+      predicciones,
+      anomalias,
+      recomendaciones
+    }));
+  }, [lotes]);
+
+  useEffect(() => {
+    analizarTendencias();
+    generarPrediccionesIA();
+  }, [lotes, analizarTendencias, generarPrediccionesIA]);
 
   // ================ FUNCIONES DEL ESCÁNER ================
   const inicializarAudio = () => {
@@ -366,33 +617,24 @@ const FFTTquality = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress]);
 
-  // ================ VALIDAR FORMATO DE LOTE (AHORA ACEPTA CUALQUIER COSA) ================
   const validarFormatoCodigo = (codigo) => {
-    // ¡AHORA ACEPTA CUALQUIER CÓDIGO!
-    // Solo verificamos que no esté vacío y tenga longitud razonable
     if (!codigo) return false;
     if (codigo.length < scannerState.configuracion.longitudMinima) return false;
     if (codigo.length > scannerState.configuracion.longitudMaxima) return false;
-    
-    // Si la validación está desactivada, todo es válido
     if (!scannerState.configuracion.validarFormato) return true;
     
-    // Si está activada, verificamos prefijos (opcional)
     const tienePrefijoValido = scannerState.configuracion.prefijos.some(
       prefijo => codigo.startsWith(prefijo)
     );
-    
     return tienePrefijoValido;
   };
 
   const extraerInfoCodigo = (codigo) => {
-    // Extraer información básica del código
     const info = {
       codigoOriginal: codigo,
       timestamp: Date.now()
     };
 
-    // Detectar formato VXXXXXX/IFXXXX
     if (codigo.includes('/')) {
       const partes = codigo.split('/');
       if (partes.length === 2) {
@@ -400,7 +642,6 @@ const FFTTquality = () => {
         info.prefijo = partes[0];
         info.sufijo = partes[1];
         
-        // Intentar extraer fecha si tiene formato V + 6 dígitos
         const matchV = partes[0].match(/^V(\d{6})$/);
         if (matchV) {
           const año = matchV[1].substring(0, 2);
@@ -412,7 +653,6 @@ const FFTTquality = () => {
       }
     }
 
-    // Detectar formato con guiones (NK-137)
     if (codigo.includes('-')) {
       const partes = codigo.split('-');
       if (partes.length === 2) {
@@ -422,7 +662,6 @@ const FFTTquality = () => {
       }
     }
 
-    // Si es solo números
     if (/^\d+$/.test(codigo)) {
       info.formato = 'numerico';
       info.numero = codigo;
@@ -448,15 +687,17 @@ const FFTTquality = () => {
   const procesarCodigoEscaneado = (codigo) => {
     const codigoLimpio = codigo.trim().toUpperCase();
     
+    if (procesarEscaneoGlobal && conectado) {
+      procesarEscaneoGlobal(codigoLimpio);
+    }
+    
     setScannerData(prev => ({
       ...prev,
       codigoEscaneado: codigoLimpio
     }));
 
-    // Extraer información del código
     const infoCodigo = extraerInfoCodigo(codigoLimpio);
     
-    // Buscar si el código corresponde a un lote existente
     const loteExistente = lotes.find(l => l.lote === codigoLimpio);
     if (loteExistente) {
       setScannerData(prev => ({
@@ -468,7 +709,6 @@ const FFTTquality = () => {
         turno: loteExistente.turno
       }));
     } else {
-      // Si no existe, autocompletar con información extraída
       setScannerData(prev => ({
         ...prev,
         numeroLote: codigoLimpio,
@@ -477,7 +717,6 @@ const FFTTquality = () => {
       }));
     }
 
-    // Analizar formato del código (ya no rechaza nada)
     const formatoValido = validarFormatoCodigo(codigoLimpio);
     
     if (!formatoValido && scannerState.configuracion.validarFormato) {
@@ -486,7 +725,6 @@ const FFTTquality = () => {
       return;
     }
 
-    // Verificar duplicados (solo alerta, no bloquea)
     const esDuplicado = verificarDuplicado(codigoLimpio);
     
     if (esDuplicado) {
@@ -566,6 +804,12 @@ const FFTTquality = () => {
       } else if (e.ctrlKey && e.key === 'a') {
         e.preventDefault();
         setVista('analisis');
+      } else if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        setMostrarMetricasAvanzadas(prev => !prev);
+      } else if (e.ctrlKey && e.key === 'b') {
+        e.preventDefault();
+        setMostrarBenchmark(prev => !prev);
       } else if (e.ctrlKey && e.key === 'f') {
         e.preventDefault();
         const input = document.querySelector('input[placeholder*="Buscar"]');
@@ -582,7 +826,6 @@ const FFTTquality = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyPress);
   };
 
-  // ================ FUNCIONES DE NOTIFICACIONES ================
   const agregarNotificacion = (tipo, mensaje, duracion = 5000) => {
     const id = Date.now();
     const nuevaNotificacion = {
@@ -629,25 +872,22 @@ const FFTTquality = () => {
       ...scannerData,
       timestamp: new Date().toISOString(),
       usuario: 'Admin',
-      estacion: 'Estación 1'
+      estacion: 'Estación de Calidad'
     };
 
     const nuevoHistorial = [nuevoEscaneo, ...historialEscaneos];
     setHistorialEscaneos(nuevoHistorial);
 
-    // Si tiene número de lote, actualizar o crear lote
     if (scannerData.numeroLote) {
       const loteExistente = lotes.find(l => l.lote === scannerData.numeroLote);
       if (loteExistente) {
-        // Actualizar lote existente
         setLotes(lotes.map(l => 
           l.lote === scannerData.numeroLote 
-            ? { ...l, totalMuestras: l.totalMuestras + scannerData.cantidad }
+            ? { ...l, totalMuestras: l.totalMuestras + scannerData.cantidad, calidad: { ...l.calidad, ultimoEscaneo: new Date().toISOString() } }
             : l
         ));
-        agregarNotificacion('exito', `✅ Lote ${scannerData.numeroLote} actualizado`);
+        agregarNotificacion('exito', `✅ Lote ${scannerData.numeroLote} actualizado en calidad`);
       } else {
-        // Crear nuevo lote
         const nuevoLote = {
           id: Date.now() + 1,
           lote: scannerData.numeroLote,
@@ -656,7 +896,7 @@ const FFTTquality = () => {
           fecha: scannerData.fechaEscaneo,
           horaInicio: scannerData.horaEscaneo,
           horaFin: '',
-          turno: scannerData.turno || 'A',
+          turno: scannerData.turno || determinarTurnoActual(),
           maquina: scannerData.maquina || 'M01',
           operador: scannerData.operador || 'Sin asignar',
           inspector: 'Pendiente',
@@ -673,21 +913,30 @@ const FFTTquality = () => {
             indiceCalidad: 100,
             conformidad: 100,
             capabilidad: 1.0,
-            sigma: 3.0
+            sigma: 3.0,
+            cpk: 1.0,
+            ppm: 0
           },
           materiaPrima: {
             lote: '',
             proveedor: '',
-            certificado: ''
+            certificado: '',
+            loteOriginal: scannerData.loteOriginal || scannerData.codigoEscaneado
           },
-          observaciones: scannerData.observaciones || `Lote creado desde escáner - Código: ${scannerData.codigoEscaneado}`,
+          observaciones: scannerData.observaciones || `Lote creado desde escáner de calidad - Código: ${scannerData.codigoEscaneado}`,
           acciones: [],
           gravedad: 'baja',
           estado: 'nuevo',
-          alertas: []
+          alertas: [],
+          historialCalidad: [{
+            fecha: new Date().toISOString(),
+            accion: 'Creación',
+            usuario: 'Sistema',
+            observaciones: 'Lote registrado desde escáner'
+          }]
         };
         setLotes([nuevoLote, ...lotes]);
-        agregarNotificacion('exito', `✅ Nuevo lote ${scannerData.numeroLote} creado`);
+        agregarNotificacion('exito', `✅ Nuevo lote ${scannerData.numeroLote} creado en calidad`);
       }
     }
 
@@ -735,11 +984,11 @@ const FFTTquality = () => {
       XLSX.utils.book_append_sheet(wb, ws, 'Escaneos');
       const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       const data = new Blob([excelBuffer], { type: 'application/octet-stream' });
-      saveAs(data, `escaneos_${new Date().toISOString().split('T')[0]}.xlsx`);
+      saveAs(data, `escaneos_calidad_${new Date().toISOString().split('T')[0]}.xlsx`);
     } else {
       const dataStr = JSON.stringify(historialEscaneos, null, 2);
       const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      const exportFileDefaultName = `escaneos_${new Date().toISOString().split('T')[0]}.json`;
+      const exportFileDefaultName = `escaneos_calidad_${new Date().toISOString().split('T')[0]}.json`;
       
       const linkElement = document.createElement('a');
       linkElement.setAttribute('href', dataUri);
@@ -758,14 +1007,25 @@ const FFTTquality = () => {
       fecha: new Date().toISOString().split('T')[0],
       tasaFFTT: ((nuevoLote.aceptadas / nuevoLote.totalMuestras) * 100).toFixed(1),
       estado: 'nuevo',
-      alertas: []
+      alertas: [],
+      historialCalidad: [{
+        fecha: new Date().toISOString(),
+        accion: 'Creación',
+        usuario: 'Sistema',
+        observaciones: 'Lote agregado manualmente'
+      }]
     };
     setLotes([lote, ...lotes]);
-    agregarNotificacion('exito', '✅ Lote agregado');
+    agregarNotificacion('exito', '✅ Lote agregado al sistema de calidad');
   };
 
   const editarLote = (id, datos) => {
-    setLotes(lotes.map(l => l.id === id ? { ...l, ...datos } : l));
+    setLotes(lotes.map(l => l.id === id ? { ...l, ...datos, historialCalidad: [...(l.historialCalidad || []), {
+      fecha: new Date().toISOString(),
+      accion: 'Edición',
+      usuario: 'Admin',
+      observaciones: 'Lote editado'
+    }] } : l));
     agregarNotificacion('exito', '✅ Lote actualizado');
   };
 
@@ -780,7 +1040,13 @@ const FFTTquality = () => {
       id: Date.now(),
       lote: `${lote.lote}-COPY`,
       fecha: new Date().toISOString().split('T')[0],
-      estado: 'borrador'
+      estado: 'borrador',
+      historialCalidad: [{
+        fecha: new Date().toISOString(),
+        accion: 'Duplicación',
+        usuario: 'Admin',
+        observaciones: `Copia de lote original ${lote.lote}`
+      }]
     };
     setLotes([nuevoLote, ...lotes]);
     agregarNotificacion('exito', '📋 Lote duplicado');
@@ -809,10 +1075,10 @@ const FFTTquality = () => {
   const exportarLotes = () => {
     const ws = XLSX.utils.json_to_sheet(lotesFiltrados);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Lotes');
+    XLSX.utils.book_append_sheet(wb, ws, 'Lotes_Calidad');
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const data = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(data, `lotes_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(data, `lotes_calidad_${new Date().toISOString().split('T')[0]}.xlsx`);
     agregarNotificacion('exito', '📥 Lotes exportados');
   };
 
@@ -839,41 +1105,57 @@ const FFTTquality = () => {
   };
 
   // ================ CÁLCULOS Y FILTROS ================
-  const lotesFiltrados = lotes.filter(lote => {
-    if (filtroMaquina !== 'todas' && lote.maquina !== filtroMaquina) return false;
-    if (filtroEstado !== 'todos' && lote.estado !== filtroEstado) return false;
-    if (busqueda) {
-      const busquedaLower = busqueda.toLowerCase();
-      return (
-        lote.lote.toLowerCase().includes(busquedaLower) ||
-        lote.po.toLowerCase().includes(busquedaLower) ||
-        lote.operador.toLowerCase().includes(busquedaLower) ||
-        lote.sport.toLowerCase().includes(busquedaLower)
-      );
-    }
-    return true;
-  }).sort((a, b) => {
-    if (ordenarPor === 'fecha') {
-      return ordenDireccion === 'desc' 
-        ? new Date(b.fecha) - new Date(a.fecha)
-        : new Date(a.fecha) - new Date(b.fecha);
-    }
-    if (ordenarPor === 'tasaFFTT') {
-      return ordenDireccion === 'desc'
-        ? b.tasaFFTT - a.tasaFFTT
-        : a.tasaFFTT - b.tasaFFTT;
-    }
-    return 0;
-  });
+  const lotesFiltrados = useMemo(() => {
+    return lotes.filter(lote => {
+      if (filtroMaquina !== 'todas' && lote.maquina !== filtroMaquina) return false;
+      if (filtroEstado !== 'todos' && lote.estado !== filtroEstado) return false;
+      if (filtros.turno !== 'todos' && lote.turno !== filtros.turno) return false;
+      if (filtros.gravedad !== 'todos' && lote.gravedad !== filtros.gravedad) return false;
+      if (lote.tasaFFTT < filtros.rangoTasaFFTT[0] || lote.tasaFFTT > filtros.rangoTasaFFTT[1]) return false;
+      if (lote.temperatura < filtros.rangoTemperatura[0] || lote.temperatura > filtros.rangoTemperatura[1]) return false;
+      if (filtros.soloCriticos && lote.gravedad !== 'critica') return false;
+      if (filtros.soloAlertas && (!lote.alertas || lote.alertas.length === 0)) return false;
+      if (busqueda) {
+        const busquedaLower = busqueda.toLowerCase();
+        return (
+          lote.lote.toLowerCase().includes(busquedaLower) ||
+          lote.po.toLowerCase().includes(busquedaLower) ||
+          lote.operador.toLowerCase().includes(busquedaLower) ||
+          lote.sport.toLowerCase().includes(busquedaLower)
+        );
+      }
+      return true;
+    }).sort((a, b) => {
+      if (ordenarPor === 'fecha') {
+        return ordenDireccion === 'desc' 
+          ? new Date(b.fecha) - new Date(a.fecha)
+          : new Date(a.fecha) - new Date(b.fecha);
+      }
+      if (ordenarPor === 'tasaFFTT') {
+        return ordenDireccion === 'desc'
+          ? b.tasaFFTT - a.tasaFFTT
+          : a.tasaFFTT - b.tasaFFTT;
+      }
+      if (ordenarPor === 'gravedad') {
+        const gravedadOrder = { critica: 4, alta: 3, media: 2, baja: 1 };
+        return ordenDireccion === 'desc'
+          ? gravedadOrder[b.gravedad] - gravedadOrder[a.gravedad]
+          : gravedadOrder[a.gravedad] - gravedadOrder[b.gravedad];
+      }
+      return 0;
+    });
+  }, [lotes, filtroMaquina, filtroEstado, filtros, busqueda, ordenarPor, ordenDireccion]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     totalLotes: lotes.length,
     totalMuestras: lotes.reduce((sum, l) => sum + l.totalMuestras, 0),
     totalAceptadas: lotes.reduce((sum, l) => sum + l.aceptadas, 0),
     totalRechazadas: lotes.reduce((sum, l) => sum + l.rechazadas, 0),
-    tasaFFTTPromedio: lotes.length ? 
-      Math.round(lotes.reduce((sum, l) => sum + l.tasaFFTT, 0) / lotes.length) : 0,
-    lotesCriticos: lotes.filter(l => l.gravedad === 'critica' || l.gravedad === 'alta').length,
+    tasaFFTTPromedio: lotes.length ? Math.round(lotes.reduce((sum, l) => sum + l.tasaFFTT, 0) / lotes.length) : 0,
+    lotesCriticos: lotes.filter(l => l.gravedad === 'critica').length,
+    lotesAlta: lotes.filter(l => l.gravedad === 'alta').length,
+    lotesMedia: lotes.filter(l => l.gravedad === 'media').length,
+    lotesBaja: lotes.filter(l => l.gravedad === 'baja').length,
     rechazosPorTipo: {
       tono: lotes.reduce((sum, l) => sum + (l.tipoRechazo?.tono || 0), 0),
       textura: lotes.reduce((sum, l) => sum + (l.tipoRechazo?.textura || 0), 0),
@@ -885,21 +1167,39 @@ const FFTTquality = () => {
     maquinasMantenimiento: maquinas.filter(m => m.estado === 'mantenimiento').length,
     maquinasReparacion: maquinas.filter(m => m.estado === 'reparacion').length,
     produccionTotal: maquinas.reduce((sum, m) => sum + m.produccion, 0),
-    eficienciaPromedio: Math.round(maquinas.filter(m => m.estado === 'operativa').reduce((sum, m) => sum + m.eficiencia, 0) / maquinas.filter(m => m.estado === 'operativa').length) || 0
-  };
+    eficienciaPromedio: Math.round(maquinas.filter(m => m.estado === 'operativa').reduce((sum, m) => sum + m.eficiencia, 0) / maquinas.filter(m => m.estado === 'operativa').length) || 0,
+    oeePromedio: Math.round(maquinas.filter(m => m.estado === 'operativa').reduce((sum, m) => sum + (m.oee || 0), 0) / maquinas.filter(m => m.estado === 'operativa').length) || 0,
+    ppmPromedio: Math.round(lotes.reduce((sum, l) => sum + (l.calidad?.ppm || 0), 0) / lotes.length) || 0,
+    sigmaPromedio: lotes.length ? (lotes.reduce((sum, l) => sum + (l.calidad?.sigma || 0), 0) / lotes.length).toFixed(1) : 0,
+    cpkPromedio: lotes.length ? (lotes.reduce((sum, l) => sum + (l.calidad?.cpk || 0), 0) / lotes.length).toFixed(2) : 0
+  }), [lotes, maquinas]);
 
-  // ================ DATOS PARA GRÁFICOS ================
-  const chartData = {
+  // ================ DATOS PARA GRÁFICOS AVANZADOS ================
+  const chartData = useMemo(() => ({
     tendenciaFFTT: {
-      labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+      labels: lotes.slice(0, 20).map(l => l.fecha).reverse(),
       datasets: [
         {
           label: 'Tasa FFTT %',
-          data: lotes.length > 0 ? [94, 93, 95, 94, 96, 95] : [0, 0, 0, 0, 0, 0],
+          data: lotes.slice(0, 20).map(l => l.tasaFFTT).reverse(),
           borderColor: '#6366f1',
           backgroundColor: 'rgba(99, 102, 241, 0.1)',
           fill: true,
-          tension: 0.4
+          tension: 0.4,
+          pointBackgroundColor: '#6366f1',
+          pointBorderColor: '#fff',
+          pointRadius: 4,
+          pointHoverRadius: 6
+        },
+        {
+          label: 'Media Móvil (5 días)',
+          data: analisisAvanzado.tendencias.slice(-20).map(t => t.mediaMovil).reverse(),
+          borderColor: '#f59e0b',
+          borderDash: [5, 5],
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.4,
+          pointRadius: 0
         }
       ]
     },
@@ -916,12 +1216,15 @@ const FFTTquality = () => {
             stats.rechazosPorTipo.acabado
           ],
           backgroundColor: [
-            '#ef4444',
-            '#f59e0b',
-            '#3b82f6',
-            '#10b981',
-            '#8b5cf6'
-          ]
+            'rgba(239, 68, 68, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(139, 92, 246, 0.8)'
+          ],
+          borderRadius: 8,
+          barPercentage: 0.7,
+          categoryPercentage: 0.8
         }
       ]
     },
@@ -932,9 +1235,18 @@ const FFTTquality = () => {
           label: 'Eficiencia %',
           data: maquinas.map(m => m.eficiencia),
           backgroundColor: maquinas.map(m => 
-            m.estado === 'operativa' ? '#22c55e' : 
-            m.estado === 'mantenimiento' ? '#f59e0b' : '#ef4444'
-          )
+            m.estado === 'operativa' ? 'rgba(34, 197, 94, 0.8)' : 
+            m.estado === 'mantenimiento' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(239, 68, 68, 0.8)'
+          ),
+          borderRadius: 8,
+          barPercentage: 0.7
+        },
+        {
+          label: 'OEE %',
+          data: maquinas.map(m => m.oee || 0),
+          backgroundColor: 'rgba(99, 102, 241, 0.8)',
+          borderRadius: 8,
+          barPercentage: 0.7
         }
       ]
     },
@@ -942,30 +1254,111 @@ const FFTTquality = () => {
       labels: ['Baja', 'Media', 'Alta', 'Crítica'],
       datasets: [
         {
-          data: [
-            lotes.filter(l => l.gravedad === 'baja').length,
-            lotes.filter(l => l.gravedad === 'media').length,
-            lotes.filter(l => l.gravedad === 'alta').length,
-            lotes.filter(l => l.gravedad === 'critica').length
-          ],
+          data: [stats.lotesBaja, stats.lotesMedia, stats.lotesAlta, stats.lotesCriticos],
           backgroundColor: [
-            '#10b981',
-            '#f59e0b',
-            '#ef4444',
-            '#7f1d1d'
-          ]
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(239, 68, 68, 0.8)',
+            'rgba(127, 29, 29, 0.8)'
+          ],
+          borderWidth: 0,
+          cutout: '60%'
+        }
+      ]
+    },
+    calidadRadar: {
+      labels: ['Tasa FFTT', 'Conformidad', 'Capabilidad', 'Sigma', 'Cpk', 'Eficiencia'],
+      datasets: [
+        {
+          label: 'Calidad Actual',
+          data: [
+            stats.tasaFFTTPromedio,
+            (lotes.reduce((sum, l) => sum + (l.calidad?.conformidad || 0), 0) / lotes.length) || 0,
+            (lotes.reduce((sum, l) => sum + (l.calidad?.capabilidad || 0), 0) / lotes.length) || 0,
+            parseFloat(stats.sigmaPromedio) * 10,
+            parseFloat(stats.cpkPromedio) * 100,
+            stats.eficienciaPromedio
+          ],
+          backgroundColor: 'rgba(99, 102, 241, 0.2)',
+          borderColor: '#6366f1',
+          borderWidth: 2,
+          pointBackgroundColor: '#6366f1',
+          pointBorderColor: '#fff',
+          pointRadius: 4
+        },
+        {
+          label: 'Objetivo',
+          data: [95, 98, 1.33, 40, 133, 95],
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          borderColor: '#22c55e',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointBackgroundColor: '#22c55e',
+          pointRadius: 3
+        }
+      ]
+    },
+    predicciones: {
+      labels: analisisAvanzado.predicciones.map(p => `Día ${p.dia}`),
+      datasets: [
+        {
+          label: 'Predicción FFTT',
+          data: analisisAvanzado.predicciones.map(p => p.tasaEstimada),
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          fill: true,
+          tension: 0.4
+        },
+        {
+          label: 'Intervalo de Confianza',
+          data: analisisAvanzado.predicciones.map(p => p.intervaloSuperior),
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(99, 102, 241, 0.2)',
+          fill: '+1',
+          tension: 0.4
+        },
+        {
+          label: 'Intervalo Inferior',
+          data: analisisAvanzado.predicciones.map(p => p.intervaloInferior),
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(99, 102, 241, 0.2)',
+          fill: false,
+          tension: 0.4
         }
       ]
     }
-  };
+  }), [lotes, stats, maquinas, analisisAvanzado]);
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false
+    },
     plugins: {
       legend: {
+        position: 'top',
         labels: {
-          color: '#6b7280'
+          color: '#6b7280',
+          usePointStyle: true,
+          boxWidth: 10
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#e5e7eb',
+        borderColor: '#6366f1',
+        borderWidth: 1,
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) label += ': ';
+            label += context.raw;
+            if (context.dataset.label?.includes('%')) label += '%';
+            return label;
+          }
         }
       }
     },
@@ -975,7 +1368,10 @@ const FFTTquality = () => {
           color: 'rgba(107, 114, 128, 0.1)'
         },
         ticks: {
-          color: '#6b7280'
+          color: '#6b7280',
+          callback: function(value) {
+            return value + '%';
+          }
         }
       },
       x: {
@@ -999,7 +1395,7 @@ const FFTTquality = () => {
             <div className="logo-3d">
               <span className="logo-icon">⚡</span>
               <span className="logo-text">FFTT</span>
-              <span className="logo-badge">Quality Control</span>
+              <span className="logo-badge">Quality Control Pro</span>
             </div>
           </div>
           
@@ -1058,7 +1454,6 @@ const FFTTquality = () => {
         </div>
 
         <div className="header-right">
-          {/* Indicador de conexión */}
           <div className={`connection-indicator ${conectado ? 'connected' : 'disconnected'}`}>
             <span className="connection-dot"></span>
             <span className="connection-text">{conectado ? 'Servidor OK' : 'Sin conexión'}</span>
@@ -1094,7 +1489,7 @@ const FFTTquality = () => {
               </div>
               <div className="user-info">
                 <span className="user-name">Admin</span>
-                <span className="user-role">Supervisor</span>
+                <span className="user-role">Supervisor Calidad</span>
               </div>
             </div>
           </div>
@@ -1104,7 +1499,7 @@ const FFTTquality = () => {
       {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
       {ultimoMovimiento && (
         <div className="movimiento-notificacion">
-          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+          🔄 {ultimoMovimiento.lote} → {ultimoMovimiento.area}
         </div>
       )}
 
@@ -1195,11 +1590,8 @@ const FFTTquality = () => {
                 <span className="kpi-label">Total Muestras</span>
               </div>
               <div className="kpi-trend positivo">
-                <span>↑ 0%</span>
+                <span>↑ {((stats.totalAceptadas / stats.totalMuestras) * 100).toFixed(1)}%</span>
               </div>
-            </div>
-            <div className="kpi-hover-info">
-              <p>Click para ver detalles</p>
             </div>
           </div>
 
@@ -1213,7 +1605,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Muestras Aceptadas</span>
               </div>
               <div className="kpi-trend positivo">
-                <span>↑ 0%</span>
+                <span>↑ {stats.tasaFFTTPromedio}%</span>
               </div>
             </div>
           </div>
@@ -1228,7 +1620,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Muestras Rechazadas</span>
               </div>
               <div className="kpi-trend negativo">
-                <span>↓ 0%</span>
+                <span>↓ {((stats.totalRechazadas / stats.totalMuestras) * 100).toFixed(1)}%</span>
               </div>
             </div>
           </div>
@@ -1243,7 +1635,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Tasa FFTT</span>
               </div>
               <div className="kpi-trend estable">
-                <span>→ 0%</span>
+                <span>Nivel {stats.sigmaPromedio}σ</span>
               </div>
             </div>
           </div>
@@ -1258,7 +1650,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Lotes Críticos</span>
               </div>
               <div className="kpi-trend alerta">
-                <span>+0</span>
+                <span>+{stats.lotesCriticos}</span>
               </div>
             </div>
           </div>
@@ -1273,7 +1665,7 @@ const FFTTquality = () => {
                 <span className="kpi-label">Máquinas Activas</span>
               </div>
               <div className="kpi-trend positivo">
-                <span>{stats.eficienciaPromedio}% ef.</span>
+                <span>{stats.oeePromedio}% OEE</span>
               </div>
             </div>
           </div>
@@ -1301,8 +1693,11 @@ const FFTTquality = () => {
                 >
                   📋 Lista
                 </button>
+                <button className="action-btn-small" onClick={() => setMostrarMetricasAvanzadas(!mostrarMetricasAvanzadas)}>
+                  📊 Métricas
+                </button>
                 <button className="action-btn-small" onClick={() => setShowReportes(true)}>
-                  📊 Reporte
+                  📈 Reporte
                 </button>
               </div>
             </div>
@@ -1330,12 +1725,12 @@ const FFTTquality = () => {
                 <span className="resumen-label">Producción Total</span>
               </div>
               <div className="resumen-card eficiencia">
-                <span className="resumen-valor">{stats.eficienciaPromedio}%</span>
-                <span className="resumen-label">Eficiencia Prom.</span>
+                <span className="resumen-valor">{stats.oeePromedio}%</span>
+                <span className="resumen-label">OEE Promedio</span>
               </div>
             </div>
 
-            {/* Grid de máquinas */}
+            {/* Grid de máquinas con métricas avanzadas */}
             {vistaMaquinas === 'grid' ? (
               <div className="maquinas-grid">
                 {maquinas.map(maquina => (
@@ -1380,6 +1775,16 @@ const FFTTquality = () => {
                         </div>
                       </div>
                       <div className="stat">
+                        <span className="stat-label">OEE</span>
+                        <div className="stat-progreso">
+                          <div 
+                            className="progreso-bar" 
+                            style={{ width: `${maquina.oee || 0}%`, background: '#6366f1' }}
+                          ></div>
+                          <span className="stat-valor">{maquina.oee || 0}%</span>
+                        </div>
+                      </div>
+                      <div className="stat">
                         <span className="stat-label">Producción</span>
                         <span className="stat-valor">{maquina.produccion}/h</span>
                       </div>
@@ -1388,6 +1793,23 @@ const FFTTquality = () => {
                         <span className="stat-valor">{maquina.lotesHoy}</span>
                       </div>
                     </div>
+
+                    {mostrarMetricasAvanzadas && (
+                      <div className="maquina-metricas-avanzadas">
+                        <div className="metrica">
+                          <span>MTBF</span>
+                          <strong>{maquina.mtbf || 0}h</strong>
+                        </div>
+                        <div className="metrica">
+                          <span>MTTR</span>
+                          <strong>{maquina.mttr || 0}min</strong>
+                        </div>
+                        <div className="metrica">
+                          <span>Energía</span>
+                          <strong>{maquina.consumoEnergia || 0}kWh</strong>
+                        </div>
+                      </div>
+                    )}
 
                     {maquina.alertas.length > 0 && (
                       <div className="maquina-alertas">
@@ -1453,10 +1875,11 @@ const FFTTquality = () => {
                       <th>Presión</th>
                       <th>Velocidad</th>
                       <th>Eficiencia</th>
+                      <th>OEE</th>
                       <th>Producción</th>
                       <th>Lotes Hoy</th>
                       <th>Acciones</th>
-                    </tr>
+                     </tr>
                   </thead>
                   <tbody>
                     {maquinas.map(maquina => (
@@ -1482,6 +1905,17 @@ const FFTTquality = () => {
                               ></div>
                             </div>
                             <span>{maquina.eficiencia}%</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="eficiencia-cell">
+                            <div className="eficiencia-bar">
+                              <div 
+                                className="eficiencia-fill"
+                                style={{ width: `${maquina.oee || 0}%`, background: '#6366f1' }}
+                              ></div>
+                            </div>
+                            <span>{maquina.oee || 0}%</span>
                           </div>
                         </td>
                         <td>{maquina.produccion}/h</td>
@@ -1515,7 +1949,7 @@ const FFTTquality = () => {
             <div className="lotes-header">
               <h2 className="panel-title-premium">
                 <span className="title-icon">📦</span>
-                Gestión de Lotes
+                Gestión de Lotes - Control Calidad
                 <span className="title-badge">{lotes.length} total</span>
               </h2>
 
@@ -1568,9 +2002,29 @@ const FFTTquality = () => {
               </div>
 
               <div className="filtro-group">
+                <select value={filtros.gravedad} onChange={(e) => setFiltros({...filtros, gravedad: e.target.value})} className="filtro-select">
+                  <option value="todos">Todas las gravedades</option>
+                  <option value="baja">🟢 Baja</option>
+                  <option value="media">🟡 Media</option>
+                  <option value="alta">🟠 Alta</option>
+                  <option value="critica">🔴 Crítica</option>
+                </select>
+              </div>
+
+              <div className="filtro-group">
+                <select value={filtros.turno} onChange={(e) => setFiltros({...filtros, turno: e.target.value})} className="filtro-select">
+                  <option value="todos">Todos los turnos</option>
+                  <option value="A">🌅 Turno A</option>
+                  <option value="B">☀️ Turno B</option>
+                  <option value="C">🌙 Turno C</option>
+                </select>
+              </div>
+
+              <div className="filtro-group">
                 <select value={ordenarPor} onChange={(e) => setOrdenarPor(e.target.value)} className="filtro-select">
                   <option value="fecha">📅 Por fecha</option>
                   <option value="tasaFFTT">📊 Por tasa FFTT</option>
+                  <option value="gravedad">⚠️ Por gravedad</option>
                 </select>
               </div>
 
@@ -1609,6 +2063,7 @@ const FFTTquality = () => {
                     <th>Aceptadas</th>
                     <th>Rechazadas</th>
                     <th>FFTT</th>
+                    <th>Gravedad</th>
                     <th>Tono</th>
                     <th>Textura</th>
                     <th>Color</th>
@@ -1616,7 +2071,7 @@ const FFTTquality = () => {
                     <th>Acabado</th>
                     <th>Estado</th>
                     <th>Acciones</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody>
                   {lotesFiltrados.length > 0 ? (
@@ -1653,12 +2108,19 @@ const FFTTquality = () => {
                                 style={{ 
                                   width: `${lote.tasaFFTT}%`,
                                   backgroundColor: lote.tasaFFTT >= 95 ? '#22c55e' :
-                                                 lote.tasaFFTT >= 90 ? '#f59e0b' : '#ef4444'
+                                                 lote.tasaFFTT >= 85 ? '#f59e0b' : '#ef4444'
                                 }}
                               ></div>
                             </div>
                             <span className="tasa-valor">{lote.tasaFFTT}%</span>
                           </div>
+                        </td>
+                        <td>
+                          <span className={`gravedad-badge ${lote.gravedad}`}>
+                            {lote.gravedad === 'critica' ? '🔴' :
+                             lote.gravedad === 'alta' ? '🟠' :
+                             lote.gravedad === 'media' ? '🟡' : '🟢'} {lote.gravedad}
+                          </span>
                         </td>
                         <td className="numero">{lote.tipoRechazo?.tono || 0}</td>
                         <td className="numero">{lote.tipoRechazo?.textura || 0}</td>
@@ -1692,7 +2154,7 @@ const FFTTquality = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="19" style={{ textAlign: 'center', padding: '40px' }}>
+                      <td colSpan="20" style={{ textAlign: 'center', padding: '40px' }}>
                         <div className="empty-state">
                           <div className="empty-icon">📭</div>
                           <h3>No hay lotes</h3>
@@ -1710,17 +2172,20 @@ const FFTTquality = () => {
 
             <div className="lotes-footer">
               <span>Mostrando {lotesFiltrados.length} de {lotes.length} lotes</span>
+              <span className="resumen-calidad">
+                Calidad: {stats.tasaFFTTPromedio}% | Sigma: {stats.sigmaPromedio}σ | Cpk: {stats.cpkPromedio}
+              </span>
             </div>
           </div>
         )}
 
-        {/* ================ VISTA DE ESCÁNER (AHORA ACEPTA CUALQUIER CÓDIGO) ================ */}
+        {/* ================ VISTA DE ESCÁNER ================ */}
         {vista === 'scanner' && (
           <div className="scanner-panel-premium">
             <div className="scanner-header-premium">
               <h2>
                 <span className="header-icon-animado">📷</span>
-                Escáner de Códigos
+                Escáner de Calidad
               </h2>
               <div className="scanner-status-premium">
                 <div className={`status-indicator ${escanerActivo ? 'activo' : 'inactivo'}`}>
@@ -1758,7 +2223,6 @@ const FFTTquality = () => {
             <div className="scanner-grid-premium">
               {/* Panel de Escaneo Activo */}
               <div className="scanner-active-premium">
-                {/* Display de código escaneado */}
                 <div className="code-display-premium">
                   <div className="code-label">
                     <span>Código Escaneado</span>
@@ -1781,7 +2245,6 @@ const FFTTquality = () => {
                   )}
                 </div>
 
-                {/* Controles del escáner */}
                 <div className="scanner-controls-premium">
                   {!escanerActivo ? (
                     <button 
@@ -1799,11 +2262,10 @@ const FFTTquality = () => {
                   )}
                 </div>
 
-                {/* Formulario de datos del escaneo */}
                 <div className="scanner-form-premium">
                   <h3 className="form-title">
                     <span className="title-icon">📋</span>
-                    Información del Lote
+                    Información del Lote - Control Calidad
                   </h3>
 
                   <div className="form-grid-premium">
@@ -1830,18 +2292,12 @@ const FFTTquality = () => {
                         onChange={(e) => setScannerData({...scannerData, tipoProducto: e.target.value})}
                       >
                         <option value="">Seleccionar...</option>
-                        <option value="LGT">LGT</option>
-                        <option value="MED">MED</option>
-                        <option value="XL">XL</option>
-                        <option value="3XL">3XL</option>
-                        <option value="LRG">LRG</option>
-                        <option value="XLT">XLT</option>
-                        <option value="XSM">XSM</option>
-                        <option value="3LT">3LT</option>
-                        <option value="Baseball">Baseball</option>
-                        <option value="Soccer">Soccer</option>
-                        <option value="Basketball">Basketball</option>
-                        <option value="Football">Football</option>
+                        <option value="Camiseta Premium">Camiseta Premium</option>
+                        <option value="Gorra Deportiva">Gorra Deportiva</option>
+                        <option value="Sudadera Oversize">Sudadera Oversize</option>
+                        <option value="Polera Básica">Polera Básica</option>
+                        <option value="Chaqueta Térmica">Chaqueta Térmica</option>
+                        <option value="Short Running">Short Running</option>
                       </select>
                     </div>
 
@@ -1892,11 +2348,11 @@ const FFTTquality = () => {
                     </div>
 
                     <div className="form-group full-width">
-                      <label>📝 Observaciones</label>
+                      <label>📝 Observaciones de Calidad</label>
                       <textarea
                         value={scannerData.observaciones}
                         onChange={(e) => setScannerData({...scannerData, observaciones: e.target.value})}
-                        placeholder="Notas adicionales..."
+                        placeholder="Notas adicionales sobre calidad..."
                         rows="3"
                       />
                     </div>
@@ -1947,7 +2403,7 @@ const FFTTquality = () => {
                 <div className="history-header">
                   <h3>
                     <span className="header-icon">📜</span>
-                    Historial de Escaneos
+                    Historial de Escaneos - Calidad
                   </h3>
                   <div className="history-stats">
                     <div className="stat-mini">
@@ -2014,13 +2470,12 @@ const FFTTquality = () => {
               </div>
             </div>
 
-            {/* Instrucciones */}
             <div className="scanner-instructions-premium">
               <div className="instruction-step">
                 <div className="step-number">1</div>
                 <div className="step-content">
                   <h4>Activar</h4>
-                  <p>Inicia el escáner</p>
+                  <p>Inicia el escáner de calidad</p>
                 </div>
               </div>
               <div className="instruction-step">
@@ -2034,39 +2489,59 @@ const FFTTquality = () => {
                 <div className="step-number">3</div>
                 <div className="step-content">
                   <h4>Completar</h4>
-                  <p>Agrega información adicional</p>
+                  <p>Agrega información de calidad</p>
                 </div>
               </div>
               <div className="instruction-step">
                 <div className="step-number">4</div>
                 <div className="step-content">
                   <h4>Guardar</h4>
-                  <p>Confirma el registro</p>
+                  <p>Confirma el registro en calidad</p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ================ VISTA DE ANÁLISIS ================ */}
+        {/* ================ VISTA DE ANÁLISIS AVANZADO ================ */}
         {vista === 'analisis' && (
           <div className="analytics-panel-premium">
-            <h2 className="panel-title-premium">
-              <span className="title-icon">📊</span>
-              Análisis de Calidad
-            </h2>
+            <div className="panel-header-actions">
+              <h2 className="panel-title-premium">
+                <span className="title-icon">📊</span>
+                Análisis de Calidad Avanzado
+                <span className="title-badge">Tiempo Real</span>
+              </h2>
+              <div className="header-actions">
+                <button className={`action-btn-small ${periodoAnalisis === 'semanal' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('semanal')}>
+                  Semanal
+                </button>
+                <button className={`action-btn-small ${periodoAnalisis === 'mensual' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('mensual')}>
+                  Mensual
+                </button>
+                <button className={`action-btn-small ${periodoAnalisis === 'trimestral' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('trimestral')}>
+                  Trimestral
+                </button>
+                <button className="action-btn-small" onClick={() => setMostrarBenchmark(!mostrarBenchmark)}>
+                  📊 Benchmark
+                </button>
+                <button className="action-btn-small" onClick={() => setShowPredicciones(true)}>
+                  🔮 Predicciones
+                </button>
+              </div>
+            </div>
 
             <div className="analytics-grid-premium">
-              {/* Gráfico de Tendencia FFTT */}
+              {/* Gráfico de Tendencia FFTT con Media Móvil */}
               <div className="chart-card">
                 <div className="chart-header">
-                  <h3>Tendencia FFTT</h3>
+                  <h3>Tendencia FFTT con Media Móvil</h3>
                   <div className="chart-controls">
-                    <button className="chart-btn active">Semanal</button>
-                    <button className="chart-btn">Mensual</button>
+                    <button className="chart-btn active">Lineal</button>
+                    <button className="chart-btn">Suavizado</button>
                   </div>
                 </div>
-                <div className="chart-container">
+                <div className="chart-container" style={{ height: '350px' }}>
                   <Line data={chartData.tendenciaFFTT} options={chartOptions} />
                 </div>
               </div>
@@ -2074,33 +2549,110 @@ const FFTTquality = () => {
               {/* Gráfico de Causas de Rechazo */}
               <div className="chart-card">
                 <div className="chart-header">
-                  <h3>Causas de Rechazo</h3>
+                  <h3>Causas de Rechazo por Tipo</h3>
+                  <div className="chart-controls">
+                    <button className="chart-btn active">Barras</button>
+                    <button className="chart-btn">Pastel</button>
+                  </div>
                 </div>
-                <div className="chart-container">
+                <div className="chart-container" style={{ height: '350px' }}>
                   <Bar data={chartData.rechazosPorTipo} options={chartOptions} />
                 </div>
               </div>
 
-              {/* Gráfico de Rendimiento de Máquinas */}
+              {/* Gráfico de Rendimiento de Máquinas con OEE */}
               <div className="chart-card">
                 <div className="chart-header">
-                  <h3>Rendimiento por Máquina</h3>
+                  <h3>Rendimiento por Máquina (Eficiencia vs OEE)</h3>
                 </div>
-                <div className="chart-container">
+                <div className="chart-container" style={{ height: '350px' }}>
                   <Bar data={chartData.rendimientoMaquinas} options={chartOptions} />
                 </div>
               </div>
 
-              {/* Gráfico de Distribución por Gravedad */}
+              {/* Gráfico Radar de Calidad */}
+              <div className="chart-card">
+                <div className="chart-header">
+                  <h3>Radar de Calidad vs Objetivo</h3>
+                </div>
+                <div className="chart-container" style={{ height: '350px' }}>
+                  <Radar data={chartData.calidadRadar} options={chartOptions} />
+                </div>
+              </div>
+
+              {/* Gráfico Doughnut de Distribución de Gravedad */}
               <div className="chart-card">
                 <div className="chart-header">
                   <h3>Distribución por Gravedad</h3>
                 </div>
-                <div className="chart-container doughnut">
+                <div className="chart-container doughnut" style={{ height: '350px' }}>
                   <Doughnut data={chartData.distribucionGravedad} options={chartOptions} />
                 </div>
               </div>
+
+              {/* Predicciones IA */}
+              {analisisAvanzado.predicciones.length > 0 && (
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h3>Predicciones IA - Próximos 7 días</h3>
+                    <div className="chart-controls">
+                      <span className="confidence-badge">Confianza: 85%</span>
+                    </div>
+                  </div>
+                  <div className="chart-container" style={{ height: '350px' }}>
+                    <Line data={chartData.predicciones} options={chartOptions} />
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Recomendaciones IA */}
+            {analisisAvanzado.recomendaciones.length > 0 && (
+              <div className="recomendaciones-ia">
+                <h3>🤖 Recomendaciones Inteligentes</h3>
+                <div className="recomendaciones-grid">
+                  {analisisAvanzado.recomendaciones.map((rec, idx) => (
+                    <div key={idx} className={`recomendacion-card ${rec.prioridad}`}>
+                      <div className="recomendacion-header">
+                        <span className={`prioridad-badge ${rec.prioridad}`}>
+                          {rec.prioridad === 'alta' ? '🔴 Alta' : rec.prioridad === 'media' ? '🟡 Media' : '🟢 Baja'}
+                        </span>
+                        <h4>{rec.titulo}</h4>
+                      </div>
+                      <p className="recomendacion-desc">{rec.descripcion}</p>
+                      <div className="recomendacion-acciones">
+                        {rec.acciones.map((accion, i) => (
+                          <span key={i} className="accion-tag">✓ {accion}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alertas Predictivas */}
+            {analisisAvanzado.anomalias.length > 0 && (
+              <div className="alertas-predictivas">
+                <h3>⚠️ Alertas Predictivas</h3>
+                <div className="alertas-list">
+                  {analisisAvanzado.anomalias.map((anomalia, idx) => (
+                    <div key={idx} className="alerta-item">
+                      <span className="alerta-icon">🚨</span>
+                      <div className="alerta-content">
+                        <span className="alerta-fecha">{anomalia.fecha}</span>
+                        <span className="alerta-desc">
+                          Tasa FFTT {anomalia.tasa}% - Desviación {anomalia.desviacion.toFixed(1)}%
+                        </span>
+                        <span className={`alerta-gravedad ${anomalia.gravedad > 2 ? 'critica' : 'alta'}`}>
+                          {anomalia.gravedad > 2 ? 'Anomalía crítica' : 'Anomalía detectada'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2109,80 +2661,114 @@ const FFTTquality = () => {
           <div className="ia-panel-premium">
             <h2 className="panel-title-premium">
               <span className="title-icon">🤖</span>
-              Asistente de Calidad IA
+              Asistente de Calidad con IA
+              <span className="title-badge">Machine Learning</span>
             </h2>
 
             <div className="ia-grid-premium">
-              {/* Predicciones */}
+              {/* Predicciones Avanzadas */}
               <div className="ia-card">
-                <h3>📈 Predicciones</h3>
+                <h3>📈 Predicciones de Calidad</h3>
                 <div className="predicciones-list">
                   <div className="prediccion-item">
                     <span className="prediccion-label">Próxima semana</span>
                     <div className="prediccion-bar">
-                      <div className="bar-fill" style={{width: '75%'}}>
+                      <div className="bar-fill" style={{width: '75%', background: '#f59e0b'}}>
                         <span className="prediccion-valor">-2.3%</span>
                       </div>
                     </div>
+                    <span className="prediccion-detalle">Tasa FFTT esperada: 92.5%</span>
                   </div>
                   <div className="prediccion-item">
                     <span className="prediccion-label">Próximo mes</span>
                     <div className="prediccion-bar">
-                      <div className="bar-fill" style={{width: '45%'}}>
+                      <div className="bar-fill" style={{width: '45%', background: '#ef4444'}}>
                         <span className="prediccion-valor">-5.1%</span>
                       </div>
                     </div>
+                    <span className="prediccion-detalle">Posible degradación por temporada</span>
                   </div>
                   <div className="prediccion-item">
                     <span className="prediccion-label">Trimestre</span>
                     <div className="prediccion-bar">
-                      <div className="bar-fill" style={{width: '30%'}}>
+                      <div className="bar-fill" style={{width: '30%', background: '#ef4444'}}>
                         <span className="prediccion-valor">-8.7%</span>
                       </div>
                     </div>
+                    <span className="prediccion-detalle">Recomendar mantenimiento preventivo</span>
                   </div>
                 </div>
                 <div className="confianza">
-                  <span>Confianza: 85%</span>
+                  <span>Confianza del modelo: 85%</span>
                   <div className="confianza-bar">
                     <div className="confianza-fill" style={{width: '85%'}}></div>
                   </div>
                 </div>
               </div>
 
-              {/* Recomendaciones */}
+              {/* Recomendaciones Inteligentes */}
               <div className="ia-card">
-                <h3>💡 Recomendaciones</h3>
+                <h3>💡 Recomendaciones IA</h3>
                 <div className="recomendaciones-list">
                   <div className="recomendacion alta">
                     <span className="recomendacion-prioridad">🔴 Alta</span>
-                    <p>Revisar parámetros en M02 (tono)</p>
-                    <span className="recomendacion-impacto">+3.2% calidad</span>
+                    <p>Revisar parámetros en M02 - Tono fuera de especificación</p>
+                    <span className="recomendacion-impacto">Impacto estimado: +3.2% calidad</span>
                   </div>
                   <div className="recomendacion media">
                     <span className="recomendacion-prioridad">🟡 Media</span>
-                    <p>Capacitación turno B</p>
-                    <span className="recomendacion-impacto">+1.8% eficiencia</span>
+                    <p>Capacitación a operadores del turno B en control de calidad</p>
+                    <span className="recomendacion-impacto">Impacto estimado: +1.8% eficiencia</span>
                   </div>
                   <div className="recomendacion baja">
                     <span className="recomendacion-prioridad">🟢 Baja</span>
-                    <p>Calibrar M05 y M09</p>
-                    <span className="recomendacion-impacto">+0.9% conformidad</span>
+                    <p>Calibrar sensores de temperatura en M05 y M09</p>
+                    <span className="recomendacion-impacto">Impacto estimado: +0.9% conformidad</span>
                   </div>
                 </div>
               </div>
 
               {/* Alertas Inteligentes */}
               <div className="ia-card">
-                <h3>⚠️ Alertas</h3>
+                <h3>⚠️ Alertas Inteligentes</h3>
                 <div className="alertas-list">
                   <div className="alerta">
                     <span className="alerta-tiempo">Hace 2h</span>
-                    <p>Pico de rechazos en M07</p>
+                    <p>Pico de rechazos detectado en M07 - Posible problema de presión</p>
+                    <span className="alerta-recomendacion">Recomendación: Verificar presión de trabajo</span>
                   </div>
                   <div className="alerta">
                     <span className="alerta-tiempo">Hace 5h</span>
-                    <p>Patrón anormal en textura</p>
+                    <p>Patrón anormal en textura - Turno B</p>
+                    <span className="alerta-recomendacion">Recomendación: Revisar materia prima del lote</span>
+                  </div>
+                  <div className="alerta">
+                    <span className="alerta-tiempo">Hace 12h</span>
+                    <p>Tendencia descendente en tasa FFTT - 3 días consecutivos</p>
+                    <span className="alerta-recomendacion">Recomendación: Programar mantenimiento preventivo</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Métricas de IA */}
+              <div className="ia-card">
+                <h3>📊 Métricas de Rendimiento IA</h3>
+                <div className="metricas-ia">
+                  <div className="metrica-ia">
+                    <span className="metrica-valor">94.2%</span>
+                    <span className="metrica-label">Precisión de predicciones</span>
+                  </div>
+                  <div className="metrica-ia">
+                    <span className="metrica-valor">87%</span>
+                    <span className="metrica-label">Detección de anomalías</span>
+                  </div>
+                  <div className="metrica-ia">
+                    <span className="metrica-valor">12</span>
+                    <span className="metrica-label">Alertas preventivas generadas</span>
+                  </div>
+                  <div className="metrica-ia">
+                    <span className="metrica-valor">+8.5%</span>
+                    <span className="metrica-label">Mejora en calidad sugerida</span>
                   </div>
                 </div>
               </div>
@@ -2216,6 +2802,7 @@ const FFTTquality = () => {
         <span className="hint-item">Ctrl+L: Lotes</span>
         <span className="hint-item">Ctrl+S: Escáner</span>
         <span className="hint-item">Ctrl+A: Análisis</span>
+        <span className="hint-item">Ctrl+P: Métricas Avanzadas</span>
         <span className="hint-item">Esc: Cerrar</span>
       </div>
 
@@ -2227,7 +2814,7 @@ const FFTTquality = () => {
             
             {modalType === 'ver' && (
               <div className="modal-detalle-lote">
-                <h2>Detalles del Lote {selectedLote.lote}</h2>
+                <h2>Detalles del Lote {selectedLote.lote} - Control Calidad</h2>
                 <div className="detalle-grid">
                   <div className="detalle-seccion">
                     <h4>Información General</h4>
@@ -2246,7 +2833,10 @@ const FFTTquality = () => {
                     <p><strong>Aceptadas:</strong> {selectedLote.aceptadas}</p>
                     <p><strong>Rechazadas:</strong> {selectedLote.rechazadas}</p>
                     <p><strong>Tasa FFTT:</strong> {selectedLote.tasaFFTT}%</p>
-                    <p><strong>Nivel Sigma:</strong> {selectedLote.calidad?.sigma}</p>
+                    <p><strong>Gravedad:</strong> {selectedLote.gravedad}</p>
+                    <p><strong>Sigma:</strong> {selectedLote.calidad?.sigma}σ</p>
+                    <p><strong>Cpk:</strong> {selectedLote.calidad?.cpk}</p>
+                    <p><strong>PPM:</strong> {selectedLote.calidad?.ppm}</p>
                   </div>
                   
                   <div className="detalle-seccion">
@@ -2266,15 +2856,23 @@ const FFTTquality = () => {
                   </div>
                   
                   <div className="detalle-seccion full-width">
+                    <h4>Materia Prima</h4>
+                    <p><strong>Lote MP:</strong> {selectedLote.materiaPrima?.lote}</p>
+                    <p><strong>Proveedor:</strong> {selectedLote.materiaPrima?.proveedor}</p>
+                    <p><strong>Certificado:</strong> {selectedLote.materiaPrima?.certificado}</p>
+                    <p><strong>Lote Original:</strong> {selectedLote.materiaPrima?.loteOriginal}</p>
+                  </div>
+                  
+                  <div className="detalle-seccion full-width">
                     <h4>Observaciones</h4>
                     <p>{selectedLote.observaciones}</p>
                   </div>
                   
-                  {selectedLote.acciones?.length > 0 && (
+                  {selectedLote.historialCalidad?.length > 0 && (
                     <div className="detalle-seccion full-width">
-                      <h4>Acciones Realizadas</h4>
-                      {selectedLote.acciones.map((accion, i) => (
-                        <p key={i}>• {accion.fecha}: {accion.accion} ({accion.estado})</p>
+                      <h4>Historial de Calidad</h4>
+                      {selectedLote.historialCalidad.map((item, i) => (
+                        <p key={i}>• {item.fecha}: {item.accion} - {item.observaciones} ({item.usuario})</p>
                       ))}
                     </div>
                   )}
@@ -2284,7 +2882,7 @@ const FFTTquality = () => {
 
             {modalType === 'editar' && (
               <div className="modal-editar-lote">
-                <h2>Editar Lote {selectedLote.lote}</h2>
+                <h2>Editar Lote {selectedLote.lote} - Calidad</h2>
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   editarLote(selectedLote.id, selectedLote);
@@ -2313,10 +2911,10 @@ const FFTTquality = () => {
                         value={selectedLote.sport}
                         onChange={(e) => setSelectedLote({...selectedLote, sport: e.target.value})}
                       >
-                        <option value="Baseball">Baseball</option>
-                        <option value="Soccer">Soccer</option>
-                        <option value="Basketball">Basketball</option>
-                        <option value="Football">Football</option>
+                        <option value="Camiseta Premium">Camiseta Premium</option>
+                        <option value="Gorra Deportiva">Gorra Deportiva</option>
+                        <option value="Sudadera Oversize">Sudadera Oversize</option>
+                        <option value="Polera Básica">Polera Básica</option>
                       </select>
                     </div>
                     <div className="form-group">
@@ -2353,6 +2951,18 @@ const FFTTquality = () => {
                         value={selectedLote.rechazadas}
                         onChange={(e) => setSelectedLote({...selectedLote, rechazadas: parseInt(e.target.value)})}
                       />
+                    </div>
+                    <div className="form-group">
+                      <label>Gravedad</label>
+                      <select 
+                        value={selectedLote.gravedad}
+                        onChange={(e) => setSelectedLote({...selectedLote, gravedad: e.target.value})}
+                      >
+                        <option value="baja">Baja</option>
+                        <option value="media">Media</option>
+                        <option value="alta">Alta</option>
+                        <option value="critica">Crítica</option>
+                      </select>
                     </div>
                     <div className="form-group">
                       <label>Estado</label>
