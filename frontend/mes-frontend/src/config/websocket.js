@@ -1,9 +1,7 @@
-// src/config/websocket.js
 
-// 🔴 CAMBIA ESTA URL POR LA TUYA
 export const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
 
-// Tipos de eventos
+
 export const EVENTOS = {
   INIT: 'INIT',
   ACTUALIZACION: 'ACTUALIZACION',
@@ -12,7 +10,7 @@ export const EVENTOS = {
   ERROR: 'ERROR'
 };
 
-// Hook personalizado para WebSocket
+
 import { useEffect, useRef, useState } from 'react';
 
 export const useWebSocket = (onMessage) => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './FFTTquality.css';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { Line, Bar, Doughnut, Radar, Scatter } from 'react-chartjs-2';
+import { Line, Bar, Doughnut, Radar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -52,7 +52,7 @@ const FFTTquality = () => {
     getLotesPorArea
   } = useProduccion();
 
-  // ================ FUNCIONES AUXILIARES (DEFINIDAS ANTES DE USARSE) ================
+  // ================ FUNCIONES AUXILIARES ================
   const determinarTurnoActual = () => {
     const hora = new Date().getHours();
     if (hora >= 6 && hora < 14) return 'A';
@@ -93,15 +93,9 @@ const FFTTquality = () => {
   const [showAyuda, setShowAyuda] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [showEstadisticas, setShowEstadisticas] = useState(false);
-  const [showComparativa, setShowComparativa] = useState(false);
   const [showAlertas, setShowAlertas] = useState(false);
   const [showReportes, setShowReportes] = useState(false);
-  const [showCalendario, setShowCalendario] = useState(false);
-  const [showMapaCalor, setShowMapaCalor] = useState(false);
-  const [showTendencias, setShowTendencias] = useState(false);
   const [showPredicciones, setShowPredicciones] = useState(false);
-  const [showOptimizacion, setShowOptimizacion] = useState(false);
-  const [showIA, setShowIA] = useState(false);
   const [filtroMaquina, setFiltroMaquina] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -109,7 +103,6 @@ const FFTTquality = () => {
   const [ordenDireccion, setOrdenDireccion] = useState('desc');
   const [vistaMaquinas, setVistaMaquinas] = useState('grid');
   const [periodoAnalisis, setPeriodoAnalisis] = useState('semanal');
-  const [zoomNivel, setZoomNivel] = useState(1);
   const [mostrarMetricasAvanzadas, setMostrarMetricasAvanzadas] = useState(false);
   const [mostrarBenchmark, setMostrarBenchmark] = useState(false);
 
@@ -119,7 +112,7 @@ const FFTTquality = () => {
   const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
   const wsRef = useRef(null);
 
-  // ================ MÁQUINAS (12 Sublimadoras con métricas avanzadas) ================
+  // ================ MÁQUINAS (12 Sublimadoras) ================
   const [maquinas, setMaquinas] = useState(() => {
     const maquinasBase = [
       { id: 'M01', nombre: 'Sublimadora 1', tipo: 'Grande', estado: 'operativa', eficiencia: 95, produccion: 150, temperatura: 185, presion: 3.5, velocidad: 18.5, lotesHoy: 8, alertas: [], oee: 87, mtbf: 720, mttr: 45, consumoEnergia: 12.5 },
@@ -204,12 +197,11 @@ const FFTTquality = () => {
     maquinasActivas: []
   });
 
-  // ================ ESTADOS DE FILTROS AVANZADOS ================
+  // ================ FILTROS AVANZADOS ================
   const [filtros, setFiltros] = useState({
     fechaInicio: '',
     fechaFin: '',
     tipoRechazo: 'todos',
-    sport: 'todos',
     turno: 'todos',
     gravedad: 'todos',
     operador: 'todos',
@@ -230,7 +222,7 @@ const FFTTquality = () => {
     calidadMinima: 0
   });
 
-  // ================ DATOS DE ANÁLISIS AVANZADO ================
+  // ================ ANÁLISIS AVANZADO ================
   const [analisisAvanzado, setAnalisisAvanzado] = useState({
     tendencias: [],
     predicciones: [],
@@ -241,7 +233,6 @@ const FFTTquality = () => {
     alertasPredictivas: []
   });
 
-  // ================ CONFIGURACIÓN DEL ESCÁNER ================
   const scannerInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -334,7 +325,7 @@ const FFTTquality = () => {
     }
   };
 
-  // ================ CONEXIÓN WEBSOCKET ================
+  // ================ WEBSOCKET ================
   useEffect(() => {
     console.log('🔌 FFTTquality conectando...');
     
@@ -1174,7 +1165,7 @@ const FFTTquality = () => {
     cpkPromedio: lotes.length ? (lotes.reduce((sum, l) => sum + (l.calidad?.cpk || 0), 0) / lotes.length).toFixed(2) : 0
   }), [lotes, maquinas]);
 
-  // ================ DATOS PARA GRÁFICOS AVANZADOS ================
+  // ================ DATOS PARA GRÁFICOS ================
   const chartData = useMemo(() => ({
     tendenciaFFTT: {
       labels: lotes.slice(0, 20).map(l => l.fecha).reverse(),
@@ -1387,107 +1378,103 @@ const FFTTquality = () => {
 
   // ================ RENDER ================
   return (
-    <div className={`fftt-quality-container theme-${theme}`}>
-      {/* Header con navegación mejorada */}
-      <header className="fftt-header">
-        <div className="header-left">
-          <div className="logo-container">
-            <div className="logo-3d">
-              <span className="logo-icon">⚡</span>
-              <span className="logo-text">FFTT</span>
-              <span className="logo-badge">Quality Control Pro</span>
+    <div className={`fftt-premium-container theme-${theme}`}>
+      {/* HEADER PREMIUM */}
+      <header className="fftt-premium-header">
+        <div className="header-glow"></div>
+        <div className="header-content">
+          <div className="logo-premium-area">
+            <div className="logo-3d-container">
+              <div className="logo-3d">
+                <span className="logo-icon">⚡</span>
+                <span className="logo-text">FFTT</span>
+                <span className="logo-badge-premium">Quality Pro</span>
+              </div>
             </div>
-          </div>
-          
-          <nav className="main-nav">
-            <button 
-              className={`nav-btn ${vista === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setVista('dashboard')}
-              title="Dashboard (Ctrl+D)"
-            >
-              <span className="nav-icon">📊</span>
-              <span className="nav-text">Dashboard</span>
-            </button>
-            <button 
-              className={`nav-btn ${vista === 'maquinas' ? 'active' : ''}`}
-              onClick={() => setVista('maquinas')}
-              title="12 Máquinas (Ctrl+M)"
-            >
-              <span className="nav-icon">⚙️</span>
-              <span className="nav-text">Máquinas</span>
-              <span className="nav-badge">12</span>
-            </button>
-            <button 
-              className={`nav-btn ${vista === 'lotes' ? 'active' : ''}`}
-              onClick={() => setVista('lotes')}
-              title="Gestión de Lotes (Ctrl+L)"
-            >
-              <span className="nav-icon">📦</span>
-              <span className="nav-text">Lotes</span>
-              <span className="nav-badge">{lotes.length}</span>
-            </button>
-            <button 
-              className={`nav-btn ${vista === 'scanner' ? 'active' : ''}`}
-              onClick={() => setVista('scanner')}
-              title="Escáner (Ctrl+S)"
-            >
-              <span className="nav-icon">📷</span>
-              <span className="nav-text">Escáner</span>
-            </button>
-            <button 
-              className={`nav-btn ${vista === 'analisis' ? 'active' : ''}`}
-              onClick={() => setVista('analisis')}
-              title="Análisis (Ctrl+A)"
-            >
-              <span className="nav-icon">📈</span>
-              <span className="nav-text">Análisis</span>
-            </button>
-            <button 
-              className={`nav-btn ${vista === 'ia' ? 'active' : ''}`}
-              onClick={() => setVista('ia')}
-              title="IA Predictiva"
-            >
-              <span className="nav-icon">🤖</span>
-              <span className="nav-text">IA</span>
-            </button>
-          </nav>
-        </div>
-
-        <div className="header-right">
-          <div className={`connection-indicator ${conectado ? 'connected' : 'disconnected'}`}>
-            <span className="connection-dot"></span>
-            <span className="connection-text">{conectado ? 'Servidor OK' : 'Sin conexión'}</span>
+            
+            <nav className="nav-premium">
+              <button 
+                className={`nav-premium-btn ${vista === 'dashboard' ? 'active' : ''}`}
+                onClick={() => setVista('dashboard')}
+              >
+                <span className="nav-icon">📊</span>
+                <span className="nav-text">Dashboard</span>
+                <span className="nav-tooltip">Ctrl+D</span>
+              </button>
+              <button 
+                className={`nav-premium-btn ${vista === 'maquinas' ? 'active' : ''}`}
+                onClick={() => setVista('maquinas')}
+              >
+                <span className="nav-icon">⚙️</span>
+                <span className="nav-text">Máquinas</span>
+                <span className="nav-badge">12</span>
+              </button>
+              <button 
+                className={`nav-premium-btn ${vista === 'lotes' ? 'active' : ''}`}
+                onClick={() => setVista('lotes')}
+              >
+                <span className="nav-icon">📦</span>
+                <span className="nav-text">Lotes</span>
+                <span className="nav-badge">{lotes.length}</span>
+              </button>
+              <button 
+                className={`nav-premium-btn ${vista === 'scanner' ? 'active' : ''}`}
+                onClick={() => setVista('scanner')}
+              >
+                <span className="nav-icon">📷</span>
+                <span className="nav-text">Escáner</span>
+              </button>
+              <button 
+                className={`nav-premium-btn ${vista === 'analisis' ? 'active' : ''}`}
+                onClick={() => setVista('analisis')}
+              >
+                <span className="nav-icon">📈</span>
+                <span className="nav-text">Análisis</span>
+              </button>
+              <button 
+                className={`nav-premium-btn ${vista === 'ia' ? 'active' : ''}`}
+                onClick={() => setVista('ia')}
+              >
+                <span className="nav-icon">🤖</span>
+                <span className="nav-text">IA Predictiva</span>
+              </button>
+            </nav>
           </div>
 
-          <div className="header-time">
-            <div className="time-digital">
-              {currentTime.toLocaleTimeString()}
+          <div className="header-actions-premium">
+            <div className={`connection-status ${conectado ? 'online' : 'offline'}`}>
+              <div className="status-pulse"></div>
+              <span>{conectado ? 'SERVIDOR ONLINE' : 'OFFLINE'}</span>
             </div>
-            <div className="date-digital">
-              {currentTime.toLocaleDateString('es-ES', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </div>
-          </div>
 
-          <div className="header-actions">
-            <button className="action-icon" onClick={() => setShowAyuda(true)} title="Ayuda (F1)">
-              <span>❓</span>
+            <div className="time-premium">
+              <div className="time-digital-premium">
+                {currentTime.toLocaleTimeString()}
+              </div>
+              <div className="date-premium">
+                {currentTime.toLocaleDateString('es-ES', { 
+                  weekday: 'long', 
+                  day: 'numeric', 
+                  month: 'long' 
+                })}
+              </div>
+            </div>
+
+            <button className="icon-btn-premium" onClick={() => setShowAyuda(true)}>
+              ❓
             </button>
-            <button className="action-icon" onClick={() => setShowConfig(true)} title="Configuración">
-              <span>⚙️</span>
+            <button className="icon-btn-premium" onClick={() => setShowConfig(true)}>
+              ⚙️
             </button>
-            <button className="action-icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="Cambiar tema">
-              <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <button className="icon-btn-premium" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+              {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <div className="user-profile">
-              <div className="user-avatar">
+            
+            <div className="user-premium">
+              <div className="user-avatar-premium">
                 <span>👤</span>
               </div>
-              <div className="user-info">
+              <div className="user-info-premium">
                 <span className="user-name">Admin</span>
                 <span className="user-role">Supervisor Calidad</span>
               </div>
@@ -1496,315 +1483,203 @@ const FFTTquality = () => {
         </div>
       </header>
 
-      {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
+      {/* ÚLTIMO MOVIMIENTO */}
       {ultimoMovimiento && (
-        <div className="movimiento-notificacion">
-          🔄 {ultimoMovimiento.lote} → {ultimoMovimiento.area}
+        <div className="last-movement-premium animate-slide-down">
+          <span className="movement-icon">🔄</span>
+          <span className="movement-text">{ultimoMovimiento.lote} → {ultimoMovimiento.area}</span>
+          <span className="movement-time">ahora</span>
+          <div className="movement-progress"></div>
         </div>
       )}
 
-      {/* Estilos para el indicador de conexión y notificaciones */}
-      <style>{`
-        .connection-indicator {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 15px;
-          border-radius: 30px;
-          font-size: 0.85rem;
-          font-weight: 600;
-          margin-right: 15px;
-        }
+      {/* PANEL DE CONTROL PRINCIPAL */}
+      <div className="control-premium-panel">
+        <div className="panel-background-glow"></div>
         
-        .connection-indicator.connected {
-          background: #d4edda;
-          color: #155724;
-        }
-        
-        .connection-indicator.disconnected {
-          background: #f8d7da;
-          color: #721c24;
-        }
-        
-        .connection-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          display: inline-block;
-        }
-        
-        .connected .connection-dot {
-          background: #28a745;
-          box-shadow: 0 0 10px #28a745;
-          animation: pulse 2s infinite;
-        }
-        
-        .disconnected .connection-dot {
-          background: #dc3545;
-        }
+        {/* KPI CARDS PREMIUM */}
+        <div className="kpi-premium-grid">
+          <div className="kpi-premium-card" onClick={() => setShowEstadisticas(true)}>
+            <div className="kpi-premium-icon">🧪</div>
+            <div className="kpi-premium-content">
+              <div className="kpi-premium-value">{stats.totalMuestras.toLocaleString()}</div>
+              <div className="kpi-premium-label">Total Muestras</div>
+            </div>
+            <div className="kpi-premium-trend positive">
+              <span>↑ {((stats.totalAceptadas / stats.totalMuestras) * 100).toFixed(1)}%</span>
+            </div>
+            <div className="kpi-premium-glow"></div>
+          </div>
 
-        .movimiento-notificacion {
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          background: #3b82f6;
-          color: white;
-          padding: 12px 20px;
-          border-radius: 10px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-          z-index: 10000;
-          animation: slideUp 0.3s ease;
-          font-weight: 500;
-        }
-
-        @keyframes slideUp {
-          from {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.2); }
-        }
-      `}</style>
-
-      {/* Panel de Control Principal */}
-      <div className="control-panel-moderno">
-        <div className="panel-glow-effect"></div>
-        
-        {/* KPIs Interactivos - Siempre visibles */}
-        <div className="kpi-grid-interactivo">
-          <div className="kpi-card-interactivo total-muestras" onClick={() => setShowEstadisticas(true)}>
-            <div className="kpi-front">
-              <div className="kpi-icon-container">
-                <span className="kpi-icon-3d">🧪</span>
-              </div>
-              <div className="kpi-content">
-                <span className="kpi-valor-digital">{stats.totalMuestras.toLocaleString()}</span>
-                <span className="kpi-label">Total Muestras</span>
-              </div>
-              <div className="kpi-trend positivo">
-                <span>↑ {((stats.totalAceptadas / stats.totalMuestras) * 100).toFixed(1)}%</span>
-              </div>
+          <div className="kpi-premium-card" onClick={() => setShowEstadisticas(true)}>
+            <div className="kpi-premium-icon">✅</div>
+            <div className="kpi-premium-content">
+              <div className="kpi-premium-value">{stats.totalAceptadas.toLocaleString()}</div>
+              <div className="kpi-premium-label">Aceptadas</div>
+            </div>
+            <div className="kpi-premium-trend positive">
+              <span>↑ {stats.tasaFFTTPromedio}%</span>
             </div>
           </div>
 
-          <div className="kpi-card-interactivo aceptadas" onClick={() => setShowEstadisticas(true)}>
-            <div className="kpi-front">
-              <div className="kpi-icon-container">
-                <span className="kpi-icon-3d">✅</span>
-              </div>
-              <div className="kpi-content">
-                <span className="kpi-valor-digital">{stats.totalAceptadas.toLocaleString()}</span>
-                <span className="kpi-label">Muestras Aceptadas</span>
-              </div>
-              <div className="kpi-trend positivo">
-                <span>↑ {stats.tasaFFTTPromedio}%</span>
-              </div>
+          <div className="kpi-premium-card" onClick={() => setShowEstadisticas(true)}>
+            <div className="kpi-premium-icon">❌</div>
+            <div className="kpi-premium-content">
+              <div className="kpi-premium-value">{stats.totalRechazadas.toLocaleString()}</div>
+              <div className="kpi-premium-label">Rechazadas</div>
+            </div>
+            <div className="kpi-premium-trend negative">
+              <span>↓ {((stats.totalRechazadas / stats.totalMuestras) * 100).toFixed(1)}%</span>
             </div>
           </div>
 
-          <div className="kpi-card-interactivo rechazadas" onClick={() => setShowEstadisticas(true)}>
-            <div className="kpi-front">
-              <div className="kpi-icon-container">
-                <span className="kpi-icon-3d">❌</span>
-              </div>
-              <div className="kpi-content">
-                <span className="kpi-valor-digital">{stats.totalRechazadas.toLocaleString()}</span>
-                <span className="kpi-label">Muestras Rechazadas</span>
-              </div>
-              <div className="kpi-trend negativo">
-                <span>↓ {((stats.totalRechazadas / stats.totalMuestras) * 100).toFixed(1)}%</span>
-              </div>
+          <div className="kpi-premium-card" onClick={() => setShowEstadisticas(true)}>
+            <div className="kpi-premium-icon">📊</div>
+            <div className="kpi-premium-content">
+              <div className="kpi-premium-value">{stats.tasaFFTTPromedio}%</div>
+              <div className="kpi-premium-label">Tasa FFTT</div>
+            </div>
+            <div className="kpi-premium-trend">
+              <span>Nivel {stats.sigmaPromedio}σ</span>
             </div>
           </div>
 
-          <div className="kpi-card-interactivo tasa-fftt" onClick={() => setShowEstadisticas(true)}>
-            <div className="kpi-front">
-              <div className="kpi-icon-container">
-                <span className="kpi-icon-3d">📊</span>
-              </div>
-              <div className="kpi-content">
-                <span className="kpi-valor-digital">{stats.tasaFFTTPromedio}%</span>
-                <span className="kpi-label">Tasa FFTT</span>
-              </div>
-              <div className="kpi-trend estable">
-                <span>Nivel {stats.sigmaPromedio}σ</span>
-              </div>
+          <div className="kpi-premium-card" onClick={() => setShowAlertas(true)}>
+            <div className="kpi-premium-icon">⚠️</div>
+            <div className="kpi-premium-content">
+              <div className="kpi-premium-value">{stats.lotesCriticos}</div>
+              <div className="kpi-premium-label">Lotes Críticos</div>
+            </div>
+            <div className="kpi-premium-trend alert">
+              <span>+{stats.lotesCriticos}</span>
             </div>
           </div>
 
-          <div className="kpi-card-interactivo lotes-criticos" onClick={() => setShowAlertas(true)}>
-            <div className="kpi-front">
-              <div className="kpi-icon-container">
-                <span className="kpi-icon-3d">⚠️</span>
-              </div>
-              <div className="kpi-content">
-                <span className="kpi-valor-digital">{stats.lotesCriticos}</span>
-                <span className="kpi-label">Lotes Críticos</span>
-              </div>
-              <div className="kpi-trend alerta">
-                <span>+{stats.lotesCriticos}</span>
-              </div>
+          <div className="kpi-premium-card" onClick={() => setVista('maquinas')}>
+            <div className="kpi-premium-icon">⚙️</div>
+            <div className="kpi-premium-content">
+              <div className="kpi-premium-value">{stats.maquinasOperativas}/12</div>
+              <div className="kpi-premium-label">Máquinas Activas</div>
             </div>
-          </div>
-
-          <div className="kpi-card-interactivo maquinas" onClick={() => setVista('maquinas')}>
-            <div className="kpi-front">
-              <div className="kpi-icon-container">
-                <span className="kpi-icon-3d">⚙️</span>
-              </div>
-              <div className="kpi-content">
-                <span className="kpi-valor-digital">{stats.maquinasOperativas}/12</span>
-                <span className="kpi-label">Máquinas Activas</span>
-              </div>
-              <div className="kpi-trend positivo">
-                <span>{stats.oeePromedio}% OEE</span>
-              </div>
+            <div className="kpi-premium-trend">
+              <span>{stats.oeePromedio}% OEE</span>
             </div>
           </div>
         </div>
 
-        {/* ================ VISTA DE MÁQUINAS (12 Sublimadoras) ================ */}
+        {/* ================ VISTA DE MÁQUINAS PREMIUM ================ */}
         {vista === 'maquinas' && (
-          <div className="maquinas-panel-premium">
-            <div className="panel-header-actions">
-              <h2 className="panel-title-premium">
+          <div className="maquinas-premium-panel">
+            <div className="panel-premium-header">
+              <h2 className="panel-premium-title">
                 <span className="title-icon">⚙️</span>
-                12 Máquinas de Sublimado
-                <span className="title-badge">Tiempo Real</span>
+                Máquinas de Sublimado
+                <span className="title-badge-premium">12 Unidades</span>
               </h2>
-              <div className="header-actions">
-                <button 
-                  className={`action-btn-small ${vistaMaquinas === 'grid' ? 'active' : ''}`}
-                  onClick={() => setVistaMaquinas('grid')}
-                >
+              <div className="panel-premium-actions">
+                <button className={`action-premium-btn ${vistaMaquinas === 'grid' ? 'active' : ''}`} onClick={() => setVistaMaquinas('grid')}>
                   📱 Grid
                 </button>
-                <button 
-                  className={`action-btn-small ${vistaMaquinas === 'lista' ? 'active' : ''}`}
-                  onClick={() => setVistaMaquinas('lista')}
-                >
+                <button className={`action-premium-btn ${vistaMaquinas === 'lista' ? 'active' : ''}`} onClick={() => setVistaMaquinas('lista')}>
                   📋 Lista
                 </button>
-                <button className="action-btn-small" onClick={() => setMostrarMetricasAvanzadas(!mostrarMetricasAvanzadas)}>
+                <button className="action-premium-btn" onClick={() => setMostrarMetricasAvanzadas(!mostrarMetricasAvanzadas)}>
                   📊 Métricas
-                </button>
-                <button className="action-btn-small" onClick={() => setShowReportes(true)}>
-                  📈 Reporte
                 </button>
               </div>
             </div>
 
             {/* Resumen de máquinas */}
-            <div className="maquinas-resumen">
-              <div className="resumen-card total">
+            <div className="maquinas-resumen-premium">
+              <div className="resumen-premium-card total">
                 <span className="resumen-valor">12</span>
-                <span className="resumen-label">Total Máquinas</span>
+                <span className="resumen-label">Total</span>
               </div>
-              <div className="resumen-card operativas">
+              <div className="resumen-premium-card operativas">
                 <span className="resumen-valor">{stats.maquinasOperativas}</span>
                 <span className="resumen-label">Operativas</span>
               </div>
-              <div className="resumen-card mantenimiento">
+              <div className="resumen-premium-card mantenimiento">
                 <span className="resumen-valor">{stats.maquinasMantenimiento}</span>
                 <span className="resumen-label">Mantenimiento</span>
               </div>
-              <div className="resumen-card reparacion">
+              <div className="resumen-premium-card reparacion">
                 <span className="resumen-valor">{stats.maquinasReparacion}</span>
                 <span className="resumen-label">Reparación</span>
               </div>
-              <div className="resumen-card produccion">
+              <div className="resumen-premium-card produccion">
                 <span className="resumen-valor">{stats.produccionTotal}/h</span>
-                <span className="resumen-label">Producción Total</span>
+                <span className="resumen-label">Producción</span>
               </div>
-              <div className="resumen-card eficiencia">
+              <div className="resumen-premium-card oee">
                 <span className="resumen-valor">{stats.oeePromedio}%</span>
-                <span className="resumen-label">OEE Promedio</span>
+                <span className="resumen-label">OEE</span>
               </div>
             </div>
 
-            {/* Grid de máquinas con métricas avanzadas */}
+            {/* Grid de máquinas */}
             {vistaMaquinas === 'grid' ? (
-              <div className="maquinas-grid">
+              <div className="maquinas-premium-grid">
                 {maquinas.map(maquina => (
-                  <div key={maquina.id} className={`maquina-card ${maquina.estado}`}>
-                    <div className="maquina-header">
-                      <div className="maquina-titulo">
-                        <span className="maquina-id">{maquina.id}</span>
-                        <h3 className="maquina-nombre">{maquina.nombre}</h3>
+                  <div key={maquina.id} className={`machine-premium-card ${maquina.estado}`}>
+                    <div className="machine-premium-header">
+                      <div className="machine-premium-title">
+                        <span className="machine-id">{maquina.id}</span>
+                        <h3>{maquina.nombre}</h3>
                       </div>
-                      <span className={`maquina-estado-badge ${maquina.estado}`}>
-                        {maquina.estado === 'operativa' ? '🟢' : 
-                         maquina.estado === 'mantenimiento' ? '🟡' : '🔴'} {maquina.estado}
+                      <span className={`machine-status-badge ${maquina.estado}`}>
+                        {maquina.estado === 'operativa' ? '🟢' : maquina.estado === 'mantenimiento' ? '🟡' : '🔴'} {maquina.estado}
                       </span>
                     </div>
-
-                    <div className="maquina-tipo">{maquina.tipo}</div>
-
-                    <div className="maquina-parametros">
-                      <div className="parametro" title="Temperatura">
-                        <span className="parametro-icon">🌡️</span>
-                        <span className="parametro-valor">{maquina.temperatura}°C</span>
+                    <div className="machine-type">{maquina.tipo}</div>
+                    
+                    <div className="machine-params">
+                      <div className="param" title="Temperatura">
+                        <span>🌡️</span>
+                        <span>{maquina.temperatura}°C</span>
                       </div>
-                      <div className="parametro" title="Presión">
-                        <span className="parametro-icon">📊</span>
-                        <span className="parametro-valor">{maquina.presion} bar</span>
+                      <div className="param" title="Presión">
+                        <span>📊</span>
+                        <span>{maquina.presion} bar</span>
                       </div>
-                      <div className="parametro" title="Velocidad">
-                        <span className="parametro-icon">⚡</span>
-                        <span className="parametro-valor">{maquina.velocidad} rpm</span>
+                      <div className="param" title="Velocidad">
+                        <span>⚡</span>
+                        <span>{maquina.velocidad} rpm</span>
                       </div>
                     </div>
 
-                    <div className="maquina-stats">
+                    <div className="machine-stats">
                       <div className="stat">
                         <span className="stat-label">Eficiencia</span>
-                        <div className="stat-progreso">
-                          <div 
-                            className="progreso-bar" 
-                            style={{ width: `${maquina.eficiencia}%` }}
-                          ></div>
-                          <span className="stat-valor">{maquina.eficiencia}%</span>
+                        <div className="stat-bar">
+                          <div className="stat-fill" style={{ width: `${maquina.eficiencia}%` }}></div>
                         </div>
+                        <span className="stat-value">{maquina.eficiencia}%</span>
                       </div>
                       <div className="stat">
                         <span className="stat-label">OEE</span>
-                        <div className="stat-progreso">
-                          <div 
-                            className="progreso-bar" 
-                            style={{ width: `${maquina.oee || 0}%`, background: '#6366f1' }}
-                          ></div>
-                          <span className="stat-valor">{maquina.oee || 0}%</span>
+                        <div className="stat-bar">
+                          <div className="stat-fill" style={{ width: `${maquina.oee || 0}%`, background: '#6366f1' }}></div>
                         </div>
+                        <span className="stat-value">{maquina.oee || 0}%</span>
                       </div>
                       <div className="stat">
                         <span className="stat-label">Producción</span>
-                        <span className="stat-valor">{maquina.produccion}/h</span>
-                      </div>
-                      <div className="stat">
-                        <span className="stat-label">Lotes Hoy</span>
-                        <span className="stat-valor">{maquina.lotesHoy}</span>
+                        <span className="stat-value">{maquina.produccion}/h</span>
                       </div>
                     </div>
 
                     {mostrarMetricasAvanzadas && (
-                      <div className="maquina-metricas-avanzadas">
-                        <div className="metrica">
+                      <div className="machine-advanced-metrics">
+                        <div className="metric">
                           <span>MTBF</span>
                           <strong>{maquina.mtbf || 0}h</strong>
                         </div>
-                        <div className="metrica">
+                        <div className="metric">
                           <span>MTTR</span>
                           <strong>{maquina.mttr || 0}min</strong>
                         </div>
-                        <div className="metrica">
+                        <div className="metric">
                           <span>Energía</span>
                           <strong>{maquina.consumoEnergia || 0}kWh</strong>
                         </div>
@@ -1812,123 +1687,63 @@ const FFTTquality = () => {
                     )}
 
                     {maquina.alertas.length > 0 && (
-                      <div className="maquina-alertas">
+                      <div className="machine-alerts">
                         {maquina.alertas.map((alerta, i) => (
-                          <span key={i} className="alerta-text">⚠️ {alerta}</span>
+                          <span key={i} className="alert">⚠️ {alerta}</span>
                         ))}
                       </div>
                     )}
 
-                    <div className="maquina-acciones">
+                    <div className="machine-actions">
                       {maquina.estado === 'operativa' ? (
-                        <button 
-                          className="maquina-btn detener"
-                          onClick={() => detenerMaquina(maquina.id)}
-                        >
-                          ⏹️ Detener
-                        </button>
+                        <button className="action-btn stop" onClick={() => detenerMaquina(maquina.id)}>⏹️ Detener</button>
                       ) : maquina.estado === 'mantenimiento' ? (
-                        <button 
-                          className="maquina-btn iniciar"
-                          onClick={() => iniciarMaquina(maquina.id)}
-                        >
-                          ▶️ Iniciar
-                        </button>
+                        <button className="action-btn start" onClick={() => iniciarMaquina(maquina.id)}>▶️ Iniciar</button>
                       ) : (
-                        <button 
-                          className="maquina-btn reparar"
-                          onClick={() => programarMantenimiento(maquina.id)}
-                        >
-                          🔧 Reparar
-                        </button>
+                        <button className="action-btn repair" onClick={() => programarMantenimiento(maquina.id)}>🔧 Reparar</button>
                       )}
-                      <button 
-                        className="maquina-btn config"
-                        onClick={() => programarMantenimiento(maquina.id)}
-                      >
-                        ⚙️
-                      </button>
-                      <button 
-                        className="maquina-btn ver"
-                        onClick={() => {
-                          setFiltroMaquina(maquina.id);
-                          setVista('lotes');
-                        }}
-                      >
-                        👁️
-                      </button>
+                      <button className="action-btn icon" onClick={() => programarMantenimiento(maquina.id)}>⚙️</button>
+                      <button className="action-btn icon" onClick={() => {
+                        setFiltroMaquina(maquina.id);
+                        setVista('lotes');
+                      }}>👁️</button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              /* Vista de lista de máquinas */
-              <div className="maquinas-lista">
-                <table className="maquinas-table">
+              <div className="maquinas-lista-premium">
+                <table className="maquinas-table-premium">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Máquina</th>
-                      <th>Tipo</th>
-                      <th>Estado</th>
-                      <th>Temperatura</th>
-                      <th>Presión</th>
-                      <th>Velocidad</th>
-                      <th>Eficiencia</th>
-                      <th>OEE</th>
-                      <th>Producción</th>
-                      <th>Lotes Hoy</th>
-                      <th>Acciones</th>
-                     </tr>
+                      <th>ID</th><th>Máquina</th><th>Tipo</th><th>Estado</th><th>Temperatura</th><th>Presión</th><th>Eficiencia</th><th>OEE</th><th>Producción</th><th>Acciones</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {maquinas.map(maquina => (
-                      <tr key={maquina.id} className={`maquina-row ${maquina.estado}`}>
-                        <td className="maquina-id">{maquina.id}</td>
+                      <tr key={maquina.id} className={`machine-row ${maquina.estado}`}>
+                        <td>{maquina.id}</td>
                         <td>{maquina.nombre}</td>
                         <td>{maquina.tipo}</td>
-                        <td>
-                          <span className={`estado-badge ${maquina.estado}`}>
-                            {maquina.estado === 'operativa' ? '🟢' : 
-                             maquina.estado === 'mantenimiento' ? '🟡' : '🔴'} {maquina.estado}
-                          </span>
-                        </td>
+                        <td><span className={`status-badge ${maquina.estado}`}>{maquina.estado}</span></td>
                         <td>{maquina.temperatura}°C</td>
                         <td>{maquina.presion} bar</td>
-                        <td>{maquina.velocidad} rpm</td>
                         <td>
-                          <div className="eficiencia-cell">
-                            <div className="eficiencia-bar">
-                              <div 
-                                className="eficiencia-fill"
-                                style={{ width: `${maquina.eficiencia}%` }}
-                              ></div>
-                            </div>
+                          <div className="efficiency-cell">
+                            <div className="efficiency-bar"><div style={{ width: `${maquina.eficiencia}%` }}></div></div>
                             <span>{maquina.eficiencia}%</span>
                           </div>
                         </td>
-                        <td>
-                          <div className="eficiencia-cell">
-                            <div className="eficiencia-bar">
-                              <div 
-                                className="eficiencia-fill"
-                                style={{ width: `${maquina.oee || 0}%`, background: '#6366f1' }}
-                              ></div>
-                            </div>
-                            <span>{maquina.oee || 0}%</span>
-                          </div>
-                        </td>
+                        <td>{maquina.oee || 0}%</td>
                         <td>{maquina.produccion}/h</td>
-                        <td>{maquina.lotesHoy}</td>
                         <td>
-                          <div className="acciones-cell">
-                            {maquina.estado === 'operativa' ? (
-                              <button className="accion-icon small" onClick={() => detenerMaquina(maquina.id)}>⏹️</button>
-                            ) : (
-                              <button className="accion-icon small" onClick={() => iniciarMaquina(maquina.id)}>▶️</button>
-                            )}
-                            <button className="accion-icon small" onClick={() => programarMantenimiento(maquina.id)}>🔧</button>
-                            <button className="accion-icon small" onClick={() => {
+                          <div className="action-buttons">
+                            {maquina.estado === 'operativa' ? 
+                              <button onClick={() => detenerMaquina(maquina.id)}>⏹️</button> :
+                              <button onClick={() => iniciarMaquina(maquina.id)}>▶️</button>
+                            }
+                            <button onClick={() => programarMantenimiento(maquina.id)}>🔧</button>
+                            <button onClick={() => {
                               setFiltroMaquina(maquina.id);
                               setVista('lotes');
                             }}>📦</button>
@@ -1943,64 +1758,42 @@ const FFTTquality = () => {
           </div>
         )}
 
-        {/* ================ VISTA DE LOTES ================ */}
+        {/* ================ VISTA DE LOTES PREMIUM ================ */}
         {vista === 'lotes' && (
-          <div className="lotes-panel-premium">
-            <div className="lotes-header">
-              <h2 className="panel-title-premium">
+          <div className="lotes-premium-panel">
+            <div className="panel-premium-header">
+              <h2 className="panel-premium-title">
                 <span className="title-icon">📦</span>
                 Gestión de Lotes - Control Calidad
-                <span className="title-badge">{lotes.length} total</span>
+                <span className="title-badge-premium">{lotes.length} total</span>
               </h2>
-
-              <div className="lotes-acciones">
-                <button className="accion-btn" onClick={exportarLotes}>
-                  <span className="btn-icon">📥</span>
-                  <span>Exportar</span>
-                </button>
+              <div className="panel-premium-actions">
+                <button className="action-premium-btn" onClick={exportarLotes}>📥 Exportar</button>
                 {loteSeleccionados.length > 0 && (
-                  <button className="accion-btn danger" onClick={eliminarSeleccionados}>
-                    <span className="btn-icon">🗑️</span>
-                    <span>Eliminar ({loteSeleccionados.length})</span>
-                  </button>
+                  <button className="action-premium-btn danger" onClick={eliminarSeleccionados}>🗑️ Eliminar ({loteSeleccionados.length})</button>
                 )}
-                <button className="accion-btn primary" onClick={() => setVista('scanner')}>
-                  <span className="btn-icon">➕</span>
-                  <span>Nuevo Lote</span>
-                </button>
+                <button className="action-premium-btn primary" onClick={() => setVista('scanner')}>➕ Nuevo Lote</button>
               </div>
             </div>
 
-            <div className="lotes-filtros">
+            <div className="filtros-premium">
               <div className="filtro-group">
-                <input
-                  type="text"
-                  placeholder="🔍 Buscar lote, PO, operador..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="filtro-input"
-                />
+                <input type="text" placeholder="🔍 Buscar lote, PO, operador..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="filtro-input" />
               </div>
-
               <div className="filtro-group">
                 <select value={filtroMaquina} onChange={(e) => setFiltroMaquina(e.target.value)} className="filtro-select">
                   <option value="todas">Todas las máquinas</option>
-                  {maquinas.map(m => (
-                    <option key={m.id} value={m.id}>{m.nombre}</option>
-                  ))}
+                  {maquinas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                 </select>
               </div>
-
               <div className="filtro-group">
                 <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="filtro-select">
                   <option value="todos">Todos los estados</option>
                   <option value="nuevo">🆕 Nuevo</option>
                   <option value="en_proceso">⚙️ En proceso</option>
                   <option value="completado">✅ Completado</option>
-                  <option value="revision">⚠️ Revisión</option>
                 </select>
               </div>
-
               <div className="filtro-group">
                 <select value={filtros.gravedad} onChange={(e) => setFiltros({...filtros, gravedad: e.target.value})} className="filtro-select">
                   <option value="todos">Todas las gravedades</option>
@@ -2010,16 +1803,6 @@ const FFTTquality = () => {
                   <option value="critica">🔴 Crítica</option>
                 </select>
               </div>
-
-              <div className="filtro-group">
-                <select value={filtros.turno} onChange={(e) => setFiltros({...filtros, turno: e.target.value})} className="filtro-select">
-                  <option value="todos">Todos los turnos</option>
-                  <option value="A">🌅 Turno A</option>
-                  <option value="B">☀️ Turno B</option>
-                  <option value="C">🌙 Turno C</option>
-                </select>
-              </div>
-
               <div className="filtro-group">
                 <select value={ordenarPor} onChange={(e) => setOrdenarPor(e.target.value)} className="filtro-select">
                   <option value="fecha">📅 Por fecha</option>
@@ -2027,767 +1810,190 @@ const FFTTquality = () => {
                   <option value="gravedad">⚠️ Por gravedad</option>
                 </select>
               </div>
-
-              <button 
-                className="filtro-direccion"
-                onClick={() => setOrdenDireccion(prev => prev === 'desc' ? 'asc' : 'desc')}
-                title={ordenDireccion === 'desc' ? 'Descendente' : 'Ascendente'}
-              >
+              <button className="filtro-direction" onClick={() => setOrdenDireccion(prev => prev === 'desc' ? 'asc' : 'desc')}>
                 {ordenDireccion === 'desc' ? '↓' : '↑'}
               </button>
-
-              <button className="filtro-selector" onClick={seleccionarTodos}>
+              <button className="filtro-select-all" onClick={seleccionarTodos}>
                 {loteSeleccionados.length === lotesFiltrados.length ? 'Deseleccionar' : 'Seleccionar Todos'}
               </button>
             </div>
 
             <div className="lotes-table-container">
-              <table className="lotes-table">
+              <table className="lotes-premium-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '30px' }}>
-                      <input
-                        type="checkbox"
-                        checked={loteSeleccionados.length === lotesFiltrados.length && lotesFiltrados.length > 0}
-                        onChange={seleccionarTodos}
-                      />
-                    </th>
-                    <th>Lote</th>
-                    <th>PO</th>
-                    <th>Producto</th>
-                    <th>Máquina</th>
-                    <th>Fecha</th>
-                    <th>Turno</th>
-                    <th>Operador</th>
-                    <th>Muestras</th>
-                    <th>Aceptadas</th>
-                    <th>Rechazadas</th>
-                    <th>FFTT</th>
-                    <th>Gravedad</th>
-                    <th>Tono</th>
-                    <th>Textura</th>
-                    <th>Color</th>
-                    <th>Dimensión</th>
-                    <th>Acabado</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                   </tr>
+                    <th style={{width: '30px'}}><input type="checkbox" checked={loteSeleccionados.length === lotesFiltrados.length && lotesFiltrados.length > 0} onChange={seleccionarTodos} /></th>
+                    <th>Lote</th><th>PO</th><th>Producto</th><th>Máquina</th><th>Fecha</th><th>Turno</th><th>Operador</th>
+                    <th>Muestras</th><th>Aceptadas</th><th>Rechazadas</th><th>FFTT</th><th>Gravedad</th><th>Estado</th><th>Acciones</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {lotesFiltrados.length > 0 ? (
-                    lotesFiltrados.map(lote => (
-                      <tr key={lote.id} className={`lote-row ${lote.gravedad}`}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={loteSeleccionados.includes(lote.id)}
-                            onChange={() => toggleSeleccionLote(lote.id)}
-                          />
-                        </td>
-                        <td className="lote-cell">{lote.lote}</td>
-                        <td>{lote.po}</td>
-                        <td>{lote.sport}</td>
-                        <td>
-                          <span className="maquina-badge">{lote.maquina}</span>
-                        </td>
-                        <td>{lote.fecha}</td>
-                        <td>
-                          <span className={`turno-badge turno-${lote.turno}`}>
-                            {lote.turno}
-                          </span>
-                        </td>
-                        <td>{lote.operador}</td>
-                        <td className="numero">{lote.totalMuestras}</td>
-                        <td className="numero success">{lote.aceptadas}</td>
-                        <td className="numero danger">{lote.rechazadas}</td>
-                        <td>
-                          <div className="tasa-cell">
-                            <div className="tasa-bar">
-                              <div 
-                                className="tasa-fill"
-                                style={{ 
-                                  width: `${lote.tasaFFTT}%`,
-                                  backgroundColor: lote.tasaFFTT >= 95 ? '#22c55e' :
-                                                 lote.tasaFFTT >= 85 ? '#f59e0b' : '#ef4444'
-                                }}
-                              ></div>
-                            </div>
-                            <span className="tasa-valor">{lote.tasaFFTT}%</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`gravedad-badge ${lote.gravedad}`}>
-                            {lote.gravedad === 'critica' ? '🔴' :
-                             lote.gravedad === 'alta' ? '🟠' :
-                             lote.gravedad === 'media' ? '🟡' : '🟢'} {lote.gravedad}
-                          </span>
-                        </td>
-                        <td className="numero">{lote.tipoRechazo?.tono || 0}</td>
-                        <td className="numero">{lote.tipoRechazo?.textura || 0}</td>
-                        <td className="numero">{lote.tipoRechazo?.color || 0}</td>
-                        <td className="numero">{lote.tipoRechazo?.dimension || 0}</td>
-                        <td className="numero">{lote.tipoRechazo?.acabado || 0}</td>
-                        <td>
-                          <span className={`estado-badge ${lote.estado}`}>
-                            {lote.estado === 'en_proceso' ? '⚙️' :
-                             lote.estado === 'completado' ? '✅' :
-                             lote.estado === 'revision' ? '⚠️' : '🆕'} {lote.estado}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="acciones-cell">
-                            <button className="accion-icon small" onClick={() => {
-                              setSelectedLote(lote);
-                              setModalType('ver');
-                              setShowModal(true);
-                            }} title="Ver detalles">👁️</button>
-                            <button className="accion-icon small" onClick={() => {
-                              setSelectedLote(lote);
-                              setModalType('editar');
-                              setShowModal(true);
-                            }} title="Editar">✏️</button>
-                            <button className="accion-icon small" onClick={() => duplicarLote(lote)} title="Duplicar">📋</button>
-                            <button className="accion-icon small danger" onClick={() => eliminarLote(lote.id)} title="Eliminar">🗑️</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="20" style={{ textAlign: 'center', padding: '40px' }}>
-                        <div className="empty-state">
-                          <div className="empty-icon">📭</div>
-                          <h3>No hay lotes</h3>
-                          <p>Comienza escaneando un lote o creando uno nuevo</p>
-                          <button className="btn-primary" onClick={() => setVista('scanner')}>
-                            Ir al Escáner
-                          </button>
+                  {lotesFiltrados.length > 0 ? lotesFiltrados.map(lote => (
+                    <tr key={lote.id} className={`lote-row ${lote.gravedad}`}>
+                      <td><input type="checkbox" checked={loteSeleccionados.includes(lote.id)} onChange={() => toggleSeleccionLote(lote.id)} /></td>
+                      <td>{lote.lote}</td><td>{lote.po}</td><td>{lote.sport}</td>
+                      <td><span className="machine-badge">{lote.maquina}</span></td>
+                      <td>{lote.fecha}</td>
+                      <td><span className={`turno-badge turno-${lote.turno}`}>{lote.turno}</span></td>
+                      <td>{lote.operador}</td>
+                      <td>{lote.totalMuestras}</td><td className="success">{lote.aceptadas}</td><td className="danger">{lote.rechazadas}</td>
+                      <td>
+                        <div className="tasa-cell">
+                          <div className="tasa-bar"><div className="tasa-fill" style={{ width: `${lote.tasaFFTT}%`, background: lote.tasaFFTT >= 95 ? '#22c55e' : lote.tasaFFTT >= 85 ? '#f59e0b' : '#ef4444' }}></div></div>
+                          <span>{lote.tasaFFTT}%</span>
+                        </div>
+                      </td>
+                      <td><span className={`gravedad-badge ${lote.gravedad}`}>{lote.gravedad === 'critica' ? '🔴' : lote.gravedad === 'alta' ? '🟠' : lote.gravedad === 'media' ? '🟡' : '🟢'} {lote.gravedad}</span></td>
+                      <td><span className={`estado-badge ${lote.estado}`}>{lote.estado === 'en_proceso' ? '⚙️' : lote.estado === 'completado' ? '✅' : '🆕'} {lote.estado}</span></td>
+                      <td>
+                        <div className="action-buttons">
+                          <button className="icon-btn" onClick={() => { setSelectedLote(lote); setModalType('ver'); setShowModal(true); }} title="Ver">👁️</button>
+                          <button className="icon-btn" onClick={() => { setSelectedLote(lote); setModalType('editar'); setShowModal(true); }} title="Editar">✏️</button>
+                          <button className="icon-btn" onClick={() => duplicarLote(lote)} title="Duplicar">📋</button>
+                          <button className="icon-btn danger" onClick={() => eliminarLote(lote.id)} title="Eliminar">🗑️</button>
                         </div>
                       </td>
                     </tr>
+                  )) : (
+                    <tr><td colSpan="16" className="empty-state"><div className="empty-icon">📭</div><h3>No hay lotes</h3><p>Comienza escaneando un lote o creando uno nuevo</p><button className="btn-primary" onClick={() => setVista('scanner')}>Ir al Escáner</button></td></tr>
                   )}
                 </tbody>
               </table>
             </div>
-
-            <div className="lotes-footer">
-              <span>Mostrando {lotesFiltrados.length} de {lotes.length} lotes</span>
-              <span className="resumen-calidad">
-                Calidad: {stats.tasaFFTTPromedio}% | Sigma: {stats.sigmaPromedio}σ | Cpk: {stats.cpkPromedio}
-              </span>
-            </div>
+            <div className="lotes-footer"><span>Mostrando {lotesFiltrados.length} de {lotes.length} lotes</span><span className="resumen-calidad">Calidad: {stats.tasaFFTTPromedio}% | Sigma: {stats.sigmaPromedio}σ | Cpk: {stats.cpkPromedio}</span></div>
           </div>
         )}
 
-        {/* ================ VISTA DE ESCÁNER ================ */}
+        {/* ================ VISTA DE ESCÁNER PREMIUM ================ */}
         {vista === 'scanner' && (
-          <div className="scanner-panel-premium">
+          <div className="scanner-premium-panel">
             <div className="scanner-header-premium">
-              <h2>
-                <span className="header-icon-animado">📷</span>
-                Escáner de Calidad
-              </h2>
-              <div className="scanner-status-premium">
-                <div className={`status-indicator ${escanerActivo ? 'activo' : 'inactivo'}`}>
+              <h2><span className="header-icon">📷</span> Escáner de Calidad</h2>
+              <div className="scanner-status">
+                <div className={`status-indicator ${escanerActivo ? 'active' : 'inactive'}`}>
                   <span className="status-dot"></span>
-                  <span className="status-text">
-                    {escanerActivo ? 'Escáner Activo' : 'Escáner Inactivo'}
-                  </span>
+                  <span>{escanerActivo ? 'Escáner Activo' : 'Escáner Inactivo'}</span>
                 </div>
-                <div className="scanner-mode">
-                  <select 
-                    value={scannerState.modo}
-                    onChange={(e) => setScannerState(prev => ({ ...prev, modo: e.target.value }))}
-                    className="mode-select"
-                  >
-                    <option value="manual">⌨️ Modo Manual</option>
-                    <option value="auto">📷 Modo Auto</option>
-                  </select>
-                </div>
+                <select value={scannerState.modo} onChange={(e) => setScannerState(prev => ({ ...prev, modo: e.target.value }))} className="mode-select">
+                  <option value="manual">⌨️ Modo Manual</option>
+                  <option value="auto">📷 Modo Auto</option>
+                </select>
               </div>
             </div>
 
-            {/* Información de formatos aceptados */}
-            <div className="formatos-aceptados-banner">
-              <span className="formatos-titulo">✅ Formatos aceptados:</span>
-              <div className="formatos-lista">
-                <span className="formato-item">V132274/IF2128</span>
-                <span className="formato-item">V134339/BV1012</span>
-                <span className="formato-item">NK-137</span>
-                <span className="formato-item">1001</span>
-                <span className="formato-item">LOTE-001</span>
-                <span className="formato-item">¡CUALQUIER CÓDIGO!</span>
+            <div className="formatos-banner">
+              <span className="formatos-title">✅ Formatos aceptados:</span>
+              <div className="formatos-list">
+                <span className="formato-tag">V132274/IF2128</span>
+                <span className="formato-tag">V134339/BV1012</span>
+                <span className="formato-tag">NK-137</span>
+                <span className="formato-tag">1001</span>
+                <span className="formato-tag">LOTE-001</span>
+                <span className="formato-tag">¡CUALQUIER CÓDIGO!</span>
               </div>
             </div>
 
             <div className="scanner-grid-premium">
-              {/* Panel de Escaneo Activo */}
-              <div className="scanner-active-premium">
-                <div className="code-display-premium">
-                  <div className="code-label">
-                    <span>Código Escaneado</span>
-                    <span className="code-format">{scannerState.tipoScanner}</span>
+              <div className="scanner-active-area">
+                <div className="code-display">
+                  <div className="code-label"><span>Código Escaneado</span><span className="code-format">{scannerState.tipoScanner}</span></div>
+                  <div className="code-box">
+                    {scannerData.codigoEscaneado ? <span className="code-value">{scannerData.codigoEscaneado}</span> : <span className="code-placeholder">{escanerActivo ? 'Esperando código...' : 'Activa el escáner'}</span>}
                   </div>
-                  <div className="code-box-premium">
-                    {scannerData.codigoEscaneado ? (
-                      <span className="code-value">{scannerData.codigoEscaneado}</span>
-                    ) : (
-                      <span className="code-placeholder">
-                        {escanerActivo ? 'Esperando código...' : 'Activa el escáner'}
-                      </span>
-                    )}
-                  </div>
-                  {escanerActivo && codigoTemporal && (
-                    <div className="typing-indicator-premium">
-                      <span className="typing-text">Escribiendo: {codigoTemporal}</span>
-                      <span className="typing-cursor"></span>
-                    </div>
-                  )}
+                  {escanerActivo && codigoTemporal && <div className="typing-indicator"><span>Escribiendo: {codigoTemporal}</span><span className="cursor"></span></div>}
                 </div>
-
-                <div className="scanner-controls-premium">
-                  {!escanerActivo ? (
-                    <button 
-                      className="btn-scan premium" 
-                      onClick={() => handleIniciarEscaner(scannerState.modo)}
-                    >
-                      <span className="btn-icon">▶️</span>
-                      <span className="btn-text">Iniciar Escáner</span>
-                    </button>
-                  ) : (
-                    <button className="btn-scan stop" onClick={handleDetenerEscaner}>
-                      <span className="btn-icon">⏹️</span>
-                      <span className="btn-text">Detener Escáner</span>
-                    </button>
-                  )}
+                <div className="scanner-controls">
+                  {!escanerActivo ? <button className="btn-scan" onClick={() => handleIniciarEscaner(scannerState.modo)}>▶️ Iniciar Escáner</button> : <button className="btn-scan stop" onClick={handleDetenerEscaner}>⏹️ Detener Escáner</button>}
                 </div>
-
-                <div className="scanner-form-premium">
-                  <h3 className="form-title">
-                    <span className="title-icon">📋</span>
-                    Información del Lote - Control Calidad
-                  </h3>
-
-                  <div className="form-grid-premium">
-                    <div className="form-group">
-                      <label>📦 Número de Lote</label>
-                      <input
-                        type="text"
-                        value={scannerData.numeroLote}
-                        onChange={(e) => setScannerData({...scannerData, numeroLote: e.target.value})}
-                        placeholder="Se auto-completa al escanear"
-                        list="lotes-sugeridos"
-                      />
-                      <datalist id="lotes-sugeridos">
-                        {lotes.map(lote => (
-                          <option key={lote.id} value={lote.lote} />
-                        ))}
-                      </datalist>
-                    </div>
-
-                    <div className="form-group">
-                      <label>🏷️ Tipo de Producto</label>
-                      <select
-                        value={scannerData.tipoProducto}
-                        onChange={(e) => setScannerData({...scannerData, tipoProducto: e.target.value})}
-                      >
-                        <option value="">Seleccionar...</option>
-                        <option value="Camiseta Premium">Camiseta Premium</option>
-                        <option value="Gorra Deportiva">Gorra Deportiva</option>
-                        <option value="Sudadera Oversize">Sudadera Oversize</option>
-                        <option value="Polera Básica">Polera Básica</option>
-                        <option value="Chaqueta Térmica">Chaqueta Térmica</option>
-                        <option value="Short Running">Short Running</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>⚙️ Máquina</label>
-                      <select
-                        value={scannerData.maquina}
-                        onChange={(e) => setScannerData({...scannerData, maquina: e.target.value})}
-                      >
-                        <option value="">Seleccionar...</option>
-                        {maquinas.map(m => (
-                          <option key={m.id} value={m.id}>{m.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>👤 Operador</label>
-                      <input
-                        type="text"
-                        value={scannerData.operador}
-                        onChange={(e) => setScannerData({...scannerData, operador: e.target.value})}
-                        placeholder="Nombre del operador"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label>🔄 Turno</label>
-                      <select
-                        value={scannerData.turno}
-                        onChange={(e) => setScannerData({...scannerData, turno: e.target.value})}
-                      >
-                        <option value="">Seleccionar...</option>
-                        <option value="A">Turno A (06:00-14:00)</option>
-                        <option value="B">Turno B (14:00-22:00)</option>
-                        <option value="C">Turno C (22:00-06:00)</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>📊 Cantidad</label>
-                      <input
-                        type="number"
-                        value={scannerData.cantidad}
-                        onChange={(e) => setScannerData({...scannerData, cantidad: parseInt(e.target.value)})}
-                        min="1"
-                      />
-                    </div>
-
-                    <div className="form-group full-width">
-                      <label>📝 Observaciones de Calidad</label>
-                      <textarea
-                        value={scannerData.observaciones}
-                        onChange={(e) => setScannerData({...scannerData, observaciones: e.target.value})}
-                        placeholder="Notas adicionales sobre calidad..."
-                        rows="3"
-                      />
-                    </div>
-
-                    <div className="form-group checkbox">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={scannerData.reproceso}
-                          onChange={(e) => setScannerData({...scannerData, reproceso: e.target.checked})}
-                        />
-                        Es reproceso
-                      </label>
-                    </div>
-
-                    <div className="form-group">
-                      <label>🎯 Prioridad</label>
-                      <select
-                        value={scannerData.prioridad}
-                        onChange={(e) => setScannerData({...scannerData, prioridad: e.target.value})}
-                      >
-                        <option value="baja">🟢 Baja</option>
-                        <option value="normal">🔵 Normal</option>
-                        <option value="alta">🟠 Alta</option>
-                      </select>
-                    </div>
+                <div className="scanner-form">
+                  <h3>📋 Información del Lote</h3>
+                  <div className="form-grid">
+                    <div className="form-group"><label>📦 Número de Lote</label><input type="text" value={scannerData.numeroLote} onChange={(e) => setScannerData({...scannerData, numeroLote: e.target.value})} placeholder="Se auto-completa al escanear" /></div>
+                    <div className="form-group"><label>🏷️ Tipo de Producto</label><select value={scannerData.tipoProducto} onChange={(e) => setScannerData({...scannerData, tipoProducto: e.target.value})}><option value="">Seleccionar...</option><option value="Camiseta Premium">Camiseta Premium</option><option value="Gorra Deportiva">Gorra Deportiva</option><option value="Sudadera Oversize">Sudadera Oversize</option></select></div>
+                    <div className="form-group"><label>⚙️ Máquina</label><select value={scannerData.maquina} onChange={(e) => setScannerData({...scannerData, maquina: e.target.value})}><option value="">Seleccionar...</option>{maquinas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}</select></div>
+                    <div className="form-group"><label>👤 Operador</label><input type="text" value={scannerData.operador} onChange={(e) => setScannerData({...scannerData, operador: e.target.value})} placeholder="Nombre del operador" /></div>
+                    <div className="form-group"><label>🔄 Turno</label><select value={scannerData.turno} onChange={(e) => setScannerData({...scannerData, turno: e.target.value})}><option value="">Seleccionar...</option><option value="A">Turno A (06:00-14:00)</option><option value="B">Turno B (14:00-22:00)</option><option value="C">Turno C (22:00-06:00)</option></select></div>
+                    <div className="form-group"><label>📊 Cantidad</label><input type="number" value={scannerData.cantidad} onChange={(e) => setScannerData({...scannerData, cantidad: parseInt(e.target.value)})} min="1" /></div>
+                    <div className="form-group full-width"><label>📝 Observaciones</label><textarea value={scannerData.observaciones} onChange={(e) => setScannerData({...scannerData, observaciones: e.target.value})} rows="3" placeholder="Notas adicionales sobre calidad..." /></div>
+                    <div className="form-group checkbox"><label><input type="checkbox" checked={scannerData.reproceso} onChange={(e) => setScannerData({...scannerData, reproceso: e.target.checked})} /> Es reproceso</label></div>
+                    <div className="form-group"><label>🎯 Prioridad</label><select value={scannerData.prioridad} onChange={(e) => setScannerData({...scannerData, prioridad: e.target.value})}><option value="baja">🟢 Baja</option><option value="normal">🔵 Normal</option><option value="alta">🟠 Alta</option></select></div>
                   </div>
-
-                  <div className="form-actions-premium">
-                    <button className="btn-guardar premium" onClick={handleGuardarEscaneo}>
-                      <span className="btn-icon">💾</span>
-                      <span>Guardar Escaneo</span>
-                    </button>
-                    <button className="btn-limpiar premium" onClick={handleLimpiarEscaneo}>
-                      <span className="btn-icon">🧹</span>
-                      <span>Limpiar Formulario</span>
-                    </button>
-                    <button className="btn-exportar premium" onClick={() => handleExportarEscaneos('excel')}>
-                      <span className="btn-icon">📥</span>
-                      <span>Exportar Historial</span>
-                    </button>
+                  <div className="form-actions">
+                    <button className="btn-guardar" onClick={handleGuardarEscaneo}>💾 Guardar Escaneo</button>
+                    <button className="btn-limpiar" onClick={handleLimpiarEscaneo}>🧹 Limpiar Formulario</button>
+                    <button className="btn-exportar" onClick={() => handleExportarEscaneos('excel')}>📥 Exportar Historial</button>
                   </div>
                 </div>
               </div>
-
-              {/* Panel de Historial */}
-              <div className="scanner-history-premium">
-                <div className="history-header">
-                  <h3>
-                    <span className="header-icon">📜</span>
-                    Historial de Escaneos - Calidad
-                  </h3>
-                  <div className="history-stats">
-                    <div className="stat-mini">
-                      <span className="stat-value">{estadisticasEscaneo.totalEscaneos}</span>
-                      <span className="stat-label">Total</span>
-                    </div>
-                    <div className="stat-mini">
-                      <span className="stat-value">{estadisticasEscaneo.escaneosHoy}</span>
-                      <span className="stat-label">Hoy</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="history-list premium">
-                  {historialEscaneos.length === 0 ? (
-                    <div className="empty-history premium">
-                      <div className="empty-icon-animado">📭</div>
-                      <p>No hay escaneos</p>
-                      <small>Los códigos aparecerán aquí</small>
-                    </div>
-                  ) : (
-                    historialEscaneos.slice(0, 20).map((escaneo, index) => (
-                      <div key={escaneo.id} className="history-item premium">
-                        <div className="item-header">
-                          <div className="item-time">
-                            <span className="time">{escaneo.horaEscaneo}</span>
-                          </div>
-                          <button 
-                            className="item-delete"
-                            onClick={() => handleEliminarEscaneo(escaneo.id)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                        
-                        <div className="item-content">
-                          <div className="code-section">
-                            <span className="label">Código:</span>
-                            <span className="code">{escaneo.codigoEscaneado}</span>
-                          </div>
-                          
-                          <div className="details-section">
-                            {escaneo.numeroLote && (
-                              <div className="detail">
-                                <span>📦 {escaneo.numeroLote}</span>
-                              </div>
-                            )}
-                            {escaneo.tipoProducto && (
-                              <div className="detail">
-                                <span>🏷️ {escaneo.tipoProducto}</span>
-                              </div>
-                            )}
-                            {escaneo.maquina && (
-                              <div className="detail">
-                                <span>⚙️ {escaneo.maquina}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+              <div className="scanner-history">
+                <div className="history-header"><h3>📜 Historial de Escaneos</h3><div className="history-stats"><div className="stat"><span className="value">{estadisticasEscaneo.totalEscaneos}</span><span className="label">Total</span></div><div className="stat"><span className="value">{estadisticasEscaneo.escaneosHoy}</span><span className="label">Hoy</span></div></div></div>
+                <div className="history-list">
+                  {historialEscaneos.length === 0 ? <div className="empty-history"><div className="empty-icon">📭</div><p>No hay escaneos</p><small>Los códigos aparecerán aquí</small></div> :
+                    historialEscaneos.slice(0, 20).map(escaneo => (
+                      <div key={escaneo.id} className="history-item">
+                        <div className="item-header"><div className="item-time"><span className="time">{escaneo.horaEscaneo}</span></div><button className="item-delete" onClick={() => handleEliminarEscaneo(escaneo.id)}>✕</button></div>
+                        <div className="item-content"><div className="code-section"><span className="label">Código:</span><span className="code">{escaneo.codigoEscaneado}</span></div><div className="details-section">{escaneo.numeroLote && <div className="detail">📦 {escaneo.numeroLote}</div>}{escaneo.tipoProducto && <div className="detail">🏷️ {escaneo.tipoProducto}</div>}{escaneo.maquina && <div className="detail">⚙️ {escaneo.maquina}</div>}</div></div>
                       </div>
                     ))
-                  )}
+                  }
                 </div>
               </div>
             </div>
-
-            <div className="scanner-instructions-premium">
-              <div className="instruction-step">
-                <div className="step-number">1</div>
-                <div className="step-content">
-                  <h4>Activar</h4>
-                  <p>Inicia el escáner de calidad</p>
-                </div>
-              </div>
-              <div className="instruction-step">
-                <div className="step-number">2</div>
-                <div className="step-content">
-                  <h4>Escanear</h4>
-                  <p>Usa el teclado o escáner físico</p>
-                </div>
-              </div>
-              <div className="instruction-step">
-                <div className="step-number">3</div>
-                <div className="step-content">
-                  <h4>Completar</h4>
-                  <p>Agrega información de calidad</p>
-                </div>
-              </div>
-              <div className="instruction-step">
-                <div className="step-number">4</div>
-                <div className="step-content">
-                  <h4>Guardar</h4>
-                  <p>Confirma el registro en calidad</p>
-                </div>
-              </div>
+            <div className="scanner-instructions">
+              <div className="step"><div className="step-number">1</div><div><h4>Activar</h4><p>Inicia el escáner de calidad</p></div></div>
+              <div className="step"><div className="step-number">2</div><div><h4>Escanear</h4><p>Usa el teclado o escáner físico</p></div></div>
+              <div className="step"><div className="step-number">3</div><div><h4>Completar</h4><p>Agrega información de calidad</p></div></div>
+              <div className="step"><div className="step-number">4</div><div><h4>Guardar</h4><p>Confirma el registro en calidad</p></div></div>
             </div>
           </div>
         )}
 
-        {/* ================ VISTA DE ANÁLISIS AVANZADO ================ */}
+        {/* ================ VISTA DE ANÁLISIS PREMIUM ================ */}
         {vista === 'analisis' && (
-          <div className="analytics-panel-premium">
-            <div className="panel-header-actions">
-              <h2 className="panel-title-premium">
-                <span className="title-icon">📊</span>
-                Análisis de Calidad Avanzado
-                <span className="title-badge">Tiempo Real</span>
-              </h2>
-              <div className="header-actions">
-                <button className={`action-btn-small ${periodoAnalisis === 'semanal' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('semanal')}>
-                  Semanal
-                </button>
-                <button className={`action-btn-small ${periodoAnalisis === 'mensual' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('mensual')}>
-                  Mensual
-                </button>
-                <button className={`action-btn-small ${periodoAnalisis === 'trimestral' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('trimestral')}>
-                  Trimestral
-                </button>
-                <button className="action-btn-small" onClick={() => setMostrarBenchmark(!mostrarBenchmark)}>
-                  📊 Benchmark
-                </button>
-                <button className="action-btn-small" onClick={() => setShowPredicciones(true)}>
-                  🔮 Predicciones
-                </button>
+          <div className="analisis-premium-panel">
+            <div className="panel-premium-header">
+              <h2 className="panel-premium-title"><span className="title-icon">📊</span> Análisis de Calidad Avanzado</h2>
+              <div className="panel-premium-actions">
+                <button className={`action-premium-btn ${periodoAnalisis === 'semanal' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('semanal')}>Semanal</button>
+                <button className={`action-premium-btn ${periodoAnalisis === 'mensual' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('mensual')}>Mensual</button>
+                <button className={`action-premium-btn ${periodoAnalisis === 'trimestral' ? 'active' : ''}`} onClick={() => setPeriodoAnalisis('trimestral')}>Trimestral</button>
+                <button className="action-premium-btn" onClick={() => setMostrarBenchmark(!mostrarBenchmark)}>📊 Benchmark</button>
+                <button className="action-premium-btn" onClick={() => setShowPredicciones(true)}>🔮 Predicciones</button>
               </div>
             </div>
-
-            <div className="analytics-grid-premium">
-              {/* Gráfico de Tendencia FFTT con Media Móvil */}
-              <div className="chart-card">
-                <div className="chart-header">
-                  <h3>Tendencia FFTT con Media Móvil</h3>
-                  <div className="chart-controls">
-                    <button className="chart-btn active">Lineal</button>
-                    <button className="chart-btn">Suavizado</button>
-                  </div>
-                </div>
-                <div className="chart-container" style={{ height: '350px' }}>
-                  <Line data={chartData.tendenciaFFTT} options={chartOptions} />
-                </div>
-              </div>
-
-              {/* Gráfico de Causas de Rechazo */}
-              <div className="chart-card">
-                <div className="chart-header">
-                  <h3>Causas de Rechazo por Tipo</h3>
-                  <div className="chart-controls">
-                    <button className="chart-btn active">Barras</button>
-                    <button className="chart-btn">Pastel</button>
-                  </div>
-                </div>
-                <div className="chart-container" style={{ height: '350px' }}>
-                  <Bar data={chartData.rechazosPorTipo} options={chartOptions} />
-                </div>
-              </div>
-
-              {/* Gráfico de Rendimiento de Máquinas con OEE */}
-              <div className="chart-card">
-                <div className="chart-header">
-                  <h3>Rendimiento por Máquina (Eficiencia vs OEE)</h3>
-                </div>
-                <div className="chart-container" style={{ height: '350px' }}>
-                  <Bar data={chartData.rendimientoMaquinas} options={chartOptions} />
-                </div>
-              </div>
-
-              {/* Gráfico Radar de Calidad */}
-              <div className="chart-card">
-                <div className="chart-header">
-                  <h3>Radar de Calidad vs Objetivo</h3>
-                </div>
-                <div className="chart-container" style={{ height: '350px' }}>
-                  <Radar data={chartData.calidadRadar} options={chartOptions} />
-                </div>
-              </div>
-
-              {/* Gráfico Doughnut de Distribución de Gravedad */}
-              <div className="chart-card">
-                <div className="chart-header">
-                  <h3>Distribución por Gravedad</h3>
-                </div>
-                <div className="chart-container doughnut" style={{ height: '350px' }}>
-                  <Doughnut data={chartData.distribucionGravedad} options={chartOptions} />
-                </div>
-              </div>
-
-              {/* Predicciones IA */}
-              {analisisAvanzado.predicciones.length > 0 && (
-                <div className="chart-card">
-                  <div className="chart-header">
-                    <h3>Predicciones IA - Próximos 7 días</h3>
-                    <div className="chart-controls">
-                      <span className="confidence-badge">Confianza: 85%</span>
-                    </div>
-                  </div>
-                  <div className="chart-container" style={{ height: '350px' }}>
-                    <Line data={chartData.predicciones} options={chartOptions} />
-                  </div>
-                </div>
-              )}
+            <div className="analytics-grid">
+              <div className="chart-card"><div className="chart-header"><h3>Tendencia FFTT con Media Móvil</h3></div><div className="chart-container" style={{height: '350px'}}><Line data={chartData.tendenciaFFTT} options={chartOptions} /></div></div>
+              <div className="chart-card"><div className="chart-header"><h3>Causas de Rechazo por Tipo</h3></div><div className="chart-container" style={{height: '350px'}}><Bar data={chartData.rechazosPorTipo} options={chartOptions} /></div></div>
+              <div className="chart-card"><div className="chart-header"><h3>Rendimiento por Máquina (Eficiencia vs OEE)</h3></div><div className="chart-container" style={{height: '350px'}}><Bar data={chartData.rendimientoMaquinas} options={chartOptions} /></div></div>
+              <div className="chart-card"><div className="chart-header"><h3>Radar de Calidad vs Objetivo</h3></div><div className="chart-container" style={{height: '350px'}}><Radar data={chartData.calidadRadar} options={chartOptions} /></div></div>
+              <div className="chart-card"><div className="chart-header"><h3>Distribución por Gravedad</h3></div><div className="chart-container doughnut" style={{height: '350px'}}><Doughnut data={chartData.distribucionGravedad} options={chartOptions} /></div></div>
+              {analisisAvanzado.predicciones.length > 0 && <div className="chart-card"><div className="chart-header"><h3>Predicciones IA - Próximos 7 días <span className="confidence-badge">Confianza: 85%</span></h3></div><div className="chart-container" style={{height: '350px'}}><Line data={chartData.predicciones} options={chartOptions} /></div></div>}
             </div>
-
-            {/* Recomendaciones IA */}
-            {analisisAvanzado.recomendaciones.length > 0 && (
-              <div className="recomendaciones-ia">
-                <h3>🤖 Recomendaciones Inteligentes</h3>
-                <div className="recomendaciones-grid">
-                  {analisisAvanzado.recomendaciones.map((rec, idx) => (
-                    <div key={idx} className={`recomendacion-card ${rec.prioridad}`}>
-                      <div className="recomendacion-header">
-                        <span className={`prioridad-badge ${rec.prioridad}`}>
-                          {rec.prioridad === 'alta' ? '🔴 Alta' : rec.prioridad === 'media' ? '🟡 Media' : '🟢 Baja'}
-                        </span>
-                        <h4>{rec.titulo}</h4>
-                      </div>
-                      <p className="recomendacion-desc">{rec.descripcion}</p>
-                      <div className="recomendacion-acciones">
-                        {rec.acciones.map((accion, i) => (
-                          <span key={i} className="accion-tag">✓ {accion}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Alertas Predictivas */}
-            {analisisAvanzado.anomalias.length > 0 && (
-              <div className="alertas-predictivas">
-                <h3>⚠️ Alertas Predictivas</h3>
-                <div className="alertas-list">
-                  {analisisAvanzado.anomalias.map((anomalia, idx) => (
-                    <div key={idx} className="alerta-item">
-                      <span className="alerta-icon">🚨</span>
-                      <div className="alerta-content">
-                        <span className="alerta-fecha">{anomalia.fecha}</span>
-                        <span className="alerta-desc">
-                          Tasa FFTT {anomalia.tasa}% - Desviación {anomalia.desviacion.toFixed(1)}%
-                        </span>
-                        <span className={`alerta-gravedad ${anomalia.gravedad > 2 ? 'critica' : 'alta'}`}>
-                          {anomalia.gravedad > 2 ? 'Anomalía crítica' : 'Anomalía detectada'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {analisisAvanzado.recomendaciones.length > 0 && <div className="recomendaciones-ia"><h3>🤖 Recomendaciones Inteligentes</h3><div className="recomendaciones-grid">{analisisAvanzado.recomendaciones.map((rec, idx) => (<div key={idx} className={`recomendacion-card ${rec.prioridad}`}><div className="recomendacion-header"><span className={`prioridad-badge ${rec.prioridad}`}>{rec.prioridad === 'alta' ? '🔴 Alta' : rec.prioridad === 'media' ? '🟡 Media' : '🟢 Baja'}</span><h4>{rec.titulo}</h4></div><p>{rec.descripcion}</p><div className="recomendacion-acciones">{rec.acciones.map((accion, i) => <span key={i} className="accion-tag">✓ {accion}</span>)}</div></div>))}</div></div>}
+            {analisisAvanzado.anomalias.length > 0 && <div className="alertas-predictivas"><h3>⚠️ Alertas Predictivas</h3><div className="alertas-list">{analisisAvanzado.anomalias.map((anomalia, idx) => (<div key={idx} className="alerta-item"><span className="alerta-icon">🚨</span><div className="alerta-content"><span className="alerta-fecha">{anomalia.fecha}</span><span className="alerta-desc">Tasa FFTT {anomalia.tasa}% - Desviación {anomalia.desviacion.toFixed(1)}%</span><span className={`alerta-gravedad ${anomalia.gravedad > 2 ? 'critica' : 'alta'}`}>{anomalia.gravedad > 2 ? 'Anomalía crítica' : 'Anomalía detectada'}</span></div></div>))}</div></div>}
           </div>
         )}
 
-        {/* ================ VISTA DE IA ================ */}
+        {/* ================ VISTA DE IA PREMIUM ================ */}
         {vista === 'ia' && (
-          <div className="ia-panel-premium">
-            <h2 className="panel-title-premium">
-              <span className="title-icon">🤖</span>
-              Asistente de Calidad con IA
-              <span className="title-badge">Machine Learning</span>
-            </h2>
-
-            <div className="ia-grid-premium">
-              {/* Predicciones Avanzadas */}
-              <div className="ia-card">
-                <h3>📈 Predicciones de Calidad</h3>
-                <div className="predicciones-list">
-                  <div className="prediccion-item">
-                    <span className="prediccion-label">Próxima semana</span>
-                    <div className="prediccion-bar">
-                      <div className="bar-fill" style={{width: '75%', background: '#f59e0b'}}>
-                        <span className="prediccion-valor">-2.3%</span>
-                      </div>
-                    </div>
-                    <span className="prediccion-detalle">Tasa FFTT esperada: 92.5%</span>
-                  </div>
-                  <div className="prediccion-item">
-                    <span className="prediccion-label">Próximo mes</span>
-                    <div className="prediccion-bar">
-                      <div className="bar-fill" style={{width: '45%', background: '#ef4444'}}>
-                        <span className="prediccion-valor">-5.1%</span>
-                      </div>
-                    </div>
-                    <span className="prediccion-detalle">Posible degradación por temporada</span>
-                  </div>
-                  <div className="prediccion-item">
-                    <span className="prediccion-label">Trimestre</span>
-                    <div className="prediccion-bar">
-                      <div className="bar-fill" style={{width: '30%', background: '#ef4444'}}>
-                        <span className="prediccion-valor">-8.7%</span>
-                      </div>
-                    </div>
-                    <span className="prediccion-detalle">Recomendar mantenimiento preventivo</span>
-                  </div>
-                </div>
-                <div className="confianza">
-                  <span>Confianza del modelo: 85%</span>
-                  <div className="confianza-bar">
-                    <div className="confianza-fill" style={{width: '85%'}}></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recomendaciones Inteligentes */}
-              <div className="ia-card">
-                <h3>💡 Recomendaciones IA</h3>
-                <div className="recomendaciones-list">
-                  <div className="recomendacion alta">
-                    <span className="recomendacion-prioridad">🔴 Alta</span>
-                    <p>Revisar parámetros en M02 - Tono fuera de especificación</p>
-                    <span className="recomendacion-impacto">Impacto estimado: +3.2% calidad</span>
-                  </div>
-                  <div className="recomendacion media">
-                    <span className="recomendacion-prioridad">🟡 Media</span>
-                    <p>Capacitación a operadores del turno B en control de calidad</p>
-                    <span className="recomendacion-impacto">Impacto estimado: +1.8% eficiencia</span>
-                  </div>
-                  <div className="recomendacion baja">
-                    <span className="recomendacion-prioridad">🟢 Baja</span>
-                    <p>Calibrar sensores de temperatura en M05 y M09</p>
-                    <span className="recomendacion-impacto">Impacto estimado: +0.9% conformidad</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Alertas Inteligentes */}
-              <div className="ia-card">
-                <h3>⚠️ Alertas Inteligentes</h3>
-                <div className="alertas-list">
-                  <div className="alerta">
-                    <span className="alerta-tiempo">Hace 2h</span>
-                    <p>Pico de rechazos detectado en M07 - Posible problema de presión</p>
-                    <span className="alerta-recomendacion">Recomendación: Verificar presión de trabajo</span>
-                  </div>
-                  <div className="alerta">
-                    <span className="alerta-tiempo">Hace 5h</span>
-                    <p>Patrón anormal en textura - Turno B</p>
-                    <span className="alerta-recomendacion">Recomendación: Revisar materia prima del lote</span>
-                  </div>
-                  <div className="alerta">
-                    <span className="alerta-tiempo">Hace 12h</span>
-                    <p>Tendencia descendente en tasa FFTT - 3 días consecutivos</p>
-                    <span className="alerta-recomendacion">Recomendación: Programar mantenimiento preventivo</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Métricas de IA */}
-              <div className="ia-card">
-                <h3>📊 Métricas de Rendimiento IA</h3>
-                <div className="metricas-ia">
-                  <div className="metrica-ia">
-                    <span className="metrica-valor">94.2%</span>
-                    <span className="metrica-label">Precisión de predicciones</span>
-                  </div>
-                  <div className="metrica-ia">
-                    <span className="metrica-valor">87%</span>
-                    <span className="metrica-label">Detección de anomalías</span>
-                  </div>
-                  <div className="metrica-ia">
-                    <span className="metrica-valor">12</span>
-                    <span className="metrica-label">Alertas preventivas generadas</span>
-                  </div>
-                  <div className="metrica-ia">
-                    <span className="metrica-valor">+8.5%</span>
-                    <span className="metrica-label">Mejora en calidad sugerida</span>
-                  </div>
-                </div>
-              </div>
+          <div className="ia-premium-panel">
+            <h2 className="panel-premium-title"><span className="title-icon">🤖</span> Asistente de Calidad con IA <span className="title-badge-premium">Machine Learning</span></h2>
+            <div className="ia-grid">
+              <div className="ia-card"><h3>📈 Predicciones de Calidad</h3><div className="predicciones-list"><div className="prediccion-item"><span className="prediccion-label">Próxima semana</span><div className="prediccion-bar"><div className="bar-fill" style={{width: '75%', background: '#f59e0b'}}><span className="prediccion-valor">-2.3%</span></div></div><span className="prediccion-detalle">Tasa FFTT esperada: 92.5%</span></div><div className="prediccion-item"><span className="prediccion-label">Próximo mes</span><div className="prediccion-bar"><div className="bar-fill" style={{width: '45%', background: '#ef4444'}}><span className="prediccion-valor">-5.1%</span></div></div><span className="prediccion-detalle">Posible degradación por temporada</span></div></div><div className="confianza"><span>Confianza del modelo: 85%</span><div className="confianza-bar"><div className="confianza-fill" style={{width: '85%'}}></div></div></div></div>
+              <div className="ia-card"><h3>💡 Recomendaciones IA</h3><div className="recomendaciones-list"><div className="recomendacion alta"><span className="recomendacion-prioridad">🔴 Alta</span><p>Revisar parámetros en M02 - Tono fuera de especificación</p><span className="recomendacion-impacto">Impacto estimado: +3.2% calidad</span></div><div className="recomendacion media"><span className="recomendacion-prioridad">🟡 Media</span><p>Capacitación a operadores del turno B en control de calidad</p><span className="recomendacion-impacto">Impacto estimado: +1.8% eficiencia</span></div><div className="recomendacion baja"><span className="recomendacion-prioridad">🟢 Baja</span><p>Calibrar sensores de temperatura en M05 y M09</p><span className="recomendacion-impacto">Impacto estimado: +0.9% conformidad</span></div></div></div>
+              <div className="ia-card"><h3>⚠️ Alertas Inteligentes</h3><div className="alertas-list"><div className="alerta"><span className="alerta-tiempo">Hace 2h</span><p>Pico de rechazos detectado en M07 - Posible problema de presión</p><span className="alerta-recomendacion">Recomendación: Verificar presión de trabajo</span></div><div className="alerta"><span className="alerta-tiempo">Hace 5h</span><p>Patrón anormal en textura - Turno B</p><span className="alerta-recomendacion">Recomendación: Revisar materia prima del lote</span></div></div></div>
+              <div className="ia-card"><h3>📊 Métricas de Rendimiento IA</h3><div className="metricas-ia"><div className="metrica-ia"><span className="metrica-valor">94.2%</span><span className="metrica-label">Precisión</span></div><div className="metrica-ia"><span className="metrica-valor">87%</span><span className="metrica-label">Detección</span></div><div className="metrica-ia"><span className="metrica-valor">12</span><span className="metrica-label">Alertas</span></div><div className="metrica-ia"><span className="metrica-valor">+8.5%</span><span className="metrica-label">Mejora</span></div></div></div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Sistema de Notificaciones */}
-      <div className="notifications-container">
+      {/* NOTIFICACIONES */}
+      <div className="notifications-premium">
         {notificaciones.map(notif => (
-          <div key={notif.id} className={`notification ${notif.tipo}`}>
+          <div key={notif.id} className={`notification-premium ${notif.tipo}`}>
             <div className="notification-content">
-              <span className="notification-icon">
-                {notif.tipo === 'exito' && '✅'}
-                {notif.tipo === 'error' && '❌'}
-                {notif.tipo === 'info' && 'ℹ️'}
-                {notif.tipo === 'alerta' && '⚠️'}
-              </span>
+              <span className="notification-icon">{notif.tipo === 'exito' ? '✅' : notif.tipo === 'error' ? '❌' : notif.tipo === 'info' ? 'ℹ️' : '⚠️'}</span>
               <span className="notification-message">{notif.mensaje}</span>
             </div>
             <div className="notification-progress"></div>
@@ -2795,202 +2001,30 @@ const FFTTquality = () => {
         ))}
       </div>
 
-      {/* Atajos de teclado */}
-      <div className="keyboard-shortcuts-hint">
-        <span className="hint-item">Ctrl+D: Dashboard</span>
-        <span className="hint-item">Ctrl+M: Máquinas</span>
-        <span className="hint-item">Ctrl+L: Lotes</span>
-        <span className="hint-item">Ctrl+S: Escáner</span>
-        <span className="hint-item">Ctrl+A: Análisis</span>
-        <span className="hint-item">Ctrl+P: Métricas Avanzadas</span>
-        <span className="hint-item">Esc: Cerrar</span>
+      {/* ATAJOS DE TECLADO */}
+      <div className="shortcuts-hint">
+        <span>Ctrl+D: Dashboard</span><span>Ctrl+M: Máquinas</span><span>Ctrl+L: Lotes</span><span>Ctrl+S: Escáner</span><span>Ctrl+A: Análisis</span><span>Esc: Cerrar</span>
       </div>
 
-      {/* Modal de detalles de lote */}
+      {/* MODAL DE DETALLES */}
       {showModal && selectedLote && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-premium-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-premium-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
-            
             {modalType === 'ver' && (
-              <div className="modal-detalle-lote">
-                <h2>Detalles del Lote {selectedLote.lote} - Control Calidad</h2>
+              <div className="modal-detalle">
+                <h2>Detalles del Lote {selectedLote.lote}</h2>
                 <div className="detalle-grid">
-                  <div className="detalle-seccion">
-                    <h4>Información General</h4>
-                    <p><strong>Lote:</strong> {selectedLote.lote}</p>
-                    <p><strong>PO:</strong> {selectedLote.po}</p>
-                    <p><strong>Producto:</strong> {selectedLote.sport}</p>
-                    <p><strong>Fecha:</strong> {selectedLote.fecha}</p>
-                    <p><strong>Máquina:</strong> {selectedLote.maquina}</p>
-                    <p><strong>Turno:</strong> {selectedLote.turno}</p>
-                    <p><strong>Operador:</strong> {selectedLote.operador}</p>
-                  </div>
-                  
-                  <div className="detalle-seccion">
-                    <h4>Métricas de Calidad</h4>
-                    <p><strong>Total Muestras:</strong> {selectedLote.totalMuestras}</p>
-                    <p><strong>Aceptadas:</strong> {selectedLote.aceptadas}</p>
-                    <p><strong>Rechazadas:</strong> {selectedLote.rechazadas}</p>
-                    <p><strong>Tasa FFTT:</strong> {selectedLote.tasaFFTT}%</p>
-                    <p><strong>Gravedad:</strong> {selectedLote.gravedad}</p>
-                    <p><strong>Sigma:</strong> {selectedLote.calidad?.sigma}σ</p>
-                    <p><strong>Cpk:</strong> {selectedLote.calidad?.cpk}</p>
-                    <p><strong>PPM:</strong> {selectedLote.calidad?.ppm}</p>
-                  </div>
-                  
-                  <div className="detalle-seccion">
-                    <h4>Parámetros de Producción</h4>
-                    <p><strong>Temperatura:</strong> {selectedLote.temperatura}°C</p>
-                    <p><strong>Presión:</strong> {selectedLote.presion} bar</p>
-                    <p><strong>Velocidad:</strong> {selectedLote.velocidad} rpm</p>
-                  </div>
-                  
-                  <div className="detalle-seccion">
-                    <h4>Rechazos por Tipo</h4>
-                    <p><strong>Tono:</strong> {selectedLote.tipoRechazo?.tono}</p>
-                    <p><strong>Textura:</strong> {selectedLote.tipoRechazo?.textura}</p>
-                    <p><strong>Color:</strong> {selectedLote.tipoRechazo?.color}</p>
-                    <p><strong>Dimensión:</strong> {selectedLote.tipoRechazo?.dimension}</p>
-                    <p><strong>Acabado:</strong> {selectedLote.tipoRechazo?.acabado}</p>
-                  </div>
-                  
-                  <div className="detalle-seccion full-width">
-                    <h4>Materia Prima</h4>
-                    <p><strong>Lote MP:</strong> {selectedLote.materiaPrima?.lote}</p>
-                    <p><strong>Proveedor:</strong> {selectedLote.materiaPrima?.proveedor}</p>
-                    <p><strong>Certificado:</strong> {selectedLote.materiaPrima?.certificado}</p>
-                    <p><strong>Lote Original:</strong> {selectedLote.materiaPrima?.loteOriginal}</p>
-                  </div>
-                  
-                  <div className="detalle-seccion full-width">
-                    <h4>Observaciones</h4>
-                    <p>{selectedLote.observaciones}</p>
-                  </div>
-                  
-                  {selectedLote.historialCalidad?.length > 0 && (
-                    <div className="detalle-seccion full-width">
-                      <h4>Historial de Calidad</h4>
-                      {selectedLote.historialCalidad.map((item, i) => (
-                        <p key={i}>• {item.fecha}: {item.accion} - {item.observaciones} ({item.usuario})</p>
-                      ))}
-                    </div>
-                  )}
+                  <div className="detalle-seccion"><h4>Información General</h4><p><strong>Lote:</strong> {selectedLote.lote}</p><p><strong>PO:</strong> {selectedLote.po}</p><p><strong>Producto:</strong> {selectedLote.sport}</p><p><strong>Fecha:</strong> {selectedLote.fecha}</p><p><strong>Máquina:</strong> {selectedLote.maquina}</p><p><strong>Turno:</strong> {selectedLote.turno}</p><p><strong>Operador:</strong> {selectedLote.operador}</p></div>
+                  <div className="detalle-seccion"><h4>Métricas de Calidad</h4><p><strong>Total Muestras:</strong> {selectedLote.totalMuestras}</p><p><strong>Aceptadas:</strong> {selectedLote.aceptadas}</p><p><strong>Rechazadas:</strong> {selectedLote.rechazadas}</p><p><strong>Tasa FFTT:</strong> {selectedLote.tasaFFTT}%</p><p><strong>Gravedad:</strong> {selectedLote.gravedad}</p><p><strong>Sigma:</strong> {selectedLote.calidad?.sigma}σ</p><p><strong>Cpk:</strong> {selectedLote.calidad?.cpk}</p></div>
+                  <div className="detalle-seccion"><h4>Parámetros de Producción</h4><p><strong>Temperatura:</strong> {selectedLote.temperatura}°C</p><p><strong>Presión:</strong> {selectedLote.presion} bar</p><p><strong>Velocidad:</strong> {selectedLote.velocidad} rpm</p></div>
+                  <div className="detalle-seccion"><h4>Rechazos por Tipo</h4><p><strong>Tono:</strong> {selectedLote.tipoRechazo?.tono}</p><p><strong>Textura:</strong> {selectedLote.tipoRechazo?.textura}</p><p><strong>Color:</strong> {selectedLote.tipoRechazo?.color}</p><p><strong>Dimensión:</strong> {selectedLote.tipoRechazo?.dimension}</p><p><strong>Acabado:</strong> {selectedLote.tipoRechazo?.acabado}</p></div>
+                  <div className="detalle-seccion full-width"><h4>Observaciones</h4><p>{selectedLote.observaciones}</p></div>
                 </div>
               </div>
             )}
-
             {modalType === 'editar' && (
-              <div className="modal-editar-lote">
-                <h2>Editar Lote {selectedLote.lote} - Calidad</h2>
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  editarLote(selectedLote.id, selectedLote);
-                  setShowModal(false);
-                }}>
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label>Lote</label>
-                      <input 
-                        type="text" 
-                        value={selectedLote.lote}
-                        onChange={(e) => setSelectedLote({...selectedLote, lote: e.target.value})}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>PO</label>
-                      <input 
-                        type="text" 
-                        value={selectedLote.po}
-                        onChange={(e) => setSelectedLote({...selectedLote, po: e.target.value})}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Producto</label>
-                      <select 
-                        value={selectedLote.sport}
-                        onChange={(e) => setSelectedLote({...selectedLote, sport: e.target.value})}
-                      >
-                        <option value="Camiseta Premium">Camiseta Premium</option>
-                        <option value="Gorra Deportiva">Gorra Deportiva</option>
-                        <option value="Sudadera Oversize">Sudadera Oversize</option>
-                        <option value="Polera Básica">Polera Básica</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Máquina</label>
-                      <select 
-                        value={selectedLote.maquina}
-                        onChange={(e) => setSelectedLote({...selectedLote, maquina: e.target.value})}
-                      >
-                        {maquinas.map(m => (
-                          <option key={m.id} value={m.id}>{m.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Total Muestras</label>
-                      <input 
-                        type="number" 
-                        value={selectedLote.totalMuestras}
-                        onChange={(e) => setSelectedLote({...selectedLote, totalMuestras: parseInt(e.target.value)})}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Aceptadas</label>
-                      <input 
-                        type="number" 
-                        value={selectedLote.aceptadas}
-                        onChange={(e) => setSelectedLote({...selectedLote, aceptadas: parseInt(e.target.value)})}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Rechazadas</label>
-                      <input 
-                        type="number" 
-                        value={selectedLote.rechazadas}
-                        onChange={(e) => setSelectedLote({...selectedLote, rechazadas: parseInt(e.target.value)})}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Gravedad</label>
-                      <select 
-                        value={selectedLote.gravedad}
-                        onChange={(e) => setSelectedLote({...selectedLote, gravedad: e.target.value})}
-                      >
-                        <option value="baja">Baja</option>
-                        <option value="media">Media</option>
-                        <option value="alta">Alta</option>
-                        <option value="critica">Crítica</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Estado</label>
-                      <select 
-                        value={selectedLote.estado}
-                        onChange={(e) => setSelectedLote({...selectedLote, estado: e.target.value})}
-                      >
-                        <option value="nuevo">Nuevo</option>
-                        <option value="en_proceso">En proceso</option>
-                        <option value="completado">Completado</option>
-                        <option value="revision">Revisión</option>
-                      </select>
-                    </div>
-                    <div className="form-group full-width">
-                      <label>Observaciones</label>
-                      <textarea 
-                        value={selectedLote.observaciones}
-                        onChange={(e) => setSelectedLote({...selectedLote, observaciones: e.target.value})}
-                        rows="4"
-                      />
-                    </div>
-                  </div>
-                  <div className="modal-acciones">
-                    <button type="submit" className="btn-guardar">Guardar Cambios</button>
-                    <button type="button" className="btn-cancelar" onClick={() => setShowModal(false)}>Cancelar</button>
-                  </div>
-                </form>
-              </div>
+              <div className="modal-editar"><h2>Editar Lote {selectedLote.lote}</h2><form onSubmit={(e) => { e.preventDefault(); editarLote(selectedLote.id, selectedLote); setShowModal(false); }}><div className="form-grid"><div className="form-group"><label>Lote</label><input type="text" value={selectedLote.lote} onChange={(e) => setSelectedLote({...selectedLote, lote: e.target.value})} /></div><div className="form-group"><label>PO</label><input type="text" value={selectedLote.po} onChange={(e) => setSelectedLote({...selectedLote, po: e.target.value})} /></div><div className="form-group"><label>Producto</label><select value={selectedLote.sport} onChange={(e) => setSelectedLote({...selectedLote, sport: e.target.value})}><option>Camiseta Premium</option><option>Gorra Deportiva</option><option>Sudadera Oversize</option></select></div><div className="form-group"><label>Máquina</label><select value={selectedLote.maquina} onChange={(e) => setSelectedLote({...selectedLote, maquina: e.target.value})}>{maquinas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}</select></div><div className="form-group"><label>Total Muestras</label><input type="number" value={selectedLote.totalMuestras} onChange={(e) => setSelectedLote({...selectedLote, totalMuestras: parseInt(e.target.value)})} /></div><div className="form-group"><label>Aceptadas</label><input type="number" value={selectedLote.aceptadas} onChange={(e) => setSelectedLote({...selectedLote, aceptadas: parseInt(e.target.value)})} /></div><div className="form-group"><label>Rechazadas</label><input type="number" value={selectedLote.rechazadas} onChange={(e) => setSelectedLote({...selectedLote, rechazadas: parseInt(e.target.value)})} /></div><div className="form-group"><label>Gravedad</label><select value={selectedLote.gravedad} onChange={(e) => setSelectedLote({...selectedLote, gravedad: e.target.value})}><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option><option value="critica">Crítica</option></select></div><div className="form-group"><label>Estado</label><select value={selectedLote.estado} onChange={(e) => setSelectedLote({...selectedLote, estado: e.target.value})}><option value="nuevo">Nuevo</option><option value="en_proceso">En proceso</option><option value="completado">Completado</option></select></div><div className="form-group full-width"><label>Observaciones</label><textarea value={selectedLote.observaciones} onChange={(e) => setSelectedLote({...selectedLote, observaciones: e.target.value})} rows="4" /></div></div><div className="modal-actions"><button type="submit" className="btn-guardar">Guardar Cambios</button><button type="button" className="btn-cancelar" onClick={() => setShowModal(false)}>Cancelar</button></div></form></div>
             )}
           </div>
         </div>

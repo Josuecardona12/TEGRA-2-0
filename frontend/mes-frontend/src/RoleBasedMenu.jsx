@@ -1,106 +1,110 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "./RoleContext";
 
 const RoleBasedMenu = () => {
+  const { hasModule } = useRole();
   const location = useLocation();
-  const { getMenuItems, roleInfo, loading } = useRole();
+  const [openSections, setOpenSections] = useState({
+    general: true,
+    operaciones: true,
+    sistema: true
+  });
 
-  if (loading) return null;
-
-  const isActive = (path) => location.pathname.includes(path);
-
-  const menuItems = getMenuItems();
-
-  const groupedMenu = menuItems.reduce((groups, item) => {
-    const category = item.category;
-    if (!groups[category]) {
-      groups[category] = [];
+  // Estructura del menú - SOLO LOS ÍTEMS DEL MENÚ, SIN EL HEADER DEL ROL
+  const menuSections = [
+    {
+      id: "general",
+      title: "GENERAL",
+      icon: "📌",
+      items: [
+        { name: "Dashboard", path: "/dashboard", icon: "🏠", permission: null },
+        { name: "Atrasos", path: "/atrasos", icon: "⏱️", permission: null }
+      ]
+    },
+    {
+      id: "operaciones",
+      title: "OPERACIONES",
+      icon: "⚙️",
+      items: [
+        { name: "Plan Semanal", path: "/plan-semanal", icon: "📅", permission: null },
+        { name: "Órdenes", path: "/ordenes", icon: "📋", permission: "ordenes" },
+        { name: "Máquinas", path: "/maquinas", icon: "⚙️", permission: "maquinas" },
+        { name: "Trazabilidad", path: "/trazabilidad", icon: "🔍", permission: "trazabilidad" },
+        { name: "Reporte RH", path: "/reporte-rh", icon: "👥", permission: "reporte-rh" },
+        { name: "Miceláneos", path: "/micelanios", icon: "📦", permission: null },
+        { name: "FFTT Quality", path: "/fftt-quality", icon: "📈", permission: "fftt-quality" },
+        { name: "Plotter 17", path: "/plotter", icon: "🖨️", permission: "plotter" },
+        { name: "Diseño", path: "/diseno", icon: "🎨", permission: "diseno" }
+      ]
+    },
+    {
+      id: "sistema",
+      title: "SISTEMA",
+      icon: "🔧",
+      items: [
+        { name: "Reportes", path: "/reportes", icon: "📑", permission: "reportes" },
+        { name: "Configuración", path: "/configuracion", icon: "⚙️", permission: "configuracion" }
+      ]
     }
-    groups[category].push(item);
-    return groups;
-  }, {});
+  ];
 
-  const getCategoryIcon = (category) => {
-    switch(category) {
-      case "GENERAL": return "⭐";
-      case "OPERACIONES": return "⚙️";
-      case "SISTEMA": return "🔧";
-      default: return "📁";
-    }
+  // Alternar sección
+  const toggleSection = (sectionId) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
   };
 
-  const renderBadge = (badge) => {
-    if (!badge) return null;
-    if (badge === "LIVE") {
-      return <span className="live-badge">LIVE</span>;
-    }
-    if (badge === "NUEVO") {
-      return <span className="nav-badge new">NUEVO</span>;
-    }
-    if (badge === "PREMIUM") {
-      return <span className="premium-badge">PREMIUM</span>;
-    }
-    return <span className="nav-badge">{badge}</span>;
+  // Verificar permisos
+  const hasAccess = (permission) => {
+    if (!permission) return true;
+    return hasModule && hasModule(permission);
   };
-
-  if (menuItems.length === 0) {
-    return (
-      <div style={{
-        textAlign: "center",
-        padding: "40px 20px",
-        color: "#64748b"
-      }}>
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔒</div>
-        <p>No tienes módulos disponibles</p>
-        <p style={{ fontSize: "12px", marginTop: "8px" }}>
-          Contacta al administrador para obtener acceso
-        </p>
-      </div>
-    );
-  }
 
   return (
-    <>
-      <div className="role-info-banner" style={{
-        background: `linear-gradient(135deg, ${roleInfo.color}20, ${roleInfo.color}05)`,
-        borderLeft: `3px solid ${roleInfo.color}`,
-        padding: "12px 16px",
-        margin: "0 16px 20px 16px",
-        borderRadius: "12px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px"
-      }}>
-        <span style={{ fontSize: "24px" }}>{roleInfo.icono}</span>
-        <div>
-          <div style={{ fontSize: "11px", color: "#64748b" }}>ROL ACTUAL</div>
-          <div style={{ fontWeight: "bold", color: roleInfo.color }}>{roleInfo.nombre}</div>
-          <div style={{ fontSize: "10px", color: "#64748b" }}>{roleInfo.descripcion}</div>
-        </div>
-      </div>
-
-      {Object.entries(groupedMenu).map(([category, items]) => (
-        <div key={category} className="nav-section">
-          <div className="section-title">
-            <span className="section-icon">{getCategoryIcon(category)}</span>
-            <span>{category}</span>
-          </div>
-          {items.map(item => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`nav-link ${isActive(item.path) ? "active" : ""}`}
+    <div className="role-based-menu">
+      {menuSections.map((section) => {
+        // Filtrar items visibles por permisos
+        const visibleItems = section.items.filter(item => hasAccess(item.permission));
+        
+        if (visibleItems.length === 0) return null;
+        
+        return (
+          <div key={section.id} className="menu-section">
+            <div 
+              className="section-header"
+              onClick={() => toggleSection(section.id)}
             >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-text">{item.name}</span>
-              {renderBadge(item.badge)}
-              {isActive(item.path) && <span className="nav-indicator"></span>}
-            </Link>
-          ))}
-        </div>
-      ))}
-    </>
+              <span className="section-icon">{section.icon}</span>
+              <span className="section-title">{section.title}</span>
+              <span className={`section-arrow ${openSections[section.id] ? "open" : ""}`}>
+                ▼
+              </span>
+            </div>
+            
+            {openSections[section.id] && (
+              <div className="section-items">
+                {visibleItems.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) => 
+                      `menu-item ${isActive ? "active" : ""}`
+                    }
+                  >
+                    <span className="menu-icon">{item.icon}</span>
+                    <span className="menu-name">{item.name}</span>
+                    {location.pathname === item.path && <span className="active-dot"></span>}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 };
 
