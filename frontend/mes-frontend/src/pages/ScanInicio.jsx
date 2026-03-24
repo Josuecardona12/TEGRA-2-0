@@ -1,6 +1,7 @@
 // ScanInicio.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import './ScanInicio.css';
+import { useProduccion } from '../context/ProduccionContext';
 
 const ScanInicio = () => {
   const [codigo, setCodigo] = useState('');

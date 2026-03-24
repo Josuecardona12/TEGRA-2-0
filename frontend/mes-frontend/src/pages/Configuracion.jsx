@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useProduccion } from '../context/ProduccionContext';
 import './Configuracion.css';
 
 // ============================================
@@ -7,6 +8,16 @@ import './Configuracion.css';
 const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
 
 const Configuration = () => {
+  // ===== CONEXIÓN AL CONTEXTO GLOBAL =====
+  const { 
+    lotes: lotesGlobal,
+    ultimoMovimiento: ultimoMovimientoGlobal,
+    conectado: wsConectado,
+    estadisticas: estadisticasGlobal,
+    procesarEscaneo,
+    agregarEvento
+  } = useProduccion();
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isEditing, setIsEditing] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -59,15 +70,51 @@ const Configuration = () => {
   const [uptimeSegundos, setUptimeSegundos] = useState(0);
 
   // ============================================
-  // CONEXIÓN WEBSOCKET MEJORADA
+  // SINCRONIZAR CON EL CONTEXTO GLOBAL
   // ============================================
   useEffect(() => {
-    console.log('🔌 Configuration conectando...');
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
+      setSystem(prev => ({
+        ...prev,
+        sincronizado: wsConectado,
+        ultimaSincronizacion: wsConectado ? formatTime(new Date()) : '--:--:--'
+      }));
+    }
+  }, [wsConectado]);
+
+  useEffect(() => {
+    if (lotesGlobal && lotesGlobal.length > 0) {
+      setStats({
+        totalLotes: lotesGlobal.length,
+        lotesActivos: lotesGlobal.filter(l => l.estado !== 'completado').length,
+        lotesCompletados: lotesGlobal.filter(l => l.estado === 'completado').length,
+        totalAreas: 12,
+        usuariosActivos: 1
+      });
+    }
+  }, [lotesGlobal]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoMovimiento(ultimoMovimientoGlobal);
+      mostrarMensaje(`🔄 ${ultimoMovimientoGlobal.lote || ultimoMovimientoGlobal.loteId} → ${ultimoMovimientoGlobal.area}`, 'info');
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  // ============================================
+  // CONEXIÓN WEBSOCKET MEJORADA (FALLBACK)
+  // ============================================
+  useEffect(() => {
+    // Solo usar WebSocket si no hay contexto conectado
+    if (wsConectado) return;
+    
+    console.log('🔌 Configuration conectando (fallback)...');
     
     const ws = new WebSocket(WS_URL);
     
     ws.onopen = () => {
-      console.log('✅ Configuration conectado');
+      console.log('✅ Configuration conectado (fallback)');
       setConectado(true);
       setSystem(prev => ({
         ...prev,
@@ -128,7 +175,7 @@ const Configuration = () => {
     };
     
     return () => ws.close();
-  }, []);
+  }, [wsConectado]);
 
   // ============================================
   // CALCULAR UPTIME
@@ -269,7 +316,7 @@ const Configuration = () => {
       {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
       {ultimoMovimiento && (
         <div className="movimiento-notificacion">
-          🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+          🔄 {ultimoMovimiento.lote || ultimoMovimiento.loteId} → {ultimoMovimiento.area}
         </div>
       )}
 

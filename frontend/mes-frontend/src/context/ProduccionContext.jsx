@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+// context/ProduccionContext.jsx
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 const ProduccionContext = createContext();
 
@@ -9,6 +10,8 @@ export const useProduccion = () => {
   }
   return context;
 };
+
+const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
 
 export const ProduccionProvider = ({ children }) => {
   // ================ ESTADOS GLOBALES ================
@@ -25,9 +28,11 @@ export const ProduccionProvider = ({ children }) => {
     eficiencia: 0
   });
 
-  // ================ CONFIGURACIÓN DE ÁREAS (FLUJO LINEAL) ================
+  const wsRef = useRef(null);
+
+  // ================ ÁREAS EN ORDEN LINEAL (FLUJO PRINCIPAL) ================
   const areas = useMemo(() => [
-    { id: 'recepcion', nombre: 'Recepción', codigo: '9001', icono: '📦', color: '#3b82f6', orden: 1, siguiente: 'diseno' },
+    { id: 'recepcion', nombre: 'Recepción', codigo: '9001', icono: '📦', color: '#3b82f6', orden: 1, siguiente: 'diseno', anterior: null },
     { id: 'diseno', nombre: 'Diseño', codigo: '9002', icono: '🎨', color: '#8b5cf6', orden: 2, siguiente: 'plotter', anterior: 'recepcion' },
     { id: 'plotter', nombre: 'Plotter', codigo: '9003', icono: '🖨️', color: '#ec4899', orden: 3, siguiente: 'corte', anterior: 'diseno' },
     { id: 'corte', nombre: 'Corte', codigo: '9004', icono: '✂️', color: '#f59e0b', orden: 4, siguiente: 'sublimado', anterior: 'plotter' },
@@ -45,17 +50,52 @@ export const ProduccionProvider = ({ children }) => {
     return areas.find(a => a.codigo === codigo);
   }, [areas]);
 
-  const getLotesPorArea = useCallback((areaId) => {
-    return lotes.filter(l => l.areaActual === areaId);
-  }, [lotes]);
+  const getAreaSiguiente = useCallback((areaActual) => {
+    const area = getAreaById(areaActual);
+    if (!area || !area.siguiente) return null;
+    return getAreaById(area.siguiente);
+  }, [getAreaById]);
 
-  const getTiempoEnArea = useCallback((lote) => {
-    if (!lote || !lote.tiempos || !lote.tiempos[lote.areaActual]) return 0;
-    const areaTime = lote.tiempos[lote.areaActual];
-    if (!areaTime.entrada) return 0;
-    const entrada = new Date(areaTime.entrada);
-    const ahora = new Date();
-    return Math.floor((ahora - entrada) / 60000);
+  const getAreaAnterior = useCallback((areaActual) => {
+    const area = getAreaById(areaActual);
+    if (!area || !area.anterior) return null;
+    return getAreaById(area.anterior);
+  }, [getAreaById]);
+
+  // ================ WEB SOCKET ================
+  useEffect(() => {
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    ws.onopen = () => {
+      console.log('✅ WebSocket conectado');
+      setConectado(true);
+      agregarEvento('success', '✅ Conectado al servidor', null, null);
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'ACTUALIZACION' && data.data) {
+          if (data.data.lotes) setLotes(data.data.lotes);
+          if (data.data.ultimoMovimiento) setUltimoMovimiento(data.data.ultimoMovimiento);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    
+    ws.onclose = () => {
+      setConectado(false);
+    };
+    
+    return () => ws.close();
+  }, []);
+
+  const enviarAlServidor = useCallback((tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+    }
   }, []);
 
   // ================ AGREGAR EVENTO ================
@@ -69,65 +109,13 @@ export const ProduccionProvider = ({ children }) => {
       timestamp: new Date().toLocaleTimeString()
     };
     setEventos(prev => [nuevoEvento, ...prev.slice(0, 99)]);
-    
-    // Notificar a todas las ventanas
-    const eventoGlobal = {
-      type: 'NUEVO_EVENTO',
-      payload: nuevoEvento
-    };
-    window.dispatchEvent(new CustomEvent('produccion-evento', { detail: eventoGlobal }));
   }, []);
 
-  // ================ PROCESAR ESCANEO GLOBAL ================
-  const procesarEscaneo = useCallback((codigo) => {
-    // Verificar si es código de área (9001-9007)
-    if (codigo.match(/^9\d{3}$/)) {
-      const area = getAreaByCodigo(codigo);
-      if (area) {
-        agregarEvento('area', `📍 Área escaneada: ${area.nombre}`, null, area.id);
-        setColaEscaneo(prev => {
-          if (prev.lote) {
-            procesarMovimiento(area, prev.lote);
-            return { area: null, lote: null };
-          }
-          return { ...prev, area };
-        });
-        return area;
-      }
-    } else {
-      // Buscar lote existente
-      const lote = lotes.find(l => l.codigo === codigo || l.id === codigo);
-      if (lote) {
-        agregarEvento('lote', `📦 Lote escaneado: ${lote.codigo}`, lote.id);
-        setColaEscaneo(prev => {
-          if (prev.area) {
-            procesarMovimiento(prev.area, lote);
-            return { area: null, lote: null };
-          }
-          return { ...prev, lote };
-        });
-        return lote;
-      } else {
-        // Crear nuevo lote
-        const nuevoLote = crearNuevoLote(codigo);
-        agregarEvento('success', `🆕 Nuevo lote creado: ${codigo}`, nuevoLote.id);
-        setColaEscaneo(prev => {
-          if (prev.area) {
-            procesarMovimiento(prev.area, nuevoLote);
-            return { area: null, lote: null };
-          }
-          return { ...prev, lote: nuevoLote };
-        });
-        return nuevoLote;
-      }
-    }
-    return null;
-  }, [lotes, getAreaByCodigo, agregarEvento]);
-
-  // ================ CREAR NUEVO LOTE ================
+  // ================ CREAR NUEVO LOTE (Siempre comienza en RECEPCIÓN) ================
   const crearNuevoLote = useCallback((codigo) => {
     const nuevoId = `LOTE-${String(lotes.length + 1).padStart(3, '0')}`;
     const ahora = new Date().toISOString();
+    const areaInicial = areas.find(a => a.id === 'recepcion');
     
     const nuevoLote = {
       id: nuevoId,
@@ -141,9 +129,10 @@ export const ProduccionProvider = ({ children }) => {
       progreso: 5,
       prioridad: 'media',
       responsable: 'Sistema',
+      reingresos: [], // Historial de reingresos
       historial: [{
         area: 'recepcion',
-        codigoArea: '9001',
+        codigoArea: areaInicial.codigo,
         fecha: ahora,
         timestamp: Date.now(),
         operador: 'Sistema',
@@ -151,53 +140,66 @@ export const ProduccionProvider = ({ children }) => {
         actual: true
       }],
       tiempos: {
-        recepcion: {
-          entrada: ahora
-        }
+        recepcion: { entrada: ahora }
       }
     };
     
     setLotes(prev => [...prev, nuevoLote]);
+    agregarEvento('success', `🆕 Nuevo lote creado: ${codigo} en Recepción`, nuevoLote.id);
+    enviarAlServidor('NUEVO_LOTE', { lote: nuevoLote });
     return nuevoLote;
-  }, [lotes]);
+  }, [lotes, areas, agregarEvento, enviarAlServidor]);
 
-  // ================ PROCESAR MOVIMIENTO ================
-  const procesarMovimiento = useCallback((area, lote) => {
+  // ================ MOVER LOTE (FLUJO LINEAL CON REINGRESO) ================
+  const moverLote = useCallback((area, lote) => {
     const areaInfo = getAreaById(area.id);
     const ahora = new Date().toISOString();
+    const yaEstabaEnArea = lote.areaActual === area.id;
     
-    // Verificar si ya hay un registro de entrada en esta área
-    const yaTieneEntrada = lote.tiempos?.[area.id]?.entrada;
+    // Si ya está en esta área, es un REINGRESO (no avanza, solo registra paso)
+    const esReingreso = yaEstabaEnArea;
     
     setLotes(prev => prev.map(l => {
       if (l.id === lote.id) {
         const nuevoHistorial = [...(l.historial || [])];
         const nuevosTiempos = { ...(l.tiempos || {}) };
+        const nuevosReingresos = [...(l.reingresos || [])];
         
-        if (!yaTieneEntrada) {
-          // Es entrada al área
+        if (esReingreso) {
+          // REGISTRAR REINGRESO
           nuevoHistorial.push({
             area: area.id,
             codigoArea: area.codigo,
             fecha: ahora,
             timestamp: Date.now(),
             operador: 'Operador',
-            tipo: 'entrada',
-            actual: true
+            tipo: 'reingreso',
+            actual: true,
+            reingresoNumero: (l.reingresos?.filter(r => r.area === area.id).length || 0) + 1
           });
           
-          if (!nuevosTiempos[area.id]) {
-            nuevosTiempos[area.id] = {};
-          }
-          nuevosTiempos[area.id].entrada = ahora;
+          nuevosReingresos.push({
+            area: area.id,
+            fecha: ahora,
+            timestamp: Date.now(),
+            numero: (l.reingresos?.filter(r => r.area === area.id).length || 0) + 1
+          });
           
-          agregarEvento('movimiento', `⏱️ ${l.codigo} ingresó a ${areaInfo.nombre}`, l.id, area.id);
+          agregarEvento('warning', `↩️ REINGRESO: ${l.codigo} vuelve a ${areaInfo.nombre} (${nuevosReingresos.filter(r => r.area === area.id).length}ª vez)`, l.id, area.id);
           
         } else {
-          // Es salida del área - mover a la siguiente
+          // SALIDA DEL ÁREA ACTUAL
+          if (l.areaActual && nuevosTiempos[l.areaActual]) {
+            nuevosTiempos[l.areaActual].salida = ahora;
+            const entrada = new Date(nuevosTiempos[l.areaActual].entrada);
+            const salida = new Date(ahora);
+            nuevosTiempos[l.areaActual].duracion = salida - entrada;
+          }
+          
+          // Registrar salida
           nuevoHistorial.push({
-            area: area.id,
-            codigoArea: area.codigo,
+            area: l.areaActual,
+            codigoArea: getAreaById(l.areaActual)?.codigo,
             fecha: ahora,
             timestamp: Date.now(),
             operador: 'Operador',
@@ -205,171 +207,127 @@ export const ProduccionProvider = ({ children }) => {
             actual: false
           });
           
-          if (nuevosTiempos[area.id]) {
-            nuevosTiempos[area.id].salida = ahora;
-            const entrada = new Date(nuevosTiempos[area.id].entrada);
-            const salida = new Date(ahora);
-            nuevosTiempos[area.id].duracion = salida - entrada;
-          }
+          // DETERMINAR SIGUIENTE ÁREA (FLUJO LINEAL)
+          const areaSiguiente = getAreaSiguiente(area.id);
           
-          // Calcular progreso
-          const areaIndex = areas.findIndex(a => a.id === area.id);
-          const nuevoProgreso = Math.min(100, Math.round((areaIndex + 1) / areas.length * 100));
-          
-          // Determinar siguiente área
-          const siguienteArea = areaInfo.siguiente;
-          let nuevaArea = area.id;
-          let nuevoEstado = l.estado;
-          
-          if (siguienteArea) {
-            nuevaArea = siguienteArea;
-            // Registrar entrada automática en la siguiente área
+          if (areaSiguiente) {
+            // MOVER A LA SIGUIENTE ÁREA
             nuevoHistorial.push({
-              area: siguienteArea,
-              codigoArea: areas.find(a => a.id === siguienteArea)?.codigo,
+              area: areaSiguiente.id,
+              codigoArea: areaSiguiente.codigo,
               fecha: ahora,
               timestamp: Date.now(),
-              operador: 'Sistema (Automático)',
+              operador: 'Operador',
               tipo: 'entrada',
               actual: true
             });
             
-            if (!nuevosTiempos[siguienteArea]) {
-              nuevosTiempos[siguienteArea] = {};
+            if (!nuevosTiempos[areaSiguiente.id]) {
+              nuevosTiempos[areaSiguiente.id] = {};
             }
-            nuevosTiempos[siguienteArea].entrada = ahora;
+            nuevosTiempos[areaSiguiente.id].entrada = ahora;
             
-            agregarEvento('movimiento', `🚀 ${l.codigo} salió de ${areaInfo.nombre} → ${areas.find(a => a.id === siguienteArea)?.nombre}`, l.id, area.id);
+            // Calcular progreso
+            const areaIndex = areas.findIndex(a => a.id === areaSiguiente.id);
+            const nuevoProgreso = Math.min(100, Math.round((areaIndex + 1) / areas.length * 100));
+            
+            agregarEvento('movimiento', `🚀 ${l.codigo} → ${areaSiguiente.nombre}`, l.id, areaSiguiente.id);
+            
+            return {
+              ...l,
+              areaActual: areaSiguiente.id,
+              progreso: nuevoProgreso,
+              historial: nuevoHistorial,
+              tiempos: nuevosTiempos,
+              reingresos: nuevosReingresos
+            };
+            
           } else {
-            nuevoEstado = 'completado';
-            agregarEvento('success', `🎉 ${l.codigo} COMPLETADO - Fin del flujo`, l.id);
+            // LOTE COMPLETADO (Llegó al final del flujo)
+            agregarEvento('success', `🎉 ${l.codigo} COMPLETADO - Fin del proceso`, l.id);
+            
+            return {
+              ...l,
+              estado: 'completado',
+              progreso: 100,
+              historial: nuevoHistorial,
+              tiempos: nuevosTiempos,
+              reingresos: nuevosReingresos
+            };
           }
-          
-          // Actualizar estadísticas
-          setUltimoMovimiento({
-            lote: l.codigo,
-            area: areaInfo.nombre,
-            fecha: new Date().toLocaleString(),
-            tipo: 'salida'
-          });
-          
-          return {
-            ...l,
-            areaActual: nuevaArea,
-            estado: nuevoEstado,
-            progreso: nuevoProgreso,
-            historial: nuevoHistorial,
-            tiempos: nuevosTiempos
-          };
         }
         
         return {
           ...l,
           historial: nuevoHistorial,
-          tiempos: nuevosTiempos
+          tiempos: nuevosTiempos,
+          reingresos: nuevosReingresos
         };
       }
       return l;
     }));
     
-    // Actualizar último movimiento si fue salida
-    if (yaTieneEntrada) {
-      setUltimoMovimiento({
-        lote: lote.codigo,
-        area: areaInfo.nombre,
-        fecha: new Date().toLocaleString(),
-        tipo: 'salida'
-      });
-    } else {
-      setUltimoMovimiento({
-        lote: lote.codigo,
-        area: areaInfo.nombre,
-        fecha: new Date().toLocaleString(),
-        tipo: 'entrada'
-      });
-    }
+    // Actualizar último movimiento
+    setUltimoMovimiento({
+      lote: lote.codigo,
+      area: areaInfo.nombre,
+      fecha: new Date().toLocaleString(),
+      tipo: esReingreso ? 'reingreso' : 'movimiento'
+    });
     
-    // Notificar a todas las ventanas
-    const eventoGlobal = {
-      type: 'MOVIMIENTO_LOTE',
-      payload: {
-        loteId: lote.id,
-        loteCodigo: lote.codigo,
-        areaOrigen: area.id,
-        areaDestino: yaTieneEntrada ? areaInfo.siguiente : null,
-        tipo: yaTieneEntrada ? 'salida' : 'entrada',
-        timestamp: ahora
-      }
-    };
-    window.dispatchEvent(new CustomEvent('produccion-actualizada', { detail: eventoGlobal }));
+    // Notificar a todos los clientes
+    enviarAlServidor('ACTUALIZACION', { lotes: lotes.map(l => l.id === lote.id ? { ...l, areaActual: area.id } : l) });
     
-  }, [areas, getAreaById, agregarEvento]);
+  }, [areas, getAreaById, getAreaSiguiente, agregarEvento, enviarAlServidor]);
 
-  // ================ MOVER LOTE MANUAL ================
-  const moverLoteManual = useCallback((loteId, areaDestino) => {
-    const lote = lotes.find(l => l.id === loteId);
-    if (!lote) return;
+  // ================ PROCESAR ESCANEO (TRZ como centro de control) ================
+  const procesarEscaneo = useCallback((codigo) => {
+    const codigoLimpio = codigo.trim().toUpperCase();
     
-    const areaDest = getAreaById(areaDestino);
-    if (!areaDest) return;
-    
-    const ahora = new Date().toISOString();
-    
-    setLotes(prev => prev.map(l => {
-      if (l.id === loteId) {
-        const nuevoHistorial = [...(l.historial || [])];
-        const nuevosTiempos = { ...(l.tiempos || {}) };
-        
-        // Marcar salida del área actual
-        if (l.areaActual) {
-          nuevoHistorial.push({
-            area: l.areaActual,
-            codigoArea: areas.find(a => a.id === l.areaActual)?.codigo,
-            fecha: ahora,
-            timestamp: Date.now(),
-            operador: 'Sistema',
-            tipo: 'salida',
-            actual: false
-          });
-          
-          if (nuevosTiempos[l.areaActual]) {
-            nuevosTiempos[l.areaActual].salida = ahora;
+    // Verificar si es código de área (9001-9007)
+    if (codigoLimpio.match(/^9\d{3}$/)) {
+      const area = getAreaByCodigo(codigoLimpio);
+      if (area) {
+        agregarEvento('area', `📍 Área escaneada: ${area.nombre}`, null, area.id);
+        setColaEscaneo(prev => {
+          if (prev.lote) {
+            moverLote(area, prev.lote);
+            return { area: null, lote: null };
           }
-        }
-        
-        // Registrar entrada en nueva área
-        nuevoHistorial.push({
-          area: areaDestino,
-          codigoArea: areaDest.codigo,
-          fecha: ahora,
-          timestamp: Date.now(),
-          operador: 'Sistema',
-          tipo: 'entrada',
-          actual: true
+          return { ...prev, area };
         });
-        
-        if (!nuevosTiempos[areaDestino]) {
-          nuevosTiempos[areaDestino] = {};
-        }
-        nuevosTiempos[areaDestino].entrada = ahora;
-        
-        // Calcular progreso
-        const areaIndex = areas.findIndex(a => a.id === areaDestino);
-        const nuevoProgreso = Math.min(100, Math.round((areaIndex + 1) / areas.length * 100));
-        
-        agregarEvento('movimiento', `🔄 Movimiento manual: ${l.codigo} → ${areaDest.nombre}`, l.id);
-        
-        return {
-          ...l,
-          areaActual: areaDestino,
-          progreso: nuevoProgreso,
-          historial: nuevoHistorial,
-          tiempos: nuevosTiempos
-        };
+        return area;
       }
-      return l;
-    }));
-  }, [lotes, areas, getAreaById, agregarEvento]);
+    } else {
+      // Buscar lote existente
+      const lote = lotes.find(l => l.codigo === codigoLimpio || l.id === codigoLimpio);
+      if (lote) {
+        agregarEvento('lote', `📦 Lote escaneado: ${lote.codigo} (Área actual: ${getAreaById(lote.areaActual)?.nombre})`, lote.id);
+        setColaEscaneo(prev => {
+          if (prev.area) {
+            moverLote(prev.area, lote);
+            return { area: null, lote: null };
+          }
+          return { ...prev, lote };
+        });
+        return lote;
+      } else {
+        // Crear nuevo lote (empieza en Recepción)
+        const nuevoLote = crearNuevoLote(codigoLimpio);
+        agregarEvento('success', `🆕 Nuevo lote creado: ${codigoLimpio}`, nuevoLote.id);
+        
+        setColaEscaneo(prev => {
+          if (prev.area) {
+            moverLote(prev.area, nuevoLote);
+            return { area: null, lote: null };
+          }
+          return { ...prev, lote: nuevoLote };
+        });
+        return nuevoLote;
+      }
+    }
+    return null;
+  }, [lotes, getAreaByCodigo, getAreaById, agregarEvento, moverLote, crearNuevoLote]);
 
   // ================ ACTUALIZAR ESTADÍSTICAS ================
   useEffect(() => {
@@ -377,9 +335,17 @@ export const ProduccionProvider = ({ children }) => {
     const enProceso = lotes.filter(l => l.estado === 'en_proceso').length;
     const completados = lotes.filter(l => l.estado === 'completado').length;
     const enCalidad = lotes.filter(l => l.areaActual === 'calidad').length;
+    const reingresosTotales = lotes.reduce((sum, l) => sum + (l.reingresos?.length || 0), 0);
     const eficiencia = total > 0 ? Math.round((completados / total) * 100) : 0;
     
-    setEstadisticas({ totalLotes: total, enProceso, completados, enCalidad, eficiencia });
+    setEstadisticas({ 
+      totalLotes: total, 
+      enProceso, 
+      completados, 
+      enCalidad, 
+      eficiencia,
+      reingresosTotales
+    });
   }, [lotes]);
 
   // ================ VALOR DEL CONTEXTO ================
@@ -393,10 +359,17 @@ export const ProduccionProvider = ({ children }) => {
     estadisticas,
     getAreaById,
     getAreaByCodigo,
-    getLotesPorArea,
-    getTiempoEnArea,
+    getAreaSiguiente,
+    getAreaAnterior,
+    getLotesPorArea: (areaId) => lotes.filter(l => l.areaActual === areaId),
+    getTiempoEnArea: (lote) => {
+      if (!lote || !lote.tiempos || !lote.tiempos[lote.areaActual]) return 0;
+      const entrada = new Date(lote.tiempos[lote.areaActual].entrada);
+      const ahora = new Date();
+      return Math.floor((ahora - entrada) / 60000);
+    },
     procesarEscaneo,
-    moverLoteManual,
+    moverLoteManual: moverLote,
     agregarEvento
   };
 

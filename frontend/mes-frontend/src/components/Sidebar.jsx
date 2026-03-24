@@ -54,7 +54,7 @@ const Sidebar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Estructura del menú
+  // Estructura del menú - CON BUZÓN DE DISEÑO AGREGADO
   const menuSections = [
     {
       id: "general",
@@ -78,7 +78,9 @@ const Sidebar = () => {
         { name: "Miceláneos", path: "/micelanios", icon: "📦", permission: null },
         { name: "FFTT Quality", path: "/fftt-quality", icon: "📈", permission: "fftt-quality" },
         { name: "Plotter 17", path: "/plotter", icon: "🖨️", permission: "plotter" },
-        { name: "Diseño", path: "/diseno", icon: "🎨", permission: "diseno" }
+        { name: "Diseño", path: "/diseno", icon: "🎨", permission: "diseno" },
+        // ===== NUEVO: BUZÓN DE DISEÑO =====
+        { name: "Buzón de Diseño", path: "/buzon-diseno", icon: "📬", permission: null }
       ]
     },
     {

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Micelanios.css';
-
+import { useProduccion } from '../context/ProduccionContext';
 // ============================================
 // CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
 // ============================================
-const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
 
 const Micelanios = () => {
   const [currentTime, setCurrentTime] = useState(new Date());

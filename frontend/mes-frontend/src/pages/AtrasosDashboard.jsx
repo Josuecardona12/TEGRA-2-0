@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { useProduccion } from '../context/ProduccionContext';
 
 // ============================================
 // CONFIGURACIÓN WEBSOCKET
 // ============================================
-const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
 
 const AtrasosDashboard = () => {
+  // ===== CONEXIÓN AL CONTEXTO GLOBAL =====
+  const { 
+    lotes: lotesGlobal,
+    ultimoMovimiento: ultimoMovimientoGlobal,
+    conectado: wsConectado,
+    estadisticas: estadisticasGlobal,
+    procesarEscaneo,
+    agregarEvento
+  } = useProduccion();
+
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroDias, setFiltroDias] = useState('todos');
@@ -25,15 +36,70 @@ const AtrasosDashboard = () => {
   const [ultimoMovimiento, setUltimoMovimiento] = useState(null);
 
   // ============================================
-  // CONEXIÓN WEBSOCKET MEJORADA
+  // SINCRONIZAR CON EL CONTEXTO GLOBAL
   // ============================================
   useEffect(() => {
-    console.log('🔌 AtrasosDashboard conectando...');
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
+    }
+  }, [wsConectado]);
+
+  useEffect(() => {
+    if (lotesGlobal && lotesGlobal.length > 0) {
+      setLotes(lotesGlobal);
+      
+      // Calcular atrasos basado en progreso bajo (menos del 30%)
+      const atrasosCalculados = lotesGlobal
+        .filter(l => l.progreso < 30 && l.estado !== 'completado')
+        .map((l, index) => ({
+          id: l.id || index + 1,
+          lote: l.id || l.codigo || 'Sin ID',
+          cliente: l.cliente || 'Pendiente',
+          area: l.areaActual || 'Recepción',
+          piezas: l.cantidad || 0,
+          dias: calcularDiasAtraso(l.fechaInicio),
+          prioridad: l.prioridad || 'Media',
+          estado: l.progreso < 15 ? 'GRAVE' : l.progreso < 25 ? 'MEDIO' : 'LEVE',
+          progreso: l.progreso || 0,
+          responsable: l.responsable || 'Sistema',
+          fecha: l.fechaInicio?.split('T')[0] || new Date().toLocaleDateString()
+        }));
+      
+      setAtrasos(atrasosCalculados);
+    }
+  }, [lotesGlobal]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoMovimiento(ultimoMovimientoGlobal);
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  // ============================================
+  // FUNCIÓN AUXILIAR PARA CALCULAR DÍAS DE ATRASO
+  // ============================================
+  const calcularDiasAtraso = (fechaInicio) => {
+    if (!fechaInicio) return Math.floor(Math.random() * 15) + 1;
+    const inicio = new Date(fechaInicio);
+    const ahora = new Date();
+    const diffTime = Math.abs(ahora - inicio);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.min(diffDays, 30);
+  };
+
+  // ============================================
+  // CONEXIÓN WEBSOCKET MEJORADA (FALLBACK)
+  // ============================================
+  useEffect(() => {
+    // Solo usar WebSocket si no hay contexto conectado
+    if (wsConectado) return;
+    
+    console.log('🔌 AtrasosDashboard conectando (fallback)...');
     
     const ws = new WebSocket(WS_URL);
     
     ws.onopen = () => {
-      console.log('✅ AtrasosDashboard conectado');
+      console.log('✅ AtrasosDashboard conectado (fallback)');
       setConectado(true);
     };
     
@@ -51,19 +117,19 @@ const AtrasosDashboard = () => {
           
           // Calcular atrasos basado en progreso bajo (menos del 30%)
           const atrasosCalculados = (data.data.lotes || [])
-            .filter(l => l.progreso < 30) // Solo lotes con poco progreso
+            .filter(l => l.progreso < 30 && l.estado !== 'completado')
             .map((l, index) => ({
               id: index + 1,
               lote: l.id || l.codigo || 'Sin ID',
               cliente: l.cliente || 'Pendiente',
               area: l.areaActual || 'Recepción',
               piezas: l.cantidad || 0,
-              dias: Math.floor(Math.random() * 15) + 1, // Simulado para demo
+              dias: calcularDiasAtraso(l.fechaInicio),
               prioridad: l.prioridad || 'Media',
               estado: l.progreso < 15 ? 'GRAVE' : l.progreso < 25 ? 'MEDIO' : 'LEVE',
               progreso: l.progreso || 0,
               responsable: l.responsable || 'Sistema',
-              fecha: new Date().toLocaleDateString()
+              fecha: l.fechaInicio?.split('T')[0] || new Date().toLocaleDateString()
             }));
           
           setAtrasos(atrasosCalculados);
@@ -84,7 +150,7 @@ const AtrasosDashboard = () => {
     };
     
     return () => ws.close();
-  }, []);
+  }, [wsConectado]);
 
   // ============================================
   // ESTADÍSTICAS CALCULADAS
@@ -1204,7 +1270,7 @@ const AtrasosDashboard = () => {
         {/* NOTIFICACIÓN DE ÚLTIMO MOVIMIENTO */}
         {ultimoMovimiento && (
           <div className="movimiento-notificacion">
-            🔄 {ultimoMovimiento.loteId} → {ultimoMovimiento.area}
+            🔄 {ultimoMovimiento.lote || ultimoMovimiento.loteId} → {ultimoMovimiento.area}
           </div>
         )}
 

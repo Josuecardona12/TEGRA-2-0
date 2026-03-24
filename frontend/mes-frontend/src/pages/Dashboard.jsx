@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useProduccion } from '../context/ProduccionContext';
 import './Dashboard.css';
 
 // ============================================
 // CONFIGURACIÓN WEBSOCKET
 // ============================================
-const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
 
 const Dashboard = () => {
+  // ===== CONEXIÓN AL CONTEXTO GLOBAL =====
+  const { 
+    lotes: lotesGlobal,
+    ultimoMovimiento: ultimoMovimientoGlobal,
+    conectado: wsConectado
+  } = useProduccion();
+
   // ================ ESTADOS PRINCIPALES ================
   const [tiempoReal, setTiempoReal] = useState(new Date());
   const [periodo, setPeriodo] = useState('dia');
@@ -128,7 +136,9 @@ const Dashboard = () => {
   // ================ NOTIFICACIONES ================
   const [notificaciones, setNotificaciones] = useState([]);
 
-  // ================ FUNCIONES DE UTILIDAD ================
+  // ============================================
+  // FUNCIONES DE UTILIDAD
+  // ============================================
   const getTendenciaIcon = (tendencia) => {
     if (!tendencia || typeof tendencia !== 'string') return '➡️';
     if (tendencia.includes('+')) return '📈';
@@ -143,8 +153,45 @@ const Dashboard = () => {
     return '#6366f1';
   };
 
-  // ================ WEBSOCKET ================
+  // ============================================
+  // SINCRONIZAR CON EL CONTEXTO GLOBAL
+  // ============================================
   useEffect(() => {
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
+    }
+  }, [wsConectado]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoMovimiento(ultimoMovimientoGlobal);
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  useEffect(() => {
+    if (lotesGlobal && lotesGlobal.length > 0) {
+      const lotesActivos = lotesGlobal.filter(l => l.estado !== 'completado').length;
+      const lotesCompletados = lotesGlobal.filter(l => l.estado === 'completado').length;
+      const lotesCriticos = lotesGlobal.filter(l => l.prioridad === 'alta' || l.gravedad === 'critica').length;
+      
+      setMetricas(prev => ({
+        ...prev,
+        lotes: {
+          ...prev.lotes,
+          activos: lotesActivos,
+          completados: lotesCompletados,
+          criticos: lotesCriticos
+        }
+      }));
+    }
+  }, [lotesGlobal]);
+
+  // ============================================
+  // WEBSOCKET (FALLBACK)
+  // ============================================
+  useEffect(() => {
+    if (wsConectado) return;
+    
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
     
@@ -175,7 +222,7 @@ const Dashboard = () => {
     };
     
     return () => ws.close();
-  }, []);
+  }, [wsConectado]);
 
   // ================ RELOJ EN TIEMPO REAL ================
   useEffect(() => {
@@ -409,6 +456,7 @@ const Dashboard = () => {
 
       {/* ===== KPI CARDS ===== */}
       <div className="kpi-premium-grid">
+        {/* Producción */}
         <div 
           className="kpi-premium-card" 
           onMouseEnter={() => setHoveredCard('produccion')}
@@ -436,6 +484,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Calidad */}
         <div 
           className="kpi-premium-card" 
           onMouseEnter={() => setHoveredCard('calidad')}
@@ -463,6 +512,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Eficiencia */}
         <div 
           className="kpi-premium-card" 
           onMouseEnter={() => setHoveredCard('eficiencia')}
@@ -490,6 +540,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Lotes */}
         <div 
           className="kpi-premium-card" 
           onMouseEnter={() => setHoveredCard('lotes')}
@@ -517,6 +568,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Diseños */}
         <div 
           className="kpi-premium-card" 
           onMouseEnter={() => setHoveredCard('disenos')}
@@ -544,6 +596,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Máquinas */}
         <div 
           className="kpi-premium-card" 
           onMouseEnter={() => setHoveredCard('maquinas')}
@@ -612,6 +665,7 @@ const Dashboard = () => {
 
       {/* ===== TABLAS ===== */}
       <div className="tables-premium-grid">
+        {/* Tabla de Lotes Recientes */}
         <div className="table-premium-card">
           <div className="table-premium-header">
             <h4>📦 Lotes Recientes</h4>
@@ -620,7 +674,12 @@ const Dashboard = () => {
           <div className="table-premium-scroll">
             <table className="data-premium-table">
               <thead>
-                <tr><th>Lote</th><th>Producto</th><th>Estado</th><th>Progreso</th></tr>
+                <tr>
+                  <th>Lote</th>
+                  <th>Producto</th>
+                  <th>Estado</th>
+                  <th>Progreso</th>
+                </tr>
               </thead>
               <tbody>
                 {lotesRecientes.map(lote => (
@@ -648,6 +707,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Tabla de Diseños Recientes */}
         <div className="table-premium-card">
           <div className="table-premium-header">
             <h4>🎨 Diseños Recientes</h4>
@@ -656,7 +716,12 @@ const Dashboard = () => {
           <div className="table-premium-scroll">
             <table className="data-premium-table">
               <thead>
-                <tr><th>ID</th><th>Nombre</th><th>Diseñador</th><th>Estado</th></tr>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Diseñador</th>
+                  <th>Estado</th>
+                </tr>
               </thead>
               <tbody>
                 {disenosRecientes.map(diseno => (
@@ -722,7 +787,7 @@ const Dashboard = () => {
       {ultimoMovimiento && (
         <div className="last-premium-movement">
           <span>🔄</span>
-          <span>{ultimoMovimiento.loteId} → {ultimoMovimiento.area}</span>
+          <span>{ultimoMovimiento.lote || ultimoMovimiento.loteId} → {ultimoMovimiento.area}</span>
           <span>ahora</span>
         </div>
       )}

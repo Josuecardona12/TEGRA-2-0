@@ -3,83 +3,75 @@ import './TrazabilidadLotes.css';
 import TrackingLote from './TrackingLote';
 import { useProduccion } from '../context/ProduccionContext';
 
+// ============================================
+// CONFIGURACIÓN WEBSOCKET
+// ============================================
+const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
+
 const TrazabilidadLotes = () => {
-  // ===== USAR CONTEXTO GLOBAL DE PRODUCCIÓN =====
+  // ===== CONTEXTO GLOBAL =====
   const { 
     lotes: lotesGlobal,
     areas: areasGlobal,
     ultimoMovimiento: ultimoMovimientoGlobal,
-    colaEscaneo: colaEscaneoGlobal,
-    estadisticas: estadisticasGlobal,
     conectado: wsConectado,
     procesarEscaneo: procesarEscaneoGlobal,
-    getLotesPorArea,
-    getTiempoEnArea,
-    moverLoteManual,
-    getAreaById,
-    eventos: eventosGlobal,
     agregarEvento: agregarEventoGlobal
   } = useProduccion();
 
-  // ===== ESTADOS LOCALES =====
+  // ===== ESTADOS PRINCIPALES =====
   const [lotes, setLotes] = useState([]);
   const [areas, setAreas] = useState([]);
-  const [ultimoEscaneo, setUltimoEscaneo] = useState(null);
-  const [colaEscaneos, setColaEscaneos] = useState({ area: null, lote: null });
-  const [modoEscaner, setModoEscaner] = useState(true);
-  const [eventos, setEventos] = useState([]);
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
   const [codigoEscaneado, setCodigoEscaneado] = useState('');
-  const [mensajeEscaner, setMensajeEscaner] = useState('📡 Esperando código...');
+  const [mensajeEscaner, setMensajeEscaner] = useState('📡 Esperando escanear ÁREA (9001-9012)...');
   const [tipoMensaje, setTipoMensaje] = useState('info');
   const [animacionActiva, setAnimacionActiva] = useState(false);
+  const [modoEscaner, setModoEscaner] = useState(true);
+  const [eventos, setEventos] = useState([]);
+  const [ultimoEscaneo, setUltimoEscaneo] = useState(null);
   
-  // ===== NUEVO: ESTADO PARA ESCÁNER MINIMIZABLE =====
+  // ===== COLA DE ESCANEO (PRIMERO ÁREA, LUEGO LOTE) =====
+  const [colaEscaneos, setColaEscaneos] = useState({ area: null, lote: null });
+  
+  // ===== ESTADOS UI/UX =====
   const [scannerMinimizado, setScannerMinimizado] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [ultimaPosicionScroll, setUltimaPosicionScroll] = useState(0);
   const [umbralScroll, setUmbralScroll] = useState(100);
-  
-  // ===== ESTADOS DE CONEXIÓN WEBSOCKET =====
-  const [conectado, setConectado] = useState(false);
-  const [usandoServidor, setUsandoServidor] = useState(false);
-  const wsRef = useRef(null);
-  
-  // ===== ESTADOS DE UI/UX =====
   const [vistaLotes, setVistaLotes] = useState('activos');
   const [filtroArea, setFiltroArea] = useState('todas');
   const [modoOscuro, setModoOscuro] = useState(false);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false);
   const [vistaCompacta, setVistaCompacta] = useState(false);
-  
-  // ===== ESTADOS DE ANÁLISIS =====
-  const [statsTiempoReal, setStatsTiempoReal] = useState({
-    lotesPorHora: 0,
-    eficiencia: 0,
-    tiempoPromedio: 0,
-    alertasActivas: 0,
-    wip: 0
-  });
-  
-  const [notificaciones, setNotificaciones] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
   const [filtrosAvanzados, setFiltrosAvanzados] = useState({
-    fechaInicio: '',
-    fechaFin: '',
-    responsable: '',
     prioridad: 'todas',
     cliente: '',
     producto: ''
   });
-
-  // ===== REFS =====
+  
+  // ===== ESTADOS DE CONEXIÓN =====
+  const [conectado, setConectado] = useState(false);
+  const wsRef = useRef(null);
   const inputRef = useRef(null);
   const notificacionesRef = useRef(null);
   const mainContentRef = useRef(null);
-  const scannerPanelRef = useRef(null);
+  
+  // ===== NOTIFICACIONES =====
+  const [notificaciones, setNotificaciones] = useState([]);
+  
+  // ===== ESTADÍSTICAS =====
+  const [statsTiempoReal, setStatsTiempoReal] = useState({
+    wip: 0,
+    eficiencia: 0,
+    tiempoPromedio: 0,
+    alertasActivas: 0
+  });
 
   // ============================================
-  // CONFIGURACIÓN DE ÁREAS (FALLBACK SI NO HAY CONTEXTO)
+  // CONFIGURACIÓN DE ÁREAS
   // ============================================
   const areasProduccion = useMemo(() => [
     { id: 'AREA-001', codigo: '9001', nombre: 'Recepción', icono: '📦', color: '#3b82f6', orden: 1, capacidad: 50 },
@@ -115,214 +107,103 @@ const TrazabilidadLotes = () => {
     } else {
       setAreas(areasProduccion);
     }
-  }, [areasGlobal, areasProduccion]);
+  }, [areasGlobal]);
 
-  // Actualizar lote seleccionado cuando cambian los lotes
   useEffect(() => {
-    if (loteSeleccionado && lotes.length > 0) {
-      const loteActualizado = lotes.find(l => l.id === loteSeleccionado.id);
-      if (loteActualizado) {
-        setLoteSeleccionado(loteActualizado);
-      }
+    if (ultimoMovimientoGlobal) {
+      agregarNotificacion(`🔄 ${ultimoMovimientoGlobal.lote} → ${ultimoMovimientoGlobal.area}`, 'info');
     }
-  }, [lotes, loteSeleccionado]);
+  }, [ultimoMovimientoGlobal]);
 
-  // ===== MEJORA: DETECTAR SCROLL PARA MINIMIZAR ESCÁNER =====
   useEffect(() => {
-    const handleScroll = () => {
-      if (mainContentRef.current) {
-        const scrollTop = mainContentRef.current.scrollTop;
-        setShowScrollTop(scrollTop > 400);
-        
-        // Lógica para minimizar/mostrar escáner
-        if (scrollTop > umbralScroll && scrollTop > ultimaPosicionScroll) {
-          // Scroll hacia abajo - minimizar escáner
-          setScannerMinimizado(true);
-        } else if (scrollTop < ultimaPosicionScroll - 10 && scrollTop < umbralScroll) {
-          // Scroll hacia arriba y cerca del top - mostrar escáner
-          setScannerMinimizado(false);
-        }
-        
-        setUltimaPosicionScroll(scrollTop);
-      }
-    };
-    
-    const currentRef = mainContentRef.current;
-    if (currentRef) {
-      currentRef.addEventListener('scroll', handleScroll);
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
     }
-    return () => {
-      if (currentRef) {
-        currentRef.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, [ultimaPosicionScroll, umbralScroll]);
-
-  // ===== MEJORA: DETECTAR CUANDO EL ESCÁNER ESTÁ MINIMIZADO PARA ENFOCAR INPUT =====
-  useEffect(() => {
-    if (!scannerMinimizado && modoEscaner && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [scannerMinimizado, modoEscaner]);
+  }, [wsConectado]);
 
   // ============================================
   // CONEXIÓN WEBSOCKET
   // ============================================
   useEffect(() => {
-    console.log('🔌 Trazabilidad conectando...');
-    
-    const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
     
     ws.onopen = () => {
-      console.log('✅ Trazabilidad conectado');
       setConectado(true);
-      setUsandoServidor(true);
-      agregarEventoLocal('success', '✅ Conectado al servidor - Tiempo Real');
+      agregarNotificacion('✅ Conectado al servidor', 'exito');
     };
     
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📦 Trazabilidad recibió:', data.type);
-        
-        if (data.type === 'INIT') {
-          const lotesServidor = data.data.lotes.map((l, index) => ({
-            id: l.codigo || `LOTE-${String(index + 1).padStart(3, '0')}`,
-            codigo: l.codigo || `V${String(Math.floor(Math.random() * 900000) + 100000)}/IF${String(Math.floor(Math.random() * 9000) + 1000)}`,
-            producto: l.producto || 'Producto',
-            cliente: l.cliente || 'Cliente',
-            cantidad: l.cantidad || Math.floor(Math.random() * 500) + 100,
-            fechaInicio: new Date().toLocaleString(),
-            estado: l.estado || 'en_proceso',
-            areaActual: l.areaActual || 'Recepción',
-            progreso: l.progreso || 5,
-            prioridad: l.prioridad || 'media',
-            responsable: l.responsable || 'Sistema',
-            tiempoRestante: '8h 00m',
-            alertas: [],
-            historial: [
-              { 
-                area: 'Recepción',
-                codigoArea: '9001',
-                fecha: new Date().toLocaleString(),
-                operador: 'Sistema',
-                actual: true
-              }
-            ],
-            metadatos: { codigoOriginal: l.codigo }
-          }));
-          
-          setLotes(lotesServidor);
-          if (lotesServidor.length > 0 && !loteSeleccionado) {
-            setLoteSeleccionado(lotesServidor[0]);
-          }
-        }
-        
-        if (data.type === 'ACTUALIZACION') {
-          if (data.data.ultimoMovimiento) {
-            const { loteId, area, codigoLote, reingreso, veces } = data.data.ultimoMovimiento;
-            setUltimoEscaneo({
-              lote: loteId,
-              codigoLote: codigoLote,
-              area: area,
-              fecha: new Date().toLocaleString(),
-              reingreso: reingreso,
-              veces: veces
-            });
-            
-            const mensaje = reingreso 
-              ? `↩️ ${loteId} reingresa a ${area} (${veces || 2}ª vez)`
-              : `✅ ${loteId} → ${area}`;
-            setMensajeEscaner(mensaje);
-            setTipoMensaje(reingreso ? 'warning' : 'success');
-            agregarEventoLocal(reingreso ? 'warning' : 'success', mensaje, loteId);
-            if (navigator.vibrate) navigator.vibrate(100);
-          }
+        if (data.type === 'ACTUALIZACION' && data.data.ultimoMovimiento) {
+          setUltimoEscaneo(data.data.ultimoMovimiento);
+          agregarNotificacion(`🔄 ${data.data.ultimoMovimiento.lote} → ${data.data.ultimoMovimiento.area}`, 'info');
         }
       } catch (error) {
         console.error('Error:', error);
       }
     };
     
-    ws.onerror = (error) => {
-      console.error('❌ Error WebSocket:', error);
+    ws.onerror = () => {
       setConectado(false);
-      setUsandoServidor(false);
-      agregarEventoLocal('error', '❌ Error conectando al servidor - Usando modo local');
+      agregarNotificacion('❌ Error de conexión', 'error');
     };
     
     ws.onclose = () => {
-      console.log('❌ Desconectado del servidor');
       setConectado(false);
-      setUsandoServidor(false);
-      agregarEventoLocal('info', 'ℹ️ Desconectado del servidor - Usando modo local');
     };
     
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
+    return () => ws.close();
   }, []);
 
   // ============================================
-  // ENVIAR AL SERVIDOR
-  // ============================================
-  const enviarAlServidor = (tipo, payload) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
-      console.log('📤 Enviado:', tipo, payload);
-    }
-  };
-
-  // ============================================
-  // INICIALIZACIÓN LOCAL
+  // SCROLL Y UI
   // ============================================
   useEffect(() => {
-    if (!conectado && areas.length === 0) {
-      setAreas(areasProduccion);
-    }
-  }, [conectado, areas.length, areasProduccion]);
+    const handleScroll = () => {
+      if (mainContentRef.current) {
+        const scrollTop = mainContentRef.current.scrollTop;
+        setShowScrollTop(scrollTop > 400);
+        if (scrollTop > umbralScroll && scrollTop > ultimaPosicionScroll) {
+          setScannerMinimizado(true);
+        } else if (scrollTop < ultimaPosicionScroll - 10 && scrollTop < umbralScroll) {
+          setScannerMinimizado(false);
+        }
+        setUltimaPosicionScroll(scrollTop);
+      }
+    };
+    const currentRef = mainContentRef.current;
+    if (currentRef) currentRef.addEventListener('scroll', handleScroll);
+    return () => { if (currentRef) currentRef.removeEventListener('scroll', handleScroll); };
+  }, [ultimaPosicionScroll, umbralScroll]);
 
-  // ============================================
-  // GUARDAR PREFERENCIAS
-  // ============================================
-  useEffect(() => { localStorage.setItem('modoOscuro', modoOscuro); }, [modoOscuro]);
-  useEffect(() => { localStorage.setItem('vistaCompacta', vistaCompacta); }, [vistaCompacta]);
-
-  const scrollToTop = () => {
-    if (mainContentRef.current) {
-      mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      // Mostrar escáner al hacer scroll al top
-      setScannerMinimizado(false);
-    }
-  };
-
-  // ============================================
-  // ENFOCAR INPUT
-  // ============================================
   useEffect(() => {
     if (!scannerMinimizado && modoEscaner && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [modoEscaner, scannerMinimizado]);
+  }, [scannerMinimizado, modoEscaner]);
 
-  // ============================================
-  // CERRAR NOTIFICACIONES
-  // ============================================
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notificacionesRef.current && !notificacionesRef.current.contains(event.target)) setMostrarNotificaciones(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const modoGuardado = localStorage.getItem('modoOscuro') === 'true';
+    setModoOscuro(modoGuardado);
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('modoOscuro', modoOscuro);
+  }, [modoOscuro]);
+
   // ============================================
-  // FUNCIONES AUXILIARES LOCALES
+  // FUNCIONES AUXILIARES
   // ============================================
+  const agregarNotificacion = (mensaje, tipo = 'info') => {
+    const id = Date.now();
+    setNotificaciones(prev => [...prev, { id, mensaje, tipo }]);
+    setTimeout(() => {
+      setNotificaciones(prev => prev.filter(n => n.id !== id));
+    }, 3000);
+  };
+
   const agregarEventoLocal = (tipo, mensaje, loteRef = '') => {
     const nuevoEvento = {
       id: Date.now() + Math.random(),
@@ -332,58 +213,26 @@ const TrazabilidadLotes = () => {
       timestamp: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
     setEventos(prev => [nuevoEvento, ...prev.slice(0, 29)]);
-    if (tipo === 'warning' || tipo === 'error' || tipo === 'success') {
-      setNotificaciones(prev => [{
-        id: Date.now(),
-        mensaje,
-        tipo,
-        leida: false
-      }, ...prev.slice(0, 9)]);
-      if (navigator.vibrate) navigator.vibrate(tipo === 'success' ? 50 : 100);
-    }
   };
 
   const marcarNotificacionLeida = (id) => {
     setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
   };
+  
   const marcarTodasLeidas = () => {
     setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
   };
 
-  // ============================================
-  // VALIDAR FORMATO DE LOTE
-  // ============================================
-  const extraerInfoLote = (codigo) => {
-    let producto = 'Producto Genérico';
-    let cliente = 'Cliente General';
-    
-    if (codigo.includes('/')) {
-      const partes = codigo.split('/');
-      if (partes[0] && partes[0].startsWith('V')) {
-        producto = `Producto V-Serie ${partes[0]}`;
-      }
-      if (partes[1] && partes[1].startsWith('IF')) {
-        cliente = 'Cliente IF';
-      } else if (partes[1] && partes[1].startsWith('BV')) {
-        cliente = 'Cliente BV';
-      }
-    } else if (codigo.includes('-')) {
-      const partes = codigo.split('-');
-      producto = `Producto ${partes[0]}`;
-      cliente = `Cliente ${partes[1]}`;
+  const scrollToTop = () => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      setScannerMinimizado(false);
     }
-    
-    return {
-      formato: 'generico',
-      codigoOriginal: codigo,
-      producto,
-      cliente,
-      timestamp: Date.now()
-    };
   };
 
   // ============================================
-  // PROCESAR ESCANEO (USA CONTEXTO GLOBAL SI ESTÁ DISPONIBLE)
+  // FUNCIÓN PRINCIPAL: PROCESAR ESCANEO
+  // PRIMERO ÁREA, LUEGO LOTE
   // ============================================
   const procesarEscaneo = () => {
     const codigo = codigoEscaneado.trim().toUpperCase();
@@ -391,176 +240,136 @@ const TrazabilidadLotes = () => {
 
     setAnimacionActiva(true);
     setTimeout(() => setAnimacionActiva(false), 500);
-    
     setMensajeEscaner(`⏳ Procesando: ${codigo}...`);
     setTipoMensaje('info');
 
-    // Si hay contexto global, usar su procesador
+    // Si hay procesador global, usarlo
     if (procesarEscaneoGlobal) {
-      const resultado = procesarEscaneoGlobal(codigo);
+      procesarEscaneoGlobal(codigo);
       setTimeout(() => {
         setCodigoEscaneado('');
-        if (resultado) {
-          setMensajeEscaner(`✅ ${resultado.nombre || resultado.codigo || 'Procesado'}`);
-          setTipoMensaje('success');
-        }
-        if (!colaEscaneos.area && !colaEscaneos.lote) {
-          setTimeout(() => {
-            setMensajeEscaner('📡 Esperando código...');
-            setTipoMensaje('info');
-          }, 1500);
-        }
-      }, 500);
+        setMensajeEscaner('📡 Esperando escanear ÁREA (9001-9012)...');
+        setTipoMensaje('info');
+      }, 1000);
       return;
     }
 
-    // Fallback: procesamiento local
+    // PROCESAMIENTO LOCAL
+    // 1. VERIFICAR SI ES ÁREA (códigos 9001-9012)
     if (codigo.match(/^9\d{3}$/)) {
-      procesarEscaneoAreaLocal(codigo);
-    } else {
-      const infoLote = extraerInfoLote(codigo);
-      procesarEscaneoLoteLocal(codigo, infoLote);
-    }
-
-    setTimeout(() => {
-      setCodigoEscaneado('');
-      if (!colaEscaneos.area && !colaEscaneos.lote) {
-        setMensajeEscaner('📡 Esperando código...');
-        setTipoMensaje('info');
+      const area = areas.find(a => a.codigo === codigo);
+      if (area) {
+        // Guardar área en cola
+        setColaEscaneos({ area: area, lote: null });
+        setMensajeEscaner(`✅ Área: ${area.nombre} seleccionada. AHORA escanea el LOTE para moverlo`);
+        setTipoMensaje('success');
+        agregarEventoLocal('area', `📍 Área seleccionada: ${area.nombre} [${area.codigo}] - Esperando lote`);
+        if (navigator.vibrate) navigator.vibrate(30);
+        setCodigoEscaneado('');
+      } else {
+        setMensajeEscaner(`❌ Área no encontrada: ${codigo}`);
+        setTipoMensaje('error');
+        setCodigoEscaneado('');
       }
-    }, 1500);
-  };
-
-  // ============================================
-  // PROCESAR ESCANEO DE ÁREA (LOCAL) - CORREGIDO
-  // ============================================
-  const procesarEscaneoAreaLocal = (codigoArea) => {
-    const area = areas.find(a => a.codigo === codigoArea);
-    if (area) {
-      setMensajeEscaner(`✅ Área: ${area.nombre}`);
-      setTipoMensaje('success');
-      agregarEventoLocal('area', `📍 Área escaneada: ${area.nombre} [${area.codigo}]`);
-      enviarAlServidor('ESCANEO', { codigo: codigoArea, tipo: 'area', area: area.nombre });
-      if (navigator.vibrate) navigator.vibrate(30);
-      
-      setColaEscaneos(prev => {
-        const nuevaCola = { ...prev, area: area };
-        if (prev.lote) {
-          procesarMovimientoLocal(area, prev.lote);
-          return { area: null, lote: null };
-        }
-        setMensajeEscaner(`✅ Área ${area.nombre} seleccionada. Escanea el lote para moverlo...`);
-        return nuevaCola;
-      });
-    } else {
-      setMensajeEscaner(`❌ Área no encontrada: ${codigoArea}`);
-      setTipoMensaje('error');
-      agregarEventoLocal('error', `❌ Área no encontrada: ${codigoArea}`);
+      return;
     }
-  };
 
-  // ============================================
-  // PROCESAR ESCANEO DE LOTE (LOCAL)
-  // ============================================
-  const procesarEscaneoLoteLocal = (codigoLote, infoLote = null) => {
-    const loteExistente = lotes.find(l => 
-      l.codigo === codigoLote || 
-      l.id === codigoLote
-    );
+    // 2. ES UN LOTE - VERIFICAR QUE HAYA UN ÁREA EN COLA
+    if (!colaEscaneos.area) {
+      setMensajeEscaner(`⚠️ PRIMERO debes escanear un ÁREA (9001-9012) antes de escanear el lote`);
+      setTipoMensaje('error');
+      setAnimacionActiva(true);
+      setTimeout(() => {
+        setAnimacionActiva(false);
+        setMensajeEscaner('📡 Escanea un ÁREA primero (9001-9012)...');
+        setTipoMensaje('info');
+      }, 2000);
+      setCodigoEscaneado('');
+      return;
+    }
+
+    // 3. PROCESAR LOTE (YA HAY ÁREA EN COLA)
+    const area = colaEscaneos.area;
+    const loteExistente = lotes.find(l => l.codigo === codigo || l.id === codigo);
 
     if (loteExistente) {
-      setMensajeEscaner(`✅ Lote encontrado: ${loteExistente.id} - Área actual: ${loteExistente.areaActual}`);
+      setMensajeEscaner(`✅ Moviendo lote ${loteExistente.id} a ${area.nombre}...`);
       setTipoMensaje('success');
-      agregarEventoLocal('lote', `📦 Lote escaneado: ${loteExistente.id} (${loteExistente.areaActual})`, loteExistente.id);
+      agregarEventoLocal('lote', `📦 Lote escaneado: ${loteExistente.id} - Moviendo a ${area.nombre}`, loteExistente.id);
       setLoteSeleccionado(loteExistente);
-      enviarAlServidor('ESCANEO', { codigo: codigoLote, tipo: 'lote', loteId: loteExistente.id });
       if (navigator.vibrate) navigator.vibrate(30);
-
-      setColaEscaneos(prev => {
-        const nuevaCola = { ...prev, lote: loteExistente };
-        if (prev.area) {
-          procesarMovimientoLocal(prev.area, loteExistente);
-          return { area: null, lote: null };
-        }
-        setMensajeEscaner(`✅ Lote ${loteExistente.id} seleccionado. Escanea el área para moverlo...`);
-        return nuevaCola;
-      });
+      
+      procesarMovimientoLocal(area, loteExistente);
+      setColaEscaneos({ area: null, lote: null });
+      setMensajeEscaner(`✅ ${loteExistente.id} movido a ${area.nombre}`);
+      setTimeout(() => {
+        setMensajeEscaner('📡 Escanea un ÁREA (9001-9012) para el próximo movimiento...');
+        setTipoMensaje('info');
+      }, 2000);
     } else {
-      crearNuevoLoteLocal(codigoLote, infoLote);
+      const nuevoLote = crearNuevoLoteLocal(codigo);
+      setMensajeEscaner(`🆕 Nuevo lote: ${codigo} creado. Moviendo a ${area.nombre}...`);
+      setTipoMensaje('success');
+      procesarMovimientoLocal(area, nuevoLote);
+      setColaEscaneos({ area: null, lote: null });
+      setMensajeEscaner(`✅ ${nuevoLote.id} movido a ${area.nombre}`);
+      setTimeout(() => {
+        setMensajeEscaner('📡 Escanea un ÁREA (9001-9012) para el próximo movimiento...');
+        setTipoMensaje('info');
+      }, 2000);
     }
+    
+    setCodigoEscaneado('');
   };
 
   // ============================================
-  // CREAR NUEVO LOTE (LOCAL)
+  // CREAR NUEVO LOTE
   // ============================================
-  const crearNuevoLoteLocal = (codigo, infoLote = null) => {
+  const crearNuevoLoteLocal = (codigo) => {
     const nuevoId = `LOTE-${String(lotes.length + 1).padStart(3, '0')}`;
+    const areaInicial = areas.find(a => a.nombre === 'Recepción') || areas[0];
     
-    let producto = infoLote?.producto || 'Producto Genérico';
-    let cliente = infoLote?.cliente || 'Pendiente';
-    let cantidad = Math.floor(Math.random() * 500) + 100;
+    let producto = 'Producto Genérico';
+    let cliente = 'Cliente General';
     
     if (codigo.includes('/')) {
       const partes = codigo.split('/');
-      if (!producto || producto === 'Producto Genérico') producto = `Producto ${partes[0]}`;
-      if (partes[1] && partes[1].startsWith('IF')) {
-        cliente = 'Cliente IF';
-      } else if (partes[1] && partes[1].startsWith('BV')) {
-        cliente = 'Cliente BV';
-      }
+      if (partes[0] && partes[0].startsWith('V')) producto = `Producto V-Serie ${partes[0]}`;
+      if (partes[1] && partes[1].startsWith('IF')) cliente = 'Cliente IF';
+      else if (partes[1] && partes[1].startsWith('BV')) cliente = 'Cliente BV';
     }
-
-    const areaInicial = areas.find(a => a.nombre === 'Recepción') || areas[0];
     
     const nuevoLote = {
       id: nuevoId,
       codigo: codigo,
       producto: producto,
       cliente: cliente,
-      cantidad: cantidad,
+      cantidad: Math.floor(Math.random() * 500) + 100,
       fechaInicio: new Date().toLocaleString(),
-      fechaISO: new Date().toISOString(),
       estado: 'en_proceso',
-      areaActual: areaInicial?.nombre || 'Recepción',
+      areaActual: areaInicial.nombre,
       progreso: 5,
       prioridad: 'media',
       responsable: 'Sistema',
       tiempoRestante: '8h 00m',
       alertas: [],
-      infoLote: infoLote,
-      historial: [
-        { 
-          area: areaInicial?.nombre || 'Recepción',
-          codigoArea: areaInicial?.codigo || '9001',
-          fecha: new Date().toLocaleString(),
-          timestamp: Date.now(),
-          operador: 'Sistema',
-          actual: true
-        }
-      ],
-      metadatos: {
-        codigoOriginal: codigo,
-        timestamp: Date.now()
-      }
+      historial: [{
+        area: areaInicial.nombre,
+        codigoArea: areaInicial.codigo,
+        fecha: new Date().toLocaleString(),
+        timestamp: Date.now(),
+        operador: 'Sistema',
+        actual: true
+      }]
     };
-
-    setLotes(prev => [...prev, nuevoLote]);
-    setLoteSeleccionado(nuevoLote);
-    enviarAlServidor('NUEVO_LOTE', { lote: nuevoLote, codigo: codigo });
-    setMensajeEscaner(`🆕 Nuevo lote: ${codigo} - Área: ${nuevoLote.areaActual}`);
-    setTipoMensaje('success');
-    agregarEventoLocal('success', `🆕 Nuevo lote: ${codigo} (${nuevoLote.areaActual})`, nuevoId);
-
-    setUltimoEscaneo({
-      lote: nuevoId,
-      codigoLote: codigo,
-      area: nuevoLote.areaActual,
-      fecha: new Date().toLocaleString()
-    });
+    
+    setLotes(prev => [nuevoLote, ...prev]);
+    agregarEventoLocal('success', `🆕 Nuevo lote: ${codigo} creado`, nuevoId);
+    return nuevoLote;
   };
 
   // ============================================
-  // PROCESAR MOVIMIENTO (LOCAL) - CORREGIDO
+  // MOVER LOTE A ÁREA
   // ============================================
   const procesarMovimientoLocal = (area, lote) => {
     const vecesPasadas = lote.historial?.filter(h => h.codigoArea === area.codigo).length || 0;
@@ -583,20 +392,16 @@ const TrazabilidadLotes = () => {
         let nuevoEstado = l.estado;
         let nuevoProgreso = l.progreso;
         
-        // Actualizar estado según área
         if (area.nombre === 'Almacén') {
           nuevoEstado = 'completado';
           nuevoProgreso = 100;
         } else if (area.nombre === 'Incompleto') {
           nuevoEstado = 'incompleto';
         } else {
-          // Calcular progreso basado en orden del área
           const areaIndex = areas.findIndex(a => a.nombre === area.nombre);
           const totalAreas = areas.length;
           nuevoProgreso = Math.min(100, Math.floor((areaIndex / totalAreas) * 100));
-          if (esReingreso) {
-            nuevoProgreso = Math.max(0, Math.min(100, nuevoProgreso + (Math.random() > 0.5 ? 5 : -2)));
-          }
+          if (esReingreso) nuevoProgreso = Math.max(0, Math.min(100, nuevoProgreso + (Math.random() > 0.5 ? 5 : -2)));
         }
         
         return {
@@ -612,7 +417,6 @@ const TrazabilidadLotes = () => {
       return l;
     }));
     
-    // Actualizar lote seleccionado si es el mismo
     setLoteSeleccionado(prev => {
       if (!prev || prev.id !== lote.id) return prev;
       const areaIndex = areas.findIndex(a => a.nombre === area.nombre);
@@ -637,15 +441,6 @@ const TrazabilidadLotes = () => {
     setTipoMensaje(esReingreso ? 'warning' : 'success');
     agregarEventoLocal(esReingreso ? 'warning' : 'success', mensaje, lote.id);
     
-    enviarAlServidor('MOVIMIENTO', {
-      loteId: lote.id,
-      codigoLote: lote.codigo,
-      area: area.nombre,
-      codigoArea: area.codigo,
-      reingreso: esReingreso,
-      veces: vecesPasadas + 1
-    });
-    
     setUltimoEscaneo({ 
       lote: lote.id, 
       codigoLote: lote.codigo, 
@@ -668,7 +463,6 @@ const TrazabilidadLotes = () => {
         const nuevoSeleccionado = lotes.find(l => l.id !== loteId && l.estado !== 'completado');
         setLoteSeleccionado(nuevoSeleccionado || null);
       }
-      enviarAlServidor('ELIMINAR_LOTE', { loteId });
       agregarEventoLocal('info', `🗑️ Lote ${loteId} eliminado`, loteId);
     }
   };
@@ -677,25 +471,18 @@ const TrazabilidadLotes = () => {
   // ACTUALIZAR ESTADÍSTICAS
   // ============================================
   useEffect(() => {
-    const calcularEstadisticas = () => {
-      const lotesActivos = lotes.filter(l => l.estado !== 'completado').length;
-      const alertasActivas = lotes.filter(l => l.alertas?.length > 0).length;
-      let eficiencia = 0;
-      if (lotes.length > 0) {
-        const completados = lotes.filter(l => l.estado === 'completado').length;
-        eficiencia = Math.round((completados / lotes.length) * 100);
-      }
-      setStatsTiempoReal({
-        lotesPorHora: lotesActivos,
-        eficiencia: eficiencia,
-        tiempoPromedio: lotes.length > 0 ? Math.round(lotes.reduce((acc, l) => acc + (l.progreso || 0), 0) / lotes.length) : 0,
-        alertasActivas: alertasActivas,
-        wip: lotesActivos
-      });
-    };
-    calcularEstadisticas();
-    const intervalo = setInterval(calcularEstadisticas, 5000);
-    return () => clearInterval(intervalo);
+    const lotesActivos = lotes.filter(l => l.estado !== 'completado').length;
+    const completados = lotes.filter(l => l.estado === 'completado').length;
+    const alertasActivas = lotes.filter(l => l.alertas?.length > 0).length;
+    const eficiencia = lotes.length > 0 ? Math.round((completados / lotes.length) * 100) : 0;
+    const tiempoPromedio = lotes.length > 0 ? Math.round(lotes.reduce((acc, l) => acc + (l.progreso || 0), 0) / lotes.length) : 0;
+    
+    setStatsTiempoReal({
+      wip: lotesActivos,
+      eficiencia,
+      tiempoPromedio,
+      alertasActivas
+    });
   }, [lotes]);
 
   // ============================================
@@ -721,44 +508,39 @@ const TrazabilidadLotes = () => {
         return true;
       })
       .filter(lote => {
-        if (filtrosAvanzados.producto) return lote.producto?.toLowerCase().includes(filtrosAvanzados.producto.toLowerCase());
+        if (busqueda) {
+          const busquedaLower = busqueda.toLowerCase();
+          return lote.id.toLowerCase().includes(busquedaLower) || 
+                 lote.codigo.toLowerCase().includes(busquedaLower) ||
+                 lote.producto.toLowerCase().includes(busquedaLower);
+        }
         return true;
       })
-      .sort((a, b) => {
-        if (a.estado === 'completado' && b.estado !== 'completado') return 1;
-        if (a.estado !== 'completado' && b.estado === 'completado') return -1;
-        return (b.ultimoMovimiento || 0) - (a.ultimoMovimiento || 0);
-      });
-  }, [lotes, vistaLotes, filtroArea, filtrosAvanzados]);
+      .sort((a, b) => (b.ultimoMovimiento || 0) - (a.ultimoMovimiento || 0));
+  }, [lotes, vistaLotes, filtroArea, filtrosAvanzados, busqueda]);
 
   // ============================================
   // RENDER
   // ============================================
   return (
-    <div className={`trazabilidad-container ${modoOscuro ? 'dark-mode' : ''} ${vistaCompacta ? 'compact-view' : ''}`}>
+    <div className={`trazabilidad-container ${modoOscuro ? 'dark-mode' : ''} ${vistaCompacta ? 'compact-view' : ''}`} ref={mainContentRef}>
       
-      {/* INDICADOR DE CONEXIÓN WEBSOCKET */}
+      {/* INDICADOR DE CONEXIÓN */}
       <div className={`connection-status ${conectado || wsConectado ? 'connected' : 'disconnected'}`}>
         <span className="status-dot"></span>
         <span>{conectado || wsConectado ? '🟢 Servidor Conectado - Datos en tiempo real' : '🟡 Modo Demo Local'}</span>
-        {conectado || wsConectado ? (
-          <span className="connection-badge">LIVE</span>
-        ) : null}
+        {conectado || wsConectado && <span className="connection-badge">LIVE</span>}
       </div>
 
-      {/* BOTÓN FLOTANTE PARA EXPANDIR ESCÁNER CUANDO ESTÁ MINIMIZADO */}
+      {/* BOTÓN FLOTANTE EXPANDIR ESCÁNER */}
       {scannerMinimizado && (
-        <button 
-          className="expand-scanner-btn"
-          onClick={() => setScannerMinimizado(false)}
-          title="Mostrar escáner"
-        >
+        <button className="expand-scanner-btn" onClick={() => setScannerMinimizado(false)} title="Mostrar escáner">
           <span>📷</span>
           <span className="expand-tooltip">Mostrar escáner</span>
         </button>
       )}
 
-      {/* HEADER (SIEMPRE VISIBLE) */}
+      {/* HEADER */}
       <header className="app-header">
         <div className="header-top">
           <div className="header-left">
@@ -769,7 +551,7 @@ const TrazabilidadLotes = () => {
               </div>
               <div className="logo-text">
                 <h1 className="app-title">TEGRA ERP <span className="title-badge">PRO</span></h1>
-                <span className="app-subtitle">Trazabilidad Premium - Control de Flujo</span>
+                <span className="app-subtitle">Trazabilidad Premium - Centro de Control</span>
               </div>
             </div>
             <div className="header-date">
@@ -782,19 +564,16 @@ const TrazabilidadLotes = () => {
           </div>
 
           <div className="header-right">
-            <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)} title={modoOscuro ? 'Modo claro' : 'Modo oscuro'}>
+            <button className="theme-toggle" onClick={() => setModoOscuro(!modoOscuro)}>
               <span>{modoOscuro ? '☀️' : '🌙'}</span>
             </button>
-            <button className="compact-toggle" onClick={() => setVistaCompacta(!vistaCompacta)} title={vistaCompacta ? 'Vista normal' : 'Vista compacta'}>
+            <button className="compact-toggle" onClick={() => setVistaCompacta(!vistaCompacta)}>
               <span>{vistaCompacta ? '🔲' : '📱'}</span>
             </button>
 
             {/* NOTIFICACIONES */}
             <div className="notificaciones-wrapper" ref={notificacionesRef}>
-              <button 
-                className={`notificaciones-btn ${notificaciones.filter(n => !n.leida).length > 0 ? 'tiene-notificaciones' : ''}`}
-                onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}
-              >
+              <button className={`notificaciones-btn ${notificaciones.filter(n => !n.leida).length > 0 ? 'tiene-notificaciones' : ''}`} onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}>
                 <span>🔔</span>
                 {notificaciones.filter(n => !n.leida).length > 0 && (
                   <span className="notificaciones-badge">{notificaciones.filter(n => !n.leida).length}</span>
@@ -860,24 +639,18 @@ const TrazabilidadLotes = () => {
           </div>
         </div>
 
-        {/* PANEL DE ESCANEO - CON ANIMACIÓN DE MINIMIZAR */}
+        {/* PANEL DE ESCANEO PREMIUM */}
         <div className={`scanner-panel ${scannerMinimizado ? 'minimizado' : ''}`}>
           <div className="scanner-container">
             <div className="scanner-header">
-              <h3><span className="title-icon">📷</span> Escáner de Códigos</h3>
+              <h3><span className="title-icon">📷</span> Centro de Control - Escáner de Trazabilidad</h3>
               <div className="formatos-ayuda">
                 <span className="formato-badge area">9001-9012</span>
                 <span className="formato-badge lote">V132274/IF2128</span>
                 <span className="formato-badge lote">V134339/BV1012</span>
                 <span className="formato-badge lote">Cualquier código</span>
               </div>
-              <button 
-                className="minimize-scanner-btn"
-                onClick={() => setScannerMinimizado(true)}
-                title="Minimizar escáner"
-              >
-                <span>−</span>
-              </button>
+              <button className="minimize-scanner-btn" onClick={() => setScannerMinimizado(true)} title="Minimizar escáner">−</button>
             </div>
 
             <div className="scanner-input-group">
@@ -890,13 +663,11 @@ const TrazabilidadLotes = () => {
                   value={codigoEscaneado}
                   onChange={(e) => setCodigoEscaneado(e.target.value.toUpperCase())}
                   onKeyPress={(e) => e.key === 'Enter' && procesarEscaneo()}
-                  placeholder="Escanea código de lote (V132274/IF2128) o área (9001-9012)..."
+                  placeholder="1. ESCANEA ÁREA (9001-9012) → 2. ESCANEA LOTE"
                   disabled={!modoEscaner}
                   autoComplete="off"
                 />
-                {codigoEscaneado && (
-                  <button className="input-clear" onClick={() => setCodigoEscaneado('')}>✕</button>
-                )}
+                {codigoEscaneado && <button className="input-clear" onClick={() => setCodigoEscaneado('')}>✕</button>}
               </div>
               <button className={`scanner-button ${animacionActiva ? 'pulse' : ''}`} onClick={procesarEscaneo} disabled={!codigoEscaneado}>
                 <span>Procesar</span>
@@ -913,37 +684,53 @@ const TrazabilidadLotes = () => {
               <span className="message-text">{mensajeEscaner}</span>
             </div>
 
-            {(colaEscaneos.area || colaEscaneos.lote) && (
-              <div className="queue-indicator">
-                <div className="queue-items">
-                  {colaEscaneos.area && (
-                    <div className="queue-item area" style={{ borderColor: colaEscaneos.area.color }}>
-                      <span className="item-icon">{colaEscaneos.area.icono}</span>
-                      <span className="item-name">{colaEscaneos.area.nombre}</span>
-                      <span className="item-code">{colaEscaneos.area.codigo}</span>
-                    </div>
-                  )}
-                  <span className="queue-arrow">→</span>
-                  {colaEscaneos.lote ? (
-                    <div className="queue-item lote">
-                      <span className="item-icon">📦</span>
-                      <span className="item-name">{colaEscaneos.lote.id}</span>
-                      <span className="item-code">{colaEscaneos.lote.codigo}</span>
-                      <span className="item-area">({colaEscaneos.lote.areaActual})</span>
-                    </div>
-                  ) : (
-                    <div className="queue-item pending">
-                      <span className="pending-icon">⏳</span>
-                      <span>Esperando lote...</span>
-                    </div>
-                  )}
+            {/* INDICADOR DE COLA DE ESCANEO */}
+            <div className="queue-indicator">
+              <div className="queue-title">
+                <span className="queue-icon">📋</span>
+                <span>Cola de escaneo</span>
+              </div>
+              <div className="queue-items">
+                <div className={`queue-step ${colaEscaneos.area ? 'active' : 'pending'}`}>
+                  <div className="step-number">1</div>
+                  <div className="step-content">
+                    <strong>Área</strong>
+                    <span>{colaEscaneos.area ? colaEscaneos.area.nombre : 'Esperando área...'}</span>
+                  </div>
+                  {colaEscaneos.area && <div className="step-check">✓</div>}
+                </div>
+                <div className="queue-arrow">→</div>
+                <div className={`queue-step ${colaEscaneos.lote ? 'active' : colaEscaneos.area ? 'ready' : 'pending'}`}>
+                  <div className="step-number">2</div>
+                  <div className="step-content">
+                    <strong>Lote</strong>
+                    <span>{colaEscaneos.lote ? colaEscaneos.lote.id : colaEscaneos.area ? 'Listo para escanear' : 'Esperando área primero'}</span>
+                  </div>
+                  {colaEscaneos.lote && <div className="step-check">✓</div>}
                 </div>
               </div>
-            )}
+            </div>
+
+            <div className="scanner-instrucciones">
+              <div className="instruccion-paso active">
+                <div className="paso-numero">1</div>
+                <div className="paso-contenido">
+                  <strong>ESCANEAR ÁREA</strong>
+                  <span>Códigos: 9001 (Recepción), 9002 (Diseño), 9003 (Plotter)...</span>
+                </div>
+              </div>
+              <div className="instruccion-paso">
+                <div className="paso-numero">2</div>
+                <div className="paso-contenido">
+                  <strong>ESCANEAR LOTE</strong>
+                  <span>Código de lote (ej: V132274/IF2128)</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* KPI */}
+        {/* KPI CARDS */}
         <div className="kpi-tiempo-real">
           <div className="kpi-item">
             <span className="kpi-icon">📊</span>
@@ -951,7 +738,6 @@ const TrazabilidadLotes = () => {
               <span className="kpi-label">En proceso</span>
               <span className="kpi-valor">{statsTiempoReal.wip}</span>
             </div>
-            <div className="kpi-glow"></div>
           </div>
           <div className="kpi-item">
             <span className="kpi-icon">⚡</span>
@@ -959,7 +745,6 @@ const TrazabilidadLotes = () => {
               <span className="kpi-label">Eficiencia</span>
               <span className="kpi-valor">{statsTiempoReal.eficiencia}%</span>
             </div>
-            <div className="kpi-glow"></div>
           </div>
           <div className="kpi-item">
             <span className="kpi-icon">📈</span>
@@ -967,7 +752,6 @@ const TrazabilidadLotes = () => {
               <span className="kpi-label">Progreso promedio</span>
               <span className="kpi-valor">{statsTiempoReal.tiempoPromedio}%</span>
             </div>
-            <div className="kpi-glow"></div>
           </div>
           <div className="kpi-item warning">
             <span className="kpi-icon">⚠️</span>
@@ -975,12 +759,11 @@ const TrazabilidadLotes = () => {
               <span className="kpi-label">Alertas</span>
               <span className="kpi-valor">{statsTiempoReal.alertasActivas}</span>
             </div>
-            <div className="kpi-glow"></div>
           </div>
         </div>
       </header>
 
-      {/* MAIN CONTENT CON SCROLL */}
+      {/* MAIN CONTENT */}
       <main className="app-main" ref={mainContentRef}>
         {/* TABS Y FILTROS */}
         <div className="tabs-container">
@@ -989,7 +772,6 @@ const TrazabilidadLotes = () => {
               <button className={`tab-btn ${vistaLotes === 'activos' ? 'active' : ''}`} onClick={() => setVistaLotes('activos')}>
                 <span className="tab-icon">📋</span> Activos
                 <span className="tab-count">{lotes.filter(l => l.estado !== 'completado').length}</span>
-                {vistaLotes === 'activos' && <span className="tab-glow"></span>}
               </button>
               <button className={`tab-btn ${vistaLotes === 'completados' ? 'active' : ''}`} onClick={() => setVistaLotes('completados')}>
                 <span className="tab-icon">✅</span> Completados
@@ -1004,9 +786,6 @@ const TrazabilidadLotes = () => {
             <div className="filters-actions">
               <button className={`filter-toggle-btn ${mostrarFiltros ? 'active' : ''}`} onClick={() => setMostrarFiltros(!mostrarFiltros)}>
                 <span className="btn-icon">🔍</span> Filtros
-                {(filtrosAvanzados.cliente || filtrosAvanzados.producto || filtrosAvanzados.prioridad !== 'todas') && (
-                  <span className="filter-indicator"></span>
-                )}
               </button>
               <select className="area-filter" value={filtroArea} onChange={(e) => setFiltroArea(e.target.value)}>
                 <option value="todas">🌐 Todas las áreas</option>
@@ -1020,12 +799,12 @@ const TrazabilidadLotes = () => {
           {mostrarFiltros && (
             <div className="filtros-avanzados">
               <div className="filtro-group">
-                <label>Cliente</label>
-                <input type="text" placeholder="Buscar cliente..." value={filtrosAvanzados.cliente} onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, cliente: e.target.value})} />
+                <label>Buscar</label>
+                <input type="text" placeholder="🔍 Buscar lote, código..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
               </div>
               <div className="filtro-group">
-                <label>Producto</label>
-                <input type="text" placeholder="Buscar producto..." value={filtrosAvanzados.producto} onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, producto: e.target.value})} />
+                <label>Cliente</label>
+                <input type="text" placeholder="Buscar cliente..." value={filtrosAvanzados.cliente} onChange={(e) => setFiltrosAvanzados({...filtrosAvanzados, cliente: e.target.value})} />
               </div>
               <div className="filtro-group">
                 <label>Prioridad</label>
@@ -1044,9 +823,6 @@ const TrazabilidadLotes = () => {
             <div className="lotes-horizontal">
               {lotesFiltrados.map(lote => {
                 const areaActual = areas.find(a => a.nombre === lote.areaActual);
-                const tiempoEnArea = lote.historial?.find(h => h.actual)?.timestamp;
-                const tiempoTranscurrido = tiempoEnArea ? Math.floor((Date.now() - tiempoEnArea) / 60000) : 0;
-                
                 return (
                   <div 
                     key={lote.id} 
@@ -1054,12 +830,11 @@ const TrazabilidadLotes = () => {
                     onClick={() => setLoteSeleccionado(lote)} 
                     style={{ borderLeftColor: areaActual?.color }}
                   >
-                    {lote.alertas?.length > 0 && <span className="alerta-flotante">⚠️</span>}
                     {lote.prioridad === 'alta' && <span className="prioridad-alta-badge">🔴</span>}
                     <div className="card-header">
                       <div className="lote-info">
                         <span className="lote-id">{lote.id}</span>
-                        <span className="lote-codigo" title={lote.codigo}>{lote.codigo?.slice(0, 20)}</span>
+                        <span className="lote-codigo">{lote.codigo?.slice(0, 20)}</span>
                       </div>
                       <span className={`status-badge ${lote.estado}`}>
                         {lote.estado === 'completado' ? '✅' : lote.estado === 'incompleto' ? '⚠️' : '⚙️'}
@@ -1075,11 +850,6 @@ const TrazabilidadLotes = () => {
                     <div className="card-area" style={{ background: areaActual?.color + '15' }}>
                       <span className="area-icon">{areaActual?.icono}</span>
                       <span className="area-nombre">{lote.areaActual}</span>
-                      {tiempoTranscurrido > 0 && (
-                        <span className="area-tiempo" title={`Tiempo en área: ${tiempoTranscurrido} min`}>
-                          ⏱️ {tiempoTranscurrido}min
-                        </span>
-                      )}
                     </div>
                     <div className="progress-container">
                       <div className="progress-bar">
@@ -1088,7 +858,7 @@ const TrazabilidadLotes = () => {
                       <span className="progress-text">{lote.progreso}%</span>
                     </div>
                     <div className="card-footer">
-                      <span className="lote-tiempo" title="Tiempo restante estimado">⏱️ {lote.tiempoRestante}</span>
+                      <span className="lote-tiempo">⏱️ {lote.tiempoRestante}</span>
                       <button className="btn-eliminar" onClick={(e) => { e.stopPropagation(); eliminarLote(lote.id); }} title="Eliminar lote">🗑️</button>
                     </div>
                     {loteSeleccionado?.id === lote.id && <span className="selected-glow"></span>}
@@ -1101,12 +871,12 @@ const TrazabilidadLotes = () => {
               <div className="empty-state">
                 <span className="empty-icon">📦</span>
                 <h3>No hay lotes</h3>
-                <p>Escanea cualquier código de lote para comenzar</p>
+                <p>Escanea un ÁREA (9001-9012) y luego un LOTE para comenzar</p>
                 <div className="formatos-ejemplos">
+                  <code>9002</code>
                   <code>V132274/IF2128</code>
+                  <code>9005</code>
                   <code>V134339/BV1012</code>
-                  <code>NK-137</code>
-                  <code>1001</code>
                 </div>
               </div>
             </div>
@@ -1121,21 +891,17 @@ const TrazabilidadLotes = () => {
               <h2><span className="title-icon">🏭</span> Áreas de Producción</h2>
               <div className="header-stats">
                 <span className="areas-count">{areas.length}</span>
-                <span className="ocupacion-total">
-                  {Math.round(areas.reduce((acc, a) => acc + (lotes.filter(l => l.areaActual === a.nombre).length / a.capacidad * 100), 0) / areas.length)}%
-                </span>
               </div>
             </div>
-
             <div className="areas-list">
               {areas.map(area => {
                 const lotesEnArea = lotes.filter(l => l.areaActual === area.nombre);
                 const ocupacion = (lotesEnArea.length / area.capacidad) * 100;
                 const esAreaActiva = loteSeleccionado?.areaActual === area.nombre;
-                const lotesUrgentes = lotesEnArea.filter(l => l.prioridad === 'alta').length;
+                const esAreaEnCola = colaEscaneos.area?.nombre === area.nombre;
                 
                 return (
-                  <div key={area.id} className={`area-item ${esAreaActiva ? 'activa' : ''} ${ocupacion > 80 ? 'alta-ocupacion' : ''}`} style={{ borderLeftColor: area.color }} onClick={() => { setCodigoEscaneado(area.codigo); inputRef.current?.focus(); }}>
+                  <div key={area.id} className={`area-item ${esAreaActiva ? 'activa' : ''} ${esAreaEnCola ? 'en-cola' : ''} ${ocupacion > 80 ? 'alta-ocupacion' : ''}`} style={{ borderLeftColor: area.color }} onClick={() => { setCodigoEscaneado(area.codigo); inputRef.current?.focus(); }}>
                     <div className="area-icon-wrapper" style={{ background: area.color + '15' }}>
                       <span className="area-icon">{area.icono}</span>
                       {lotesEnArea.length > 0 && <span className="area-badge" style={{ background: area.color }}>{lotesEnArea.length}</span>}
@@ -1154,16 +920,8 @@ const TrazabilidadLotes = () => {
                           <span className="metric-value">{Math.round(ocupacion)}%</span>
                         </div>
                       </div>
-                      <div className="area-footer">
-                        <span className="area-capacidad">{lotesEnArea.length}/{area.capacidad}</span>
-                        {lotesUrgentes > 0 && (
-                          <span className="area-urgente" title={`${lotesUrgentes} lotes urgentes`}>
-                            🔴 {lotesUrgentes}
-                          </span>
-                        )}
-                      </div>
                     </div>
-                    {esAreaActiva && <span className="area-glow" style={{ background: area.color }}></span>}
+                    {esAreaEnCola && <div className="cola-badge">⏳ En cola</div>}
                   </div>
                 );
               })}
@@ -1181,13 +939,11 @@ const TrazabilidadLotes = () => {
               <h2><span className="title-icon">⚡</span> Eventos en tiempo real</h2>
               <span className="events-count">{eventos.length}</span>
             </div>
-
             <div className="events-list">
               {eventos.length === 0 ? (
                 <div className="no-events">
                   <span>⚡</span>
                   <p>Esperando eventos...</p>
-                  <div className="pulse-dots"><span></span><span></span><span></span></div>
                 </div>
               ) : (
                 eventos.map(evento => (
@@ -1199,7 +955,6 @@ const TrazabilidadLotes = () => {
                         {evento.tipo === 'lote' && '📦'}
                         {evento.tipo === 'error' && '❌'}
                         {evento.tipo === 'warning' && '⚠️'}
-                        {evento.tipo === 'info' && 'ℹ️'}
                       </span>
                     </div>
                     <div className="event-content">
@@ -1209,7 +964,6 @@ const TrazabilidadLotes = () => {
                         {evento.loteRef && <span className="event-lote">{evento.loteRef}</span>}
                       </div>
                     </div>
-                    {evento.tipo === 'warning' && <span className="event-pulse"></span>}
                   </div>
                 ))
               )}
@@ -1228,11 +982,6 @@ const TrazabilidadLotes = () => {
                     <span className="scan-area">{ultimoEscaneo.area}</span>
                   </div>
                   <span className="scan-time">{ultimoEscaneo.fecha?.split(' ')[1]}</span>
-                  {ultimoEscaneo.reingreso && (
-                    <span className="scan-reingreso" title={`${ultimoEscaneo.veces}ª vez en esta área`}>
-                      ↩️ {ultimoEscaneo.veces > 1 ? `x${ultimoEscaneo.veces}` : ''}
-                    </span>
-                  )}
                 </div>
               </div>
             )}
@@ -1243,18 +992,7 @@ const TrazabilidadLotes = () => {
                 <button onClick={() => { const randomArea = areas[Math.floor(Math.random() * areas.length)]; setCodigoEscaneado(randomArea.codigo); setTimeout(() => procesarEscaneo(), 100); }} className="btn-area">
                   <span>📍</span> Simular área
                 </button>
-                <button onClick={() => { 
-                  const formatos = [
-                    `V132274/IF2128`,
-                    `V134339/BV1012`,
-                    `NK-137`,
-                    `1001`,
-                    `LOTE-001`
-                  ];
-                  const codigoSimulado = formatos[Math.floor(Math.random() * formatos.length)];
-                  setCodigoEscaneado(codigoSimulado); 
-                  setTimeout(() => procesarEscaneo(), 100); 
-                }} className="btn-lote">
+                <button onClick={() => { const formatos = ['V132274/IF2128', 'V134339/BV1012', 'NK-137', '1001']; setCodigoEscaneado(formatos[Math.floor(Math.random() * formatos.length)]); setTimeout(() => procesarEscaneo(), 100); }} className="btn-lote">
                   <span>📦</span> Simular lote
                 </button>
               </div>
@@ -1269,164 +1007,16 @@ const TrazabilidadLotes = () => {
       {/* BOTÓN VOLVER ARRIBA */}
       <button className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`} onClick={scrollToTop} title="Volver arriba">↑</button>
 
-      {/* ESTILOS ADICIONALES */}
-      <style>{`
-        .formatos-ejemplos {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          justify-content: center;
-          margin-top: 16px;
-        }
-        
-        .formatos-ejemplos code {
-          background: var(--bg-tertiary);
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-family: monospace;
-          font-size: 0.9rem;
-          color: var(--primary-600);
-          border: 1px solid var(--border);
-        }
-        
-        .area-tiempo {
-          font-size: 10px;
-          color: var(--text-tertiary);
-          margin-left: auto;
-        }
-        
-        .prioridad-alta-badge {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          font-size: 12px;
-          animation: pulse 1.5s infinite;
-        }
-        
-        .lote-card.prioridad-alta {
-          border-top: 2px solid var(--danger);
-        }
-        
-        .area-urgente {
-          font-size: 10px;
-          background: rgba(239,68,68,0.2);
-          padding: 2px 6px;
-          border-radius: 12px;
-          color: var(--danger);
-        }
-        
-        .alta-ocupacion .metric-fill {
-          background: var(--danger) !important;
-        }
-        
-        .connection-badge {
-          background: var(--success);
-          color: white;
-          font-size: 9px;
-          padding: 2px 6px;
-          border-radius: 12px;
-          margin-left: 8px;
-          animation: pulse 1.5s infinite;
-        }
-        
-        .queue-item .item-area {
-          font-size: 9px;
-          color: var(--text-tertiary);
-          margin-left: 4px;
-        }
-        
-        /* Estilos para escáner minimizable */
-        .scanner-panel {
-          transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-          overflow: hidden;
-        }
-        
-        .scanner-panel.minimizado {
-          max-height: 0;
-          padding: 0;
-          margin: 0;
-          opacity: 0;
-          transform: translateY(-20px);
-        }
-        
-        .minimize-scanner-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 20px;
-          color: var(--text-tertiary);
-          padding: 4px 8px;
-          border-radius: 8px;
-          transition: all var(--transition-fast);
-        }
-        
-        .minimize-scanner-btn:hover {
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
-        }
-        
-        .expand-scanner-btn {
-          position: fixed;
-          bottom: 30px;
-          right: 90px;
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          background: var(--gradient-primary);
-          border: none;
-          cursor: pointer;
-          font-size: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: var(--shadow-lg);
-          z-index: 100;
-          transition: all var(--transition-bounce);
-          animation: fadeInUp 0.3s ease;
-        }
-        
-        .expand-scanner-btn:hover {
-          transform: scale(1.1);
-          box-shadow: var(--shadow-glow);
-        }
-        
-        .expand-tooltip {
-          position: absolute;
-          right: 60px;
-          white-space: nowrap;
-          background: var(--bg-card-solid);
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 500;
-          opacity: 0;
-          visibility: hidden;
-          transition: all var(--transition-fast);
-          box-shadow: var(--shadow-md);
-        }
-        
-        .expand-scanner-btn:hover .expand-tooltip {
-          opacity: 1;
-          visibility: visible;
-          right: 65px;
-        }
-        
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.6; transform: scale(0.9); }
-        }
-      `}</style>
+      {/* NOTIFICACIONES FLOTANTES */}
+      <div className="floating-premium-toasts">
+        {notificaciones.filter(n => !n.leida).slice(0, 2).map(notif => (
+          <div key={notif.id} className={`toast-premium ${notif.tipo}`}>
+            <span className="toast-icon">{notif.tipo === 'exito' ? '✅' : notif.tipo === 'error' ? '❌' : 'ℹ️'}</span>
+            <span className="toast-message">{notif.mensaje}</span>
+            <div className="toast-progress"></div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

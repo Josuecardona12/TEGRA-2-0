@@ -1,152 +1,118 @@
+// /workspaces/TEGRA-2-0/frontend/mes-frontend/server-trazabilidad/server.js
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
-const { Sequelize, DataTypes } = require('sequelize');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Base de datos SQLite
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: './db.sqlite',
-  logging: false
-});
+const PORT = 8080;
 
-// Modelos
-const Lote = sequelize.define('Lote', {
-  id: { type: DataTypes.STRING, primaryKey: true },
-  codigo: DataTypes.STRING,
-  producto: DataTypes.STRING,
-  cliente: DataTypes.STRING,
-  cantidad: DataTypes.INTEGER,
-  estado: { type: DataTypes.STRING, defaultValue: 'en_proceso' },
-  areaActual: { type: DataTypes.STRING, defaultValue: 'Recepción' },
-  progreso: { type: DataTypes.INTEGER, defaultValue: 5 }
-});
+// Datos en memoria
+let lotes = [];
+let ultimoMovimiento = null;
 
-const Historial = sequelize.define('Historial', {
-  id: { type: DataTypes.STRING, primaryKey: true },
-  loteId: DataTypes.STRING,
-  area: DataTypes.STRING,
-  fecha: DataTypes.STRING
-});
-
-// Datos iniciales
-const lotesDemo = [
-  { id: 'LOTE-001', codigo: '1001', producto: 'Camiseta Yankees', cliente: 'Nike', cantidad: 150 },
-  { id: 'LOTE-002', codigo: '1002', producto: 'Gorra Lakers', cliente: 'Adidas', cantidad: 75 },
-  { id: 'LOTE-003', codigo: '1003', producto: 'Uniforme Patriots', cliente: 'Puma', cantidad: 200 }
+const AREAS = [
+  { id: 'recepcion', nombre: 'Recepción', codigo: '9001', icono: '📦' },
+  { id: 'diseno', nombre: 'Diseño', codigo: '9002', icono: '🎨' },
+  { id: 'plotter', nombre: 'Plotter', codigo: '9003', icono: '🖨️' },
+  { id: 'corte', nombre: 'Corte', codigo: '9004', icono: '✂️' },
+  { id: 'sublimado', nombre: 'Sublimado', codigo: '9005', icono: '🔥' },
+  { id: 'calidad', nombre: 'Calidad', codigo: '9006', icono: '✅' },
+  { id: 'almacen', nombre: 'Almacén', codigo: '9007', icono: '🏢' }
 ];
 
-const areas = [
-  'Recepción', 'Diseño', 'Plotter', 'Corte', 'Sublimado', 
-  'Colorimetría', 'Preparacion', 'Calidad', 'Logística', 'Almacén'
-];
+// Generar datos iniciales
+for (let i = 1; i <= 5; i++) {
+  lotes.push({
+    id: `LOTE-${String(i).padStart(3, '0')}`,
+    codigo: `V132274/IF212${i}`,
+    producto: `Producto ${i}`,
+    cliente: `Cliente ${i}`,
+    cantidad: 100 + i * 50,
+    fechaInicio: new Date().toISOString(),
+    estado: 'en_proceso',
+    areaActual: 'Recepción',
+    progreso: 10 * i,
+    prioridad: 'media',
+    responsable: 'Sistema',
+    historial: [{
+      area: 'Recepción',
+      codigoArea: '9001',
+      fecha: new Date().toISOString(),
+      timestamp: Date.now(),
+      operador: 'Sistema',
+      actual: true
+    }]
+  });
+}
+
+console.log(`📦 Datos iniciales: ${lotes.length} lotes`);
 
 // WebSocket
-const clients = new Set();
-
-wss.on('connection', async (ws) => {
-  clients.add(ws);
-  console.log('Cliente conectado. Total:', clients.size);
-
-  // Enviar datos iniciales
+wss.on('connection', (ws) => {
+  console.log(`✅ Cliente conectado (Total: ${wss.clients.size})`);
+  
   ws.send(JSON.stringify({
     type: 'INIT',
-    data: {
-      lotes: await Lote.findAll(),
-      historial: await Historial.findAll(),
-      areas
-    }
+    data: { lotes, areas: AREAS, ultimoMovimiento }
   }));
-
-  ws.on('message', async (msg) => {
+  
+  ws.on('message', (message) => {
     try {
-      const data = JSON.parse(msg);
+      const data = JSON.parse(message);
+      console.log('📦 Recibido:', data.type);
       
       if (data.type === 'MOVIMIENTO') {
-        const { loteId, area } = data.payload;
+        const { loteId, area, codigoLote } = data.payload;
+        ultimoMovimiento = { lote: codigoLote || loteId, area };
         
-        // Guardar historial
-        await Historial.create({
-          id: Date.now().toString(),
-          loteId,
-          area,
-          fecha: new Date().toLocaleString()
-        });
-        
-        // Actualizar lote
-        await Lote.update(
-          { areaActual: area, progreso: sequelize.literal('progreso + 5') },
-          { where: { id: loteId } }
-        );
-        
-        // Obtener datos actualizados
-        const lotes = await Lote.findAll();
-        const historial = await Historial.findAll();
-        
-        // Broadcast a todos
-        const broadcast = JSON.stringify({
-          type: 'ACTUALIZACION',
-          data: { lotes, historial, ultimoMovimiento: { loteId, area } }
-        });
-        
-        clients.forEach(c => {
-          if (c.readyState === WebSocket.OPEN) c.send(broadcast);
+        // Broadcast a todos los clientes
+        wss.clients.forEach(client => {
+          if (client !== ws && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              type: 'ACTUALIZACION',
+              data: { lotes, ultimoMovimiento }
+            }));
+          }
         });
       }
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (e) { 
+      console.error('Error:', e); 
     }
   });
-
+  
   ws.on('close', () => {
-    clients.delete(ws);
-    console.log('Cliente desconectado. Total:', clients.size);
+    console.log(`❌ Cliente desconectado (Total: ${wss.clients.size})`);
   });
 });
 
 // API REST
-app.get('/api/lotes', async (req, res) => {
-  res.json(await Lote.findAll());
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    lotes: lotes.length, 
+    clients: wss.clients.size,
+    timestamp: new Date().toISOString()
+  });
 });
 
-app.get('/api/historial', async (req, res) => {
-  res.json(await Historial.findAll());
-});
-
-app.get('/api/areas', (req, res) => {
-  res.json(areas);
-});
-
-app.post('/api/reset', async (req, res) => {
-  await Lote.destroy({ where: {} });
-  await Historial.destroy({ where: {} });
-  await Lote.bulkCreate(lotesDemo);
-  res.json({ message: 'Reset completado' });
+app.get('/api/lotes', (req, res) => {
+  res.json(lotes);
 });
 
 // Iniciar servidor
-const PORT = 8080;
-
-sequelize.sync({ force: true }).then(async () => {
-  await Lote.bulkCreate(lotesDemo);
-  console.log('Base de datos lista');
-  
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`
-    ╔════════════════════════════╗
-    ║  🚀 SERVIDOR LISTO         ║
-    ║  📡 Puerto: ${PORT}          ║
-    ║  🔗 ws://localhost:${PORT}   ║
-    ╚════════════════════════════╝
-    `);
-  });
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('\n' + '='.repeat(50));
+  console.log('🚀 SERVIDOR LISTO');
+  console.log('📡 WebSocket: ws://localhost:' + PORT);
+  console.log('🌐 HTTP: http://localhost:' + PORT);
+  console.log('📊 ' + lotes.length + ' lotes cargados');
+  console.log('='.repeat(50) + '\n');
 });

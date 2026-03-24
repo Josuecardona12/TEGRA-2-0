@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./Reportes.css";
+import { useProduccion } from '../context/ProduccionContext';
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { 
@@ -39,7 +40,7 @@ ChartJS.register(
 );
 
 const API_URL = import.meta.env.VITE_API_URL;
-const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
 
 // ============================================
 // CONFIGURACIÓN DE ÁREAS CON FORMATO V132274/IF2128

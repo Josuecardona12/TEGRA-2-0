@@ -5,7 +5,7 @@ import { useProduccion } from '../context/ProduccionContext';
 // ============================================
 // CONFIGURACIÓN WEBSOCKET PARA TIEMPO REAL
 // ============================================
-const WS_URL = 'wss://glowing-lamp-r47wvpq4574fxv7j-8080.app.github.dev';
+const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
 
 const DisenoProduccion = () => {
   // ================ USAR CONTEXTO GLOBAL ================
@@ -52,88 +52,6 @@ const DisenoProduccion = () => {
 
   const mainContentRef = useRef(null);
   const inputRef = useRef(null);
-
-  // ================ SINCRONIZAR CON CONTEXTO GLOBAL ================
-  useEffect(() => {
-    if (lotesGlobal && lotesGlobal.length > 0 && conectado) {
-      // Sincronizar lotes que están en área de diseño
-      const lotesDiseno = lotesGlobal.filter(l => l.areaActual === 'diseno');
-      if (lotesDiseno.length > 0 && !disenos.some(d => d.codigo === lotesDiseno[0]?.codigo)) {
-        agregarNotificacion(`📦 ${lotesDiseno.length} lotes sincronizados desde el servidor`, 'info');
-      }
-    }
-  }, [lotesGlobal, conectado]);
-
-  useEffect(() => {
-    if (ultimoMovimientoGlobal) {
-      setUltimoMovimiento(ultimoMovimientoGlobal);
-      agregarNotificacion(`🔄 ${ultimoMovimientoGlobal.lote} → ${ultimoMovimientoGlobal.area}`, 'info');
-    }
-  }, [ultimoMovimientoGlobal]);
-
-  useEffect(() => {
-    if (wsConectado !== undefined) {
-      setConectado(wsConectado);
-    }
-  }, [wsConectado]);
-
-  // ================ CONEXIÓN WEBSOCKET ================
-  useEffect(() => {
-    console.log('🔌 DisenoProduccion conectando...');
-    
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-    
-    ws.onopen = () => {
-      console.log('✅ DisenoProduccion conectado');
-      setConectado(true);
-      agregarNotificacion('✅ Conectado al servidor de diseño', 'exito');
-    };
-    
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📦 DisenoProduccion recibió:', data.type);
-        
-        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
-          const lotesData = data.data.lotes || [];
-          
-          if (data.data.ultimoMovimiento) {
-            setUltimoMovimiento(data.data.ultimoMovimiento);
-            agregarNotificacion(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
-          }
-        }
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    };
-    
-    ws.onerror = (error) => {
-      console.error('❌ Error WebSocket:', error);
-      setConectado(false);
-      agregarNotificacion('❌ Error de conexión con el servidor', 'error');
-    };
-    
-    ws.onclose = () => {
-      console.log('❌ DisenoProduccion desconectado');
-      setConectado(false);
-      agregarNotificacion('⚠️ Desconectado del servidor', 'info');
-    };
-    
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
-
-  // ================ ENVIAR AL SERVIDOR ================
-  const enviarAlServidor = (tipo, payload) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
-      console.log('📤 Enviado:', tipo, payload);
-    }
-  };
 
   // ================ DATOS DE DISEÑADORES ================
   const [disenadores, setDisenadores] = useState([
@@ -276,7 +194,7 @@ const DisenoProduccion = () => {
       estado: 'en_proceso',
       prioridad: 'alta',
       tiempoEstimado: 120,
-      tiempoReal: 45,
+      tiempoReal: 0,
       progreso: 38,
       revisiones: 1,
       archivos: ['logo_v1.ai', 'logo_v2.ai'],
@@ -285,7 +203,7 @@ const DisenoProduccion = () => {
         { usuario: 'Carlos Ruiz', fecha: '08:35', texto: 'Iniciando bocetos' },
         { usuario: 'Carlos Ruiz', fecha: '09:15', texto: 'Revisión de colores' }
       ],
-      primerEscaneo: { timestamp: '2026-03-17T08:30:45', usuario: 'Carlos Ruiz' },
+      primerEscaneo: { timestamp: '2026-03-17T08:30:45', usuario: 'Carlos Ruiz', hora: '08:30:45' },
       segundoEscaneo: null,
       etiquetas: ['urgente', 'premium']
     },
@@ -314,14 +232,14 @@ const DisenoProduccion = () => {
         { usuario: 'Juan Pérez', fecha: '10:45', texto: 'Primera revisión' },
         { usuario: 'Supervisor', fecha: '11:00', texto: 'Aprobado' }
       ],
-      primerEscaneo: { timestamp: '2026-03-17T09:15:20', usuario: 'Juan Pérez' },
-      segundoEscaneo: { timestamp: '2026-03-17T11:30:10', usuario: 'Juan Pérez' },
+      primerEscaneo: { timestamp: '2026-03-17T09:15:20', usuario: 'Juan Pérez', hora: '09:15:20' },
+      segundoEscaneo: { timestamp: '2026-03-17T11:30:10', usuario: 'Juan Pérez', hora: '11:30:10' },
       etiquetas: ['completado', 'exitoso']
     },
     {
       id: 'DIS-003',
       codigo: 'DS-2403-003',
-      nombre: 'Packaging run',
+      nombre: 'Packaging ecológico',
       cliente: 'Running',
       disenador: 'D002',
       disenadorNombre: 'María González',
@@ -333,7 +251,7 @@ const DisenoProduccion = () => {
       estado: 'en_proceso',
       prioridad: 'alta',
       tiempoEstimado: 180,
-      tiempoReal: 60,
+      tiempoReal: 0,
       progreso: 33,
       revisiones: 0,
       archivos: [],
@@ -341,7 +259,7 @@ const DisenoProduccion = () => {
       comentarios: [
         { usuario: 'María González', fecha: '10:50', texto: 'Investigando referencias' }
       ],
-      primerEscaneo: { timestamp: '2026-03-17T10:45:30', usuario: 'María González' },
+      primerEscaneo: { timestamp: '2026-03-17T10:45:30', usuario: 'María González', hora: '10:45:30' },
       segundoEscaneo: null,
       etiquetas: ['ecologico', 'nuevo']
     }
@@ -350,7 +268,6 @@ const DisenoProduccion = () => {
   // ================ DATOS DE PRODUCCIÓN POR HORA ================
   const [produccionHora, setProduccionHora] = useState(
     Array.from({ length: 24 }, (_, i) => {
-      const hora = i;
       const diseñosPorHora = [0, 0, 0, 0, 0, 0, 2, 5, 8, 12, 15, 18, 16, 14, 12, 10, 8, 6, 4, 2, 1, 0, 0, 0];
       return {
         hora: i,
@@ -408,92 +325,89 @@ const DisenoProduccion = () => {
     }, 3000);
   };
 
-  // ================ ESTADÍSTICAS GENERALES ================
-  const calcularStats = () => {
-    const hoy = new Date().toISOString().split('T')[0];
-    const disenosHoy = disenos.filter(d => d.fechaInicio === hoy).length;
-    const disenosCompletados = disenos.filter(d => d.estado === 'completado').length;
-    const disenosEnProceso = disenos.filter(d => d.estado === 'en_proceso').length;
+  // ================ SINCRONIZAR CON CONTEXTO GLOBAL ================
+  useEffect(() => {
+    if (wsConectado !== undefined) {
+      setConectado(wsConectado);
+    }
+  }, [wsConectado]);
+
+  useEffect(() => {
+    if (ultimoMovimientoGlobal) {
+      setUltimoMovimiento(ultimoMovimientoGlobal);
+      agregarNotificacion(`🔄 ${ultimoMovimientoGlobal.lote} → ${ultimoMovimientoGlobal.area}`, 'info');
+    }
+  }, [ultimoMovimientoGlobal]);
+
+  // ================ CONEXIÓN WEBSOCKET ================
+  useEffect(() => {
+    console.log('🔌 DisenoProduccion conectando...');
     
-    const tiempoTotal = disenos
-      .filter(d => d.estado === 'completado')
-      .reduce((acc, d) => acc + (d.tiempoReal || 0), 0);
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
     
-    const tiempoPromedio = disenosCompletados > 0 
-      ? Math.round(tiempoTotal / disenosCompletados) 
-      : 0;
-
-    const diseñosPorTurno = {
-      mañana: disenos.filter(d => d.turno === 'mañana').length,
-      tarde: disenos.filter(d => d.turno === 'tarde').length,
-      noche: disenos.filter(d => d.turno === 'noche').length
+    ws.onopen = () => {
+      console.log('✅ DisenoProduccion conectado');
+      setConectado(true);
+      agregarNotificacion('✅ Conectado al servidor de diseño', 'exito');
     };
-
-    return {
-      totalDisenos: disenos.length,
-      disenosHoy,
-      disenosSemana: disenos.length,
-      disenosMes: disenos.length,
-      tiempoPromedio,
-      eficienciaGlobal: disenosCompletados > 0 
-        ? Math.round((disenosCompletados / disenos.length) * 100) 
-        : 0,
-      disenadoresActivos: disenadores.filter(d => d.estado === 'ocupado').length,
-      turnosActivos: turnos.filter(t => t.estado === 'activo').length,
-      produccionPorHora: produccionHora.reduce((acc, h) => acc + h.diseños, 0),
-      picoProduccion: {
-        hora: `${String(produccionHora.reduce((max, h) => h.diseños > max.diseños ? h : max, produccionHora[0]).hora)}:00`,
-        cantidad: produccionHora.reduce((max, h) => Math.max(max, h.diseños), 0)
-      },
-      diseñosPorTurno
-    };
-  };
-
-  const [stats, setStats] = useState(calcularStats());
-
-  useEffect(() => {
-    setStats(calcularStats());
-  }, [disenos, disenadores, turnos, produccionHora]);
-
-  // ================ EFECTOS ================
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTiempoReal(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (mainContentRef.current) {
-        setShowScrollTop(mainContentRef.current.scrollTop > 400);
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📦 DisenoProduccion recibió:', data.type);
+        
+        if (data.type === 'INIT' || data.type === 'ACTUALIZACION') {
+          const lotesData = data.data.lotes || [];
+          
+          if (data.data.ultimoMovimiento) {
+            setUltimoMovimiento(data.data.ultimoMovimiento);
+            agregarNotificacion(`🔄 ${data.data.ultimoMovimiento.loteId} → ${data.data.ultimoMovimiento.area}`, 'info');
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
       }
     };
-    const currentRef = mainContentRef.current;
-    if (currentRef) currentRef.addEventListener('scroll', handleScroll);
-    return () => { if (currentRef) currentRef.removeEventListener('scroll', handleScroll); };
+    
+    ws.onerror = (error) => {
+      console.error('❌ Error WebSocket:', error);
+      setConectado(false);
+      agregarNotificacion('❌ Error de conexión con el servidor', 'error');
+    };
+    
+    ws.onclose = () => {
+      console.log('❌ DisenoProduccion desconectado');
+      setConectado(false);
+      agregarNotificacion('⚠️ Desconectado del servidor', 'info');
+    };
+    
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   }, []);
 
-  const scrollToTop = () => {
-    if (mainContentRef.current) {
-      mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+  // ================ ENVIAR AL SERVIDOR ================
+  const enviarAlServidor = (tipo, payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: tipo, payload }));
+      console.log('📤 Enviado:', tipo, payload);
     }
   };
 
-  useEffect(() => {
-    const modoGuardado = localStorage.getItem('modoOscuroDiseno') === 'true';
-    setModoOscuro(modoGuardado);
-  }, []);
+  // ================ FUNCIONES AUXILIARES ================
+  const determinarTurnoActual = () => {
+    const hora = tiempoReal.getHours();
+    if (hora >= 6 && hora < 14) return 'mañana';
+    if (hora >= 14 && hora < 22) return 'tarde';
+    return 'noche';
+  };
 
-  useEffect(() => {
-    localStorage.setItem('modoOscuroDiseno', modoOscuro);
-  }, [modoOscuro]);
-
-  useEffect(() => {
-    if (modoEscaner === 'activo' && inputEscanerRef.current) {
-      inputEscanerRef.current.focus();
-    }
-  }, [modoEscaner]);
+  const getDisenadorById = (id) => {
+    return disenadores.find(d => d.id === id);
+  };
 
   // ================ FUNCIONES DEL ESCÁNER DE DOBLE PASO ================
   const activarEscaner = () => {
@@ -515,60 +429,6 @@ const DisenoProduccion = () => {
     setTipoMensaje('info');
     setCodigoEscaneado('');
     agregarNotificacion('⏹️ Escáner desactivado', 'info');
-  };
-
-  const procesarEscaneo = () => {
-    const codigo = codigoEscaneado.trim().toUpperCase();
-    if (!codigo) {
-      setAnimacionActiva(true);
-      setTimeout(() => setAnimacionActiva(false), 500);
-      setMensajeEscaner('⚠️ Ingresa un código válido');
-      setTipoMensaje('error');
-      return;
-    }
-
-    // Usar procesador global si está disponible
-    if (procesarEscaneoGlobal && conectado) {
-      procesarEscaneoGlobal(codigo);
-    }
-
-    setAnimacionActiva(true);
-    setTimeout(() => setAnimacionActiva(false), 500);
-    
-    const disenoExistente = disenos.find(d => d.codigo === codigo);
-
-    if (!disenoExistente) {
-      const nuevoDiseno = crearNuevoDiseno(codigo);
-      setMensajeEscaner(`✅ PRIMER ESCANEO: Diseño ${codigo} iniciado`);
-      setTipoMensaje('success');
-      setUltimoEscaneo({ codigo, tipo: 'primer', diseno: nuevoDiseno, hora: tiempoReal.toLocaleTimeString() });
-      agregarNotificacion(`🎨 Diseño ${codigo} iniciado - Primer escaneo`, 'exito');
-      enviarAlServidor('PRIMER_ESCANEO', { codigo, diseno: nuevoDiseno, timestamp: new Date().toISOString() });
-      setCodigoEscaneado('');
-      return;
-    }
-
-    if (disenoExistente && disenoExistente.estado === 'en_proceso') {
-      const disenoFinalizado = finalizarDiseno(disenoExistente);
-      setMensajeEscaner(`✅ SEGUNDO ESCANEO: Diseño ${codigo} finalizado`);
-      setTipoMensaje('success');
-      setUltimoEscaneo({ codigo, tipo: 'segundo', diseno: disenoFinalizado, hora: tiempoReal.toLocaleTimeString() });
-      agregarNotificacion(`✅ Diseño ${codigo} finalizado - Segundo escaneo`, 'exito');
-      enviarAlServidor('SEGUNDO_ESCANEO', { 
-        codigo, 
-        diseno: disenoFinalizado, 
-        timestamp: new Date().toISOString(),
-        duracion: disenoFinalizado.tiempoReal 
-      });
-      setCodigoEscaneado('');
-    } else if (disenoExistente && disenoExistente.estado === 'completado') {
-      setMensajeEscaner(`ℹ️ Diseño ${codigo} ya fue finalizado`);
-      setTipoMensaje('info');
-      setDisenoSeleccionado(disenoExistente);
-      setShowModalDetalle(true);
-      setUltimoEscaneo({ codigo, tipo: 'consulta', diseno: disenoExistente, hora: tiempoReal.toLocaleTimeString() });
-      setCodigoEscaneado('');
-    }
   };
 
   const crearNuevoDiseno = (codigo) => {
@@ -696,17 +556,60 @@ const DisenoProduccion = () => {
     return disenoFinalizado;
   };
 
-  const determinarTurnoActual = () => {
-    const hora = tiempoReal.getHours();
-    if (hora >= 6 && hora < 14) return 'mañana';
-    if (hora >= 14 && hora < 22) return 'tarde';
-    return 'noche';
+  const procesarEscaneo = () => {
+    const codigo = codigoEscaneado.trim().toUpperCase();
+    if (!codigo) {
+      setAnimacionActiva(true);
+      setTimeout(() => setAnimacionActiva(false), 500);
+      setMensajeEscaner('⚠️ Ingresa un código válido');
+      setTipoMensaje('error');
+      return;
+    }
+
+    if (procesarEscaneoGlobal && conectado) {
+      procesarEscaneoGlobal(codigo);
+    }
+
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 500);
+    
+    const disenoExistente = disenos.find(d => d.codigo === codigo);
+
+    if (!disenoExistente) {
+      const nuevoDiseno = crearNuevoDiseno(codigo);
+      setMensajeEscaner(`✅ PRIMER ESCANEO: Diseño ${codigo} iniciado`);
+      setTipoMensaje('success');
+      setUltimoEscaneo({ codigo, tipo: 'primer', diseno: nuevoDiseno, hora: tiempoReal.toLocaleTimeString() });
+      agregarNotificacion(`🎨 Diseño ${codigo} iniciado - Primer escaneo`, 'exito');
+      enviarAlServidor('PRIMER_ESCANEO', { codigo, diseno: nuevoDiseno, timestamp: new Date().toISOString() });
+      setCodigoEscaneado('');
+      return;
+    }
+
+    if (disenoExistente && disenoExistente.estado === 'en_proceso') {
+      const disenoFinalizado = finalizarDiseno(disenoExistente);
+      setMensajeEscaner(`✅ SEGUNDO ESCANEO: Diseño ${codigo} finalizado`);
+      setTipoMensaje('success');
+      setUltimoEscaneo({ codigo, tipo: 'segundo', diseno: disenoFinalizado, hora: tiempoReal.toLocaleTimeString() });
+      agregarNotificacion(`✅ Diseño ${codigo} finalizado - Segundo escaneo`, 'exito');
+      enviarAlServidor('SEGUNDO_ESCANEO', { 
+        codigo, 
+        diseno: disenoFinalizado, 
+        timestamp: new Date().toISOString(),
+        duracion: disenoFinalizado.tiempoReal 
+      });
+      setCodigoEscaneado('');
+    } else if (disenoExistente && disenoExistente.estado === 'completado') {
+      setMensajeEscaner(`ℹ️ Diseño ${codigo} ya fue finalizado`);
+      setTipoMensaje('info');
+      setDisenoSeleccionado(disenoExistente);
+      setShowModalDetalle(true);
+      setUltimoEscaneo({ codigo, tipo: 'consulta', diseno: disenoExistente, hora: tiempoReal.toLocaleTimeString() });
+      setCodigoEscaneado('');
+    }
   };
 
-  const getDisenadorById = (id) => {
-    return disenadores.find(d => d.id === id);
-  };
-
+  // ================ FUNCIONES DE GESTIÓN DE DISEÑOS ================
   const handleVerDetalle = (diseno) => {
     setDisenoSeleccionado(diseno);
     setShowModalDetalle(true);
@@ -723,7 +626,7 @@ const DisenoProduccion = () => {
   };
 
   const agregarComentario = (disenoId, texto) => {
-    if (!texto.trim()) return;
+    if (!texto || !texto.trim()) return;
     
     setDisenos(prev => prev.map(d => 
       d.id === disenoId
@@ -769,13 +672,18 @@ const DisenoProduccion = () => {
       id: `DIS-${Date.now()}`,
       codigo: `${diseno.codigo}-COPY`,
       nombre: `${diseno.nombre} (Copia)`,
-      estado: 'pendiente',
+      estado: 'en_proceso',
       progreso: 0,
+      tiempoReal: 0,
       horaInicio: tiempoReal.toLocaleTimeString(),
       horaFin: null,
       fechaInicio: tiempoReal.toISOString().split('T')[0],
       fechaFin: null,
-      primerEscaneo: null,
+      primerEscaneo: { 
+        timestamp: new Date().toISOString(), 
+        usuario: 'Admin',
+        hora: tiempoReal.toLocaleTimeString() 
+      },
       segundoEscaneo: null,
       comentarios: [
         { usuario: 'Admin', fecha: tiempoReal.toLocaleTimeString(), texto: 'Copia del diseño original' }
@@ -784,6 +692,93 @@ const DisenoProduccion = () => {
     setDisenos([nuevoDiseno, ...disenos]);
     agregarNotificacion('📋 Diseño duplicado', 'exito');
   };
+
+  // ================ ESTADÍSTICAS GENERALES ================
+  const calcularStats = () => {
+    const hoy = new Date().toISOString().split('T')[0];
+    const disenosHoy = disenos.filter(d => d.fechaInicio === hoy).length;
+    const disenosCompletados = disenos.filter(d => d.estado === 'completado').length;
+    const disenosEnProceso = disenos.filter(d => d.estado === 'en_proceso').length;
+    
+    const tiempoTotal = disenos
+      .filter(d => d.estado === 'completado')
+      .reduce((acc, d) => acc + (d.tiempoReal || 0), 0);
+    
+    const tiempoPromedio = disenosCompletados > 0 
+      ? Math.round(tiempoTotal / disenosCompletados) 
+      : 0;
+
+    const diseñosPorTurno = {
+      mañana: disenos.filter(d => d.turno === 'mañana').length,
+      tarde: disenos.filter(d => d.turno === 'tarde').length,
+      noche: disenos.filter(d => d.turno === 'noche').length
+    };
+
+    return {
+      totalDisenos: disenos.length,
+      disenosHoy,
+      disenosSemana: disenos.length,
+      disenosMes: disenos.length,
+      tiempoPromedio,
+      eficienciaGlobal: disenosCompletados > 0 
+        ? Math.round((disenosCompletados / disenos.length) * 100) 
+        : 0,
+      disenadoresActivos: disenadores.filter(d => d.estado === 'ocupado').length,
+      turnosActivos: turnos.filter(t => t.estado === 'activo').length,
+      produccionPorHora: produccionHora.reduce((acc, h) => acc + h.diseños, 0),
+      picoProduccion: {
+        hora: `${String(produccionHora.reduce((max, h) => h.diseños > max.diseños ? h : max, produccionHora[0]).hora)}:00`,
+        cantidad: produccionHora.reduce((max, h) => Math.max(max, h.diseños), 0)
+      },
+      diseñosPorTurno
+    };
+  };
+
+  const [stats, setStats] = useState(calcularStats());
+
+  useEffect(() => {
+    setStats(calcularStats());
+  }, [disenos, disenadores, turnos, produccionHora]);
+
+  // ================ EFECTOS ================
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTiempoReal(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mainContentRef.current) {
+        setShowScrollTop(mainContentRef.current.scrollTop > 400);
+      }
+    };
+    const currentRef = mainContentRef.current;
+    if (currentRef) currentRef.addEventListener('scroll', handleScroll);
+    return () => { if (currentRef) currentRef.removeEventListener('scroll', handleScroll); };
+  }, []);
+
+  const scrollToTop = () => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    const modoGuardado = localStorage.getItem('modoOscuroDiseno') === 'true';
+    setModoOscuro(modoGuardado);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('modoOscuroDiseno', modoOscuro);
+  }, [modoOscuro]);
+
+  useEffect(() => {
+    if (modoEscaner === 'activo' && inputEscanerRef.current) {
+      inputEscanerRef.current.focus();
+    }
+  }, [modoEscaner]);
 
   // ================ FILTROS ================
   const disenosFiltrados = disenos.filter(diseno => {
@@ -822,6 +817,7 @@ const DisenoProduccion = () => {
     return true;
   });
 
+  // ================ RENDER ================
   return (
     <div className={`diseno-container ${modoOscuro ? 'dark-mode' : ''}`} ref={mainContentRef}>
       
@@ -1556,7 +1552,10 @@ const DisenoProduccion = () => {
             )}
 
             <div className="modal-acciones">
-              <button className="btn-primary" onClick={() => agregarComentario(disenoSeleccionado.id, prompt('Escribe tu comentario:'))}>
+              <button className="btn-primary" onClick={() => {
+                const comentario = prompt('Escribe tu comentario:');
+                if (comentario) agregarComentario(disenoSeleccionado.id, comentario);
+              }}>
                 💬 Agregar Comentario
               </button>
               {disenoSeleccionado.estado === 'en_proceso' && (
