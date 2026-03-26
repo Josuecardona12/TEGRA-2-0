@@ -6,8 +6,10 @@ import { useProduccion } from '../context/ProduccionContext';
 // ============================================
 // CONFIGURACIÓN WEBSOCKET
 // ============================================
-const WS_URL = 'https://miniature-adventure-v6q4r64gqq7qfr67-8080.app.github.dev/';
-
+// Configuración actualizada para backend-sqlserver (puerto 5001)
+const BACKEND_URL = 'https://minature-adventure-v6q4r64gqq7qfr67-5001.app.github.dev';
+const WS_URL = BACKEND_URL.replace('https', 'wss'); // Para WebSocket
+const API_URL = `${BACKEND_URL}/api`;
 const TrazabilidadLotes = () => {
   // ===== CONTEXTO GLOBAL =====
   const { 
